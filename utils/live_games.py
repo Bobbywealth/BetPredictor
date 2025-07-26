@@ -11,7 +11,7 @@ class LiveGamesManager:
         self.espn_base_url = "https://site.api.espn.com/apis/site/v2/sports"
         self.sportsdb_base_url = "https://www.thesportsdb.com/api/v1/json/3"
         
-    def get_espn_live_schedule(self, sport="football", league="nfl"):
+    def get_espn_live_schedule(self, sport="football", league="nfl", date=None):
         """Get live and upcoming games from ESPN with detailed info"""
         try:
             sport_mapping = {
@@ -31,9 +31,12 @@ class LiveGamesManager:
             sport_key = sport_mapping.get(sport, "football")
             league_key = league_mapping.get(sport, "nfl")
             
+            # Add date parameter for specific dates
             url = f"{self.espn_base_url}/{sport_key}/{league_key}/scoreboard"
+            if date:
+                url += f"?dates={date}"
             
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=15)
             response.raise_for_status()
             
             data = response.json()
@@ -103,7 +106,10 @@ class LiveGamesManager:
                                 if game_date:
                                     try:
                                         game_datetime = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
-                                        display_time = game_datetime.strftime('%I:%M %p ET')
+                                        # Convert to local time for display
+                                        from datetime import timezone
+                                        local_time = game_datetime.replace(tzinfo=timezone.utc).astimezone()
+                                        display_time = local_time.strftime('%I:%M %p ET')
                                     except:
                                         display_time = "TBD"
                                 
@@ -135,8 +141,19 @@ class LiveGamesManager:
             return pd.DataFrame()
     
     def get_upcoming_games_all_sports(self):
-        """Get upcoming games from all major sports"""
+        """Get upcoming games from all major sports for today and tomorrow"""
         all_games = []
+        
+        # Get today and tomorrow's dates in YYYYMMDD format
+        today = datetime.now()
+        tomorrow = today + timedelta(days=1)
+        yesterday = today - timedelta(days=1)
+        
+        dates_to_check = [
+            yesterday.strftime('%Y%m%d'),  # Yesterday for any ongoing games
+            today.strftime('%Y%m%d'),     # Today
+            tomorrow.strftime('%Y%m%d')   # Tomorrow
+        ]
         
         sports_leagues = [
             ('football', 'nfl'),
@@ -146,15 +163,19 @@ class LiveGamesManager:
         ]
         
         for sport, league in sports_leagues:
-            try:
-                games_df = self.get_espn_live_schedule(sport, league)
-                if not games_df.empty:
-                    all_games.append(games_df)
-            except Exception as e:
-                continue
+            for date_str in dates_to_check:
+                try:
+                    games_df = self.get_espn_live_schedule(sport, league, date_str)
+                    if not games_df.empty:
+                        all_games.append(games_df)
+                except Exception as e:
+                    continue
         
         if all_games:
-            return pd.concat(all_games, ignore_index=True)
+            combined_df = pd.concat(all_games, ignore_index=True)
+            # Remove duplicates based on game_id
+            combined_df = combined_df.drop_duplicates(subset=['game_id'], keep='first')
+            return combined_df
         else:
             return pd.DataFrame()
     

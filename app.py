@@ -136,36 +136,55 @@ def live_sports_data_page():
         st.write("• **MySportsFeeds**: NFL, NBA, MLB detailed stats (Premium)")
     
     with col4:
-        # Free data button
-        if st.button("📊 Use Free Data", type="primary"):
-            with st.spinner("Getting free sports data..."):
-                # Use sample data as reliable fallback
-                from data.sample_data import get_sample_data
+        # Free data button - now tries real ESPN data first
+        if st.button("📊 Get Live Data", type="primary"):
+            with st.spinner("Getting real sports data from ESPN..."):
+                # Try to get real ESPN data first
+                live_data = st.session_state.sports_api_manager.get_espn_scores('basketball', 'nba')
                 
-                # Get sample data for multiple sports
-                all_sample_data = []
-                for sport in ['football', 'basketball', 'baseball']:
-                    sample_data = get_sample_data(sport)
-                    all_sample_data.append(sample_data)
-                
-                if all_sample_data:
-                    combined_sample = pd.concat(all_sample_data, ignore_index=True)
+                if not live_data.empty:
+                    # Real data found - get more sports
+                    all_real_data = []
                     
-                    # Store in session state
-                    st.session_state.live_sports_data = combined_sample
-                    st.session_state.uploaded_data = combined_sample
+                    # Try multiple sports/leagues
+                    sport_league_pairs = [
+                        ('basketball', 'nba'),
+                        ('football', 'nfl'), 
+                        ('baseball', 'mlb'),
+                        ('hockey', 'nhl')
+                    ]
                     
-                    st.success(f"✅ Loaded {len(combined_sample)} sample games across {len(all_sample_data)} sports!")
+                    for sport, league in sport_league_pairs:
+                        try:
+                            data = st.session_state.sports_api_manager.get_espn_scores(sport, league)
+                            if not data.empty:
+                                all_real_data.append(data)
+                        except:
+                            continue
                     
-                    # Auto-process the data
-                    processed_data = st.session_state.data_processor.process_data(combined_sample)
-                    if len(processed_data) > 10:
-                        st.session_state.processed_data = processed_data
+                    if all_real_data:
+                        combined_real = pd.concat(all_real_data, ignore_index=True)
                         
-                        # Auto-train the model
-                        training_success = st.session_state.predictor.train_model(processed_data)
-                        if training_success:
-                            st.success("🤖 Model trained with sample data!")
+                        # Store in session state
+                        st.session_state.live_sports_data = combined_real
+                        st.session_state.uploaded_data = combined_real
+                        
+                        st.success(f"✅ Loaded {len(combined_real)} REAL games from ESPN API!")
+                        st.info("🎯 This is actual live sports data")
+                        
+                        # Auto-process the data
+                        processed_data = st.session_state.data_processor.process_data(combined_real)
+                        if len(processed_data) > 10:
+                            st.session_state.processed_data = processed_data
+                            
+                            # Auto-train the model
+                            training_success = st.session_state.predictor.train_model(processed_data)
+                            if training_success:
+                                st.success("🤖 Model trained with real ESPN data!")
+                    else:
+                        st.warning("Could not get enough real data - might be off-season")
+                else:
+                    st.warning("ESPN API not returning data - might be off-season for current sports")
         
         # Premium data button
         if st.button("🚀 Fetch Premium Data"):
@@ -304,18 +323,25 @@ def live_games_schedule_page():
     
     # Fetch live games
     if st.button("🔄 Refresh Games", type="primary") or 'live_games_data' not in st.session_state:
-        with st.spinner("Fetching live games schedule..."):
+        with st.spinner("Fetching real games from today and tomorrow..."):
             games_df = st.session_state.live_games_manager.get_upcoming_games_all_sports()
             
             if not games_df.empty:
                 st.session_state.live_games_data = games_df
-                st.success(f"✅ Loaded {len(games_df)} games from multiple leagues")
+                st.success(f"✅ Loaded {len(games_df)} real games from ESPN API")
+                
+                # Show date range info
+                if not games_df.empty:
+                    min_date = games_df['date'].min()
+                    max_date = games_df['date'].max()
+                    st.info(f"📅 Showing games from {min_date} to {max_date}")
             else:
-                st.warning("⚠️ Could not fetch live games data")
-                # Create sample live games for demonstration
+                st.error("❌ Could not fetch real games data from ESPN")
+                st.info("This might happen during off-season or if ESPN API is temporarily unavailable")
+                # Only show sample as absolute fallback
                 sample_games = create_sample_live_games()
                 st.session_state.live_games_data = sample_games
-                st.info("📊 Showing sample live games schedule")
+                st.warning("📊 Showing sample games as fallback")
     
     # Display games if available
     if 'live_games_data' in st.session_state and not st.session_state.live_games_data.empty:
