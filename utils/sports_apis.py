@@ -155,40 +155,54 @@ class SportsAPIManager:
                 'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
             }
             
-            # Get live fixtures
+            # Try getting recent fixtures instead of live only
+            from datetime import datetime, timedelta
+            today = datetime.now()
+            yesterday = today - timedelta(days=7)
+            
             url = f"{self.api_football_base_url}/fixtures"
             params = {
-                'live': 'all'
+                'from': yesterday.strftime('%Y-%m-%d'),
+                'to': today.strftime('%Y-%m-%d'),
+                'status': 'FT'  # Finished games only
             }
             
-            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response = requests.get(url, headers=headers, params=params, timeout=15)
             
             if response.status_code == 200:
                 data = response.json()
                 games = []
                 
                 if data.get('response'):
-                    for fixture in data['response'][:20]:  # Limit to 20 games
+                    for fixture in data['response'][:50]:  # Limit to 50 games
                         try:
                             teams = fixture.get('teams', {})
                             goals = fixture.get('goals', {})
                             fixture_info = fixture.get('fixture', {})
                             
-                            games.append({
-                                'date': fixture_info.get('date', '')[:10],
-                                'team1': teams.get('home', {}).get('name', ''),
-                                'team2': teams.get('away', {}).get('name', ''),
-                                'team1_score': goals.get('home', 0) or 0,
-                                'team2_score': goals.get('away', 0) or 0,
-                                'sport': 'football',
-                                'league': fixture.get('league', {}).get('name', ''),
-                                'status': fixture_info.get('status', {}).get('long', 'Unknown'),
-                                'source': 'API-Football'
-                            })
+                            # Only include games with scores
+                            home_score = goals.get('home')
+                            away_score = goals.get('away')
+                            
+                            if home_score is not None and away_score is not None:
+                                games.append({
+                                    'date': fixture_info.get('date', '')[:10],
+                                    'team1': teams.get('home', {}).get('name', ''),
+                                    'team2': teams.get('away', {}).get('name', ''),
+                                    'team1_score': int(home_score),
+                                    'team2_score': int(away_score),
+                                    'sport': 'football',
+                                    'league': fixture.get('league', {}).get('name', ''),
+                                    'status': fixture_info.get('status', {}).get('long', 'Unknown'),
+                                    'source': 'API-Football'
+                                })
                         except Exception as e:
                             continue
                 
                 return pd.DataFrame(games)
+            else:
+                st.error(f"API-Football error: {response.status_code} - {response.text[:200]}")
+                return pd.DataFrame()
             
             return pd.DataFrame()
             
@@ -206,11 +220,11 @@ class SportsAPIManager:
             auth = (api_key, password or "MYSPORTSFEEDS")
             base_url = "https://api.mysportsfeeds.com/v2.1/pull"
             
-            # Get current season games for NFL
-            season = "current"
+            # Get recent season games for NFL - try 2024 season
+            season = "2024-regular"
             url = f"{base_url}/nfl/{season}/games.json"
             
-            response = requests.get(url, auth=auth, timeout=10)
+            response = requests.get(url, auth=auth, timeout=15)
             
             if response.status_code == 200:
                 data = response.json()
@@ -311,7 +325,7 @@ class SportsAPIManager:
             
             # Ensure scores are numeric
             data['team1_score'] = pd.to_numeric(data['team1_score'], errors='coerce').fillna(0)
-            data['team2_score'] = pd.to_numeric(data['team2_score'], errors='coerce')
+            data['team2_score'] = pd.to_numeric(data['team2_score'], errors='coerce').fillna(0)
             
             # Clean team names
             data['team1'] = data['team1'].str.strip().str.title()
@@ -345,8 +359,21 @@ class SportsAPIManager:
                 return not test_data.empty, f"TheSportsDB: Retrieved {len(test_data)} games"
             
             elif api_name.lower() == 'api_football' and api_key:
-                test_data = self.get_api_football_data(api_key)
-                return not test_data.empty, f"API-Football: Retrieved {len(test_data)} games"
+                # Test with a simple API call first
+                headers = {
+                    'X-RapidAPI-Key': api_key,
+                    'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
+                }
+                
+                # Test API status first
+                test_url = f"{self.api_football_base_url}/status"
+                test_response = requests.get(test_url, headers=headers, timeout=10)
+                
+                if test_response.status_code == 200:
+                    test_data = self.get_api_football_data(api_key)
+                    return not test_data.empty, f"API-Football: Retrieved {len(test_data)} games"
+                else:
+                    return False, f"API-Football: Key invalid or quota exceeded ({test_response.status_code})"
             
             elif api_name.lower() == 'mysportsfeeds' and api_key:
                 test_data = self.get_mysportsfeeds_data(api_key)

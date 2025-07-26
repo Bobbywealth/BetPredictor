@@ -130,7 +130,39 @@ def live_sports_data_page():
         st.write("• **MySportsFeeds**: NFL, NBA, MLB detailed stats (Premium)")
     
     with col4:
-        if st.button("🚀 Fetch All Data", type="primary"):
+        # Free data button
+        if st.button("📊 Use Free Data", type="primary"):
+            with st.spinner("Getting free sports data..."):
+                # Use sample data as reliable fallback
+                from data.sample_data import get_sample_data
+                
+                # Get sample data for multiple sports
+                all_sample_data = []
+                for sport in ['football', 'basketball', 'baseball']:
+                    sample_data = get_sample_data(sport)
+                    all_sample_data.append(sample_data)
+                
+                if all_sample_data:
+                    combined_sample = pd.concat(all_sample_data, ignore_index=True)
+                    
+                    # Store in session state
+                    st.session_state.live_sports_data = combined_sample
+                    st.session_state.uploaded_data = combined_sample
+                    
+                    st.success(f"✅ Loaded {len(combined_sample)} sample games across {len(all_sample_data)} sports!")
+                    
+                    # Auto-process the data
+                    processed_data = st.session_state.data_processor.process_data(combined_sample)
+                    if len(processed_data) > 10:
+                        st.session_state.processed_data = processed_data
+                        
+                        # Auto-train the model
+                        training_success = st.session_state.predictor.train_model(processed_data)
+                        if training_success:
+                            st.success("🤖 Model trained with sample data!")
+        
+        # Premium data button
+        if st.button("🚀 Fetch Premium Data"):
             # Prepare API keys
             api_keys = {}
             if api_football_key:
@@ -138,30 +170,34 @@ def live_sports_data_page():
             if mysportsfeeds_key:
                 api_keys['mysportsfeeds'] = mysportsfeeds_key
             
-            # Fetch data from all APIs
-            with st.spinner("Fetching live sports data..."):
-                live_data = st.session_state.sports_api_manager.get_all_data(api_keys)
-                
-                if not live_data.empty:
-                    # Store in session state
-                    st.session_state.live_sports_data = live_data
-                    st.session_state.uploaded_data = live_data  # Make it available to other pages
+            if not api_keys:
+                st.warning("⚠️ Please enter API keys above to use premium data sources")
+            else:
+                # Fetch data from premium APIs only
+                with st.spinner("Fetching premium sports data..."):
+                    live_data = st.session_state.sports_api_manager.get_all_data(api_keys)
                     
-                    st.success(f"🎉 Successfully loaded {len(live_data)} live games!")
-                    
-                    # Auto-process the data
-                    processed_data = st.session_state.data_processor.process_data(live_data)
-                    if len(processed_data) > 10:
-                        st.session_state.processed_data = processed_data
+                    if not live_data.empty:
+                        # Store in session state
+                        st.session_state.live_sports_data = live_data
+                        st.session_state.uploaded_data = live_data
                         
-                        # Auto-train the model
-                        training_success = st.session_state.predictor.train_model(processed_data)
-                        if training_success:
-                            st.success("🤖 Model automatically trained with live data!")
-                        else:
-                            st.warning("⚠️ Could not train model with current data")
-                else:
-                    st.error("❌ Could not fetch data from any API source")
+                        st.success(f"🎉 Successfully loaded {len(live_data)} premium games!")
+                        
+                        # Auto-process the data
+                        processed_data = st.session_state.data_processor.process_data(live_data)
+                        if len(processed_data) > 10:
+                            st.session_state.processed_data = processed_data
+                            
+                            # Auto-train the model
+                            training_success = st.session_state.predictor.train_model(processed_data)
+                            if training_success:
+                                st.success("🤖 Model trained with premium live data!")
+                            else:
+                                st.warning("⚠️ Could not train model with current data")
+                    else:
+                        st.error("❌ Could not fetch data from premium API sources")
+                        st.info("💡 Check your API keys or try the free data option above")
     
     # Display Current Data
     if 'live_sports_data' in st.session_state and not st.session_state.live_sports_data.empty:
