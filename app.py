@@ -10,6 +10,7 @@ import os
 from models.predictor import SportsPredictor
 from utils.data_processor import DataProcessor
 from utils.visualization import Visualizer
+from utils.sports_apis import SportsAPIManager
 from data.sample_data import get_sample_data
 
 # Page configuration
@@ -27,6 +28,8 @@ if 'data_processor' not in st.session_state:
     st.session_state.data_processor = DataProcessor()
 if 'visualizer' not in st.session_state:
     st.session_state.visualizer = Visualizer()
+if 'sports_api_manager' not in st.session_state:
+    st.session_state.sports_api_manager = SportsAPIManager()
 
 def main():
     st.title("🏆 Sports Betting Prediction App")
@@ -42,14 +45,17 @@ def main():
     # Sidebar navigation
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox("Choose a page", [
-        "Data Upload & Processing",
+        "Live Sports Data",
+        "Data Upload & Processing", 
         "Team Analysis",
         "Make Predictions",
         "Model Performance",
         "Historical Analysis"
     ])
     
-    if page == "Data Upload & Processing":
+    if page == "Live Sports Data":
+        live_sports_data_page()
+    elif page == "Data Upload & Processing":
         data_upload_page()
     elif page == "Team Analysis":
         team_analysis_page()
@@ -59,6 +65,168 @@ def main():
         model_performance_page()
     elif page == "Historical Analysis":
         historical_analysis_page()
+
+def live_sports_data_page():
+    st.header("🔴 Live Sports Data")
+    
+    st.info(
+        "🚀 **NEW FEATURE**: Get real-time sports data from multiple APIs! "
+        "Free options work immediately, premium APIs provide more detailed data."
+    )
+    
+    # API Configuration Section
+    st.subheader("⚙️ API Configuration")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Free APIs (No Setup Required)**")
+        free_apis_status = st.container()
+        
+        with free_apis_status:
+            # Test free APIs
+            espn_status, espn_msg = st.session_state.sports_api_manager.test_api_connection('espn')
+            sportsdb_status, sportsdb_msg = st.session_state.sports_api_manager.test_api_connection('thesportsdb')
+            
+            st.success(f"✅ ESPN: Ready") if espn_status else st.error(f"❌ ESPN: Not working")
+            st.success(f"✅ TheSportsDB: Ready") if sportsdb_status else st.error(f"❌ TheSportsDB: Not working")
+    
+    with col2:
+        st.write("**Premium APIs (API Keys Required)**")
+        
+        # API Key inputs
+        api_football_key = st.text_input(
+            "API-Football Key (Optional)", 
+            type="password",
+            help="Get free key at api-football.com"
+        )
+        
+        mysportsfeeds_key = st.text_input(
+            "MySportsFeeds Key (Optional)", 
+            type="password", 
+            help="Get free key at mysportsfeeds.com"
+        )
+        
+        if api_football_key:
+            api_football_status, api_football_msg = st.session_state.sports_api_manager.test_api_connection('api_football', api_football_key)
+            st.success(f"✅ API-Football: Connected") if api_football_status else st.error(f"❌ API-Football: {api_football_msg}")
+        
+        if mysportsfeeds_key:
+            mysportsfeeds_status, mysportsfeeds_msg = st.session_state.sports_api_manager.test_api_connection('mysportsfeeds', mysportsfeeds_key)
+            st.success(f"✅ MySportsFeeds: Connected") if mysportsfeeds_status else st.error(f"❌ MySportsFeeds: {mysportsfeeds_msg}")
+    
+    st.divider()
+    
+    # Data Fetching Section
+    st.subheader("📡 Fetch Live Data")
+    
+    col3, col4 = st.columns([3, 1])
+    
+    with col3:
+        st.write("**Available Data Sources:**")
+        st.write("• **ESPN**: NFL, NBA, MLB, NHL (Free)")
+        st.write("• **TheSportsDB**: Football, Basketball, Baseball (Free)")
+        st.write("• **API-Football**: 1000+ leagues, live odds (Premium)")
+        st.write("• **MySportsFeeds**: NFL, NBA, MLB detailed stats (Premium)")
+    
+    with col4:
+        if st.button("🚀 Fetch All Data", type="primary"):
+            # Prepare API keys
+            api_keys = {}
+            if api_football_key:
+                api_keys['api_football'] = api_football_key
+            if mysportsfeeds_key:
+                api_keys['mysportsfeeds'] = mysportsfeeds_key
+            
+            # Fetch data from all APIs
+            with st.spinner("Fetching live sports data..."):
+                live_data = st.session_state.sports_api_manager.get_all_data(api_keys)
+                
+                if not live_data.empty:
+                    # Store in session state
+                    st.session_state.live_sports_data = live_data
+                    st.session_state.uploaded_data = live_data  # Make it available to other pages
+                    
+                    st.success(f"🎉 Successfully loaded {len(live_data)} live games!")
+                    
+                    # Auto-process the data
+                    processed_data = st.session_state.data_processor.process_data(live_data)
+                    if len(processed_data) > 10:
+                        st.session_state.processed_data = processed_data
+                        
+                        # Auto-train the model
+                        training_success = st.session_state.predictor.train_model(processed_data)
+                        if training_success:
+                            st.success("🤖 Model automatically trained with live data!")
+                        else:
+                            st.warning("⚠️ Could not train model with current data")
+                else:
+                    st.error("❌ Could not fetch data from any API source")
+    
+    # Display Current Data
+    if 'live_sports_data' in st.session_state and not st.session_state.live_sports_data.empty:
+        st.divider()
+        st.subheader("📊 Current Live Data")
+        
+        data = st.session_state.live_sports_data
+        
+        # Data summary
+        col5, col6, col7, col8 = st.columns(4)
+        with col5:
+            st.metric("Total Games", len(data))
+        with col6:
+            st.metric("Data Sources", data['source'].nunique())
+        with col7:
+            st.metric("Sports Covered", data['sport'].nunique())
+        with col8:
+            st.metric("Leagues", data['league'].nunique())
+        
+        # Recent games preview
+        st.subheader("🕒 Recent Games")
+        recent_games = data.sort_values('date', ascending=False).head(10)
+        st.dataframe(
+            recent_games[['date', 'team1', 'team2', 'team1_score', 'team2_score', 'sport', 'league', 'source']],
+            use_container_width=True
+        )
+        
+        # Data breakdown by source
+        st.subheader("📈 Data Source Breakdown")
+        source_breakdown = data.groupby(['source', 'sport']).size().reset_index(name='count')
+        
+        fig = px.bar(
+            source_breakdown, 
+            x='source', 
+            y='count', 
+            color='sport',
+            title='Games by Source and Sport',
+            labels={'count': 'Number of Games', 'source': 'Data Source'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Option to use this data for predictions
+        if st.button("🎯 Use This Data for Predictions"):
+            st.session_state.uploaded_data = data
+            st.success("✅ Live data is now ready for predictions! Go to 'Make Predictions' page.")
+    
+    # API Setup Help
+    st.divider()
+    with st.expander("🆘 How to Get API Keys"):
+        st.write("**API-Football (Recommended for Premium Features):**")
+        st.write("1. Go to [api-football.com](https://api-football.com)")
+        st.write("2. Sign up for free account")
+        st.write("3. Get your API key from dashboard")
+        st.write("4. Free tier: 100 requests/day")
+        
+        st.write("**MySportsFeeds (Good for NFL/NBA/MLB):**")
+        st.write("1. Go to [mysportsfeeds.com](https://mysportsfeeds.com)")
+        st.write("2. Create free developer account")
+        st.write("3. Get API key from your account settings")
+        st.write("4. Free for non-commercial use")
+        
+        st.write("**Free Options (Always Available):**")
+        st.write("• ESPN API - No registration needed")
+        st.write("• TheSportsDB - No registration needed")
+        st.write("• Both provide real game results and scores")
 
 def data_upload_page():
     st.header("📊 Data Upload & Processing")
