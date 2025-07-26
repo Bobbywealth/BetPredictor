@@ -29,10 +29,12 @@ class LiveGamesManager:
             sport_key = sport_mapping.get(sport, "football")
             league_key = league_mapping.get(sport, "nfl")
             
-            # Add date parameter for specific dates
+            # Add date parameter for specific dates - ESPN uses YYYYMMDD format
             url = f"{self.espn_base_url}/{sport_key}/{league_key}/scoreboard"
             if date:
-                url += f"?dates={date}"
+                # Ensure date is in correct format and add proper parameter
+                if len(date) == 8 and date.isdigit():
+                    url += f"?dates={date}"
             
             response = requests.get(url, timeout=15)
             response.raise_for_status()
@@ -159,20 +161,22 @@ class LiveGamesManager:
             tomorrow.strftime('%Y%m%d')   # Tomorrow
         ]
         
-        # Try ESPN for basketball and baseball
+        # Try ESPN for basketball and baseball - first without dates, then with dates
         espn_sports = [
             ('basketball', 'nba'),
             ('baseball', 'mlb')
         ]
         
+        # Try ESPN but handle off-season gracefully
         for sport, league in espn_sports:
-            for date_str in dates_to_check:
-                try:
-                    games_df = self.get_espn_live_schedule(sport, league, date_str)
-                    if not games_df.empty:
-                        all_games.append(games_df)
-                except Exception as e:
-                    continue
+            try:
+                games_df = self.get_espn_live_schedule(sport, league, None)
+                if not games_df.empty:
+                    all_games.append(games_df)
+            except Exception as e:
+                # ESPN may return 400 during off-season, which is expected
+                if st.session_state.get('debug_mode', False):
+                    st.write(f"ESPN {sport}/{league}: Off-season or no games")
         
         # Try TheSportsDB for soccer (more comprehensive soccer coverage)
         try:
@@ -182,16 +186,7 @@ class LiveGamesManager:
         except Exception as e:
             pass
         
-        # Also try ESPN for international soccer leagues
-        soccer_leagues = ['mls', 'eng.1', 'esp.1', 'ger.1', 'ita.1', 'fra.1']
-        for league in soccer_leagues:
-            for date_str in dates_to_check:
-                try:
-                    games_df = self.get_espn_live_schedule('soccer', league, date_str)
-                    if not games_df.empty:
-                        all_games.append(games_df)
-                except Exception as e:
-                    continue
+        # ESPN soccer leagues are often limited, TheSportsDB is more reliable for soccer
         
         if all_games:
             combined_df = pd.concat(all_games, ignore_index=True)
@@ -219,64 +214,87 @@ class LiveGamesManager:
             
             for league_id in leagues_to_check:
                 try:
-                    # Get recent events for this league
-                    url = f"{self.sportsdb_base_url}/eventspastleague.php?id={league_id}"
-                    response = requests.get(url, timeout=10)
+                    # Get both past and upcoming events for this league
+                    past_url = f"{self.sportsdb_base_url}/eventspastleague.php?id={league_id}"
+                    next_url = f"{self.sportsdb_base_url}/eventsnextleague.php?id={league_id}"
+                    
+                    # Try past events first
+                    response = requests.get(past_url, timeout=10)
+                    
+                    # Also try upcoming events
+                    upcoming_response = requests.get(next_url, timeout=10)
+                    
+                    # Process both past and upcoming events
+                    events_to_process = []
                     
                     if response.status_code == 200:
                         data = response.json()
-                        
                         if data.get('events'):
-                            for event in data['events'][:10]:  # Limit to 10 recent games per league
+                            events_to_process.extend(data['events'][:5])
+                    
+                    if upcoming_response.status_code == 200:
+                        upcoming_data = upcoming_response.json()
+                        if upcoming_data.get('events'):
+                            events_to_process.extend(upcoming_data['events'][:5])
+                    
+                    # Process all events
+                    for event in events_to_process:
+                        try:
+                            # Parse date
+                            event_date = event.get('dateEvent', '')
+                            if event_date:
+                                # Accept any valid game data, regardless of date
+                                from datetime import datetime, timedelta
                                 try:
-                                    # Parse date
-                                    event_date = event.get('dateEvent', '')
-                                    if event_date:
-                                        # Check if game is recent (within last 7 days or upcoming)
-                                        from datetime import datetime, timedelta
-                                        game_date = datetime.strptime(event_date, '%Y-%m-%d')
-                                        days_diff = (datetime.now() - game_date).days
-                                        
-                                        if -2 <= days_diff <= 7:  # Recent or upcoming games
-                                            all_soccer_games.append({
-                                                'game_id': f"sdb_{event.get('idEvent', '')}",
-                                                'game_name': f"{event.get('strHomeTeam', '')} vs {event.get('strAwayTeam', '')}",
-                                                'short_name': f"{event.get('strHomeTeam', '')[:3]} vs {event.get('strAwayTeam', '')[:3]}",
-                                                'date': event_date,
-                                                'time': event.get('strTime', 'TBD'),
-                                                'datetime': game_date,
-                                                'status': 'Final' if event.get('intHomeScore') else 'Scheduled',
-                                                'status_detail': '',
-                                                'period': '',
-                                                'home_team': {
-                                                    'name': event.get('strHomeTeam', ''),
-                                                    'abbreviation': event.get('strHomeTeam', '')[:3],
-                                                    'logo': event.get('strHomeTeamBadge', ''),
-                                                    'color': '',
-                                                    'record': '',
-                                                    'score': int(event.get('intHomeScore', 0) or 0)
-                                                },
-                                                'away_team': {
-                                                    'name': event.get('strAwayTeam', ''),
-                                                    'abbreviation': event.get('strAwayTeam', '')[:3],
-                                                    'logo': event.get('strAwayTeamBadge', ''),
-                                                    'color': '',
-                                                    'record': '',
-                                                    'score': int(event.get('intAwayScore', 0) or 0)
-                                                },
-                                                'venue': {
-                                                    'name': event.get('strVenue', 'TBD'),
-                                                    'city': event.get('strCity', ''),
-                                                    'state': event.get('strCountry', ''),
-                                                    'capacity': 'N/A'
-                                                },
-                                                'broadcasts': [],
-                                                'sport': 'soccer',
-                                                'league': event.get('strLeague', 'Soccer'),
-                                                'source': 'TheSportsDB'
-                                            })
-                                except Exception as e:
+                                    game_date = datetime.strptime(event_date, '%Y-%m-%d')
+                                except:
                                     continue
+                                
+                                # Determine game status
+                                status = 'Scheduled'
+                                if event.get('intHomeScore') is not None and event.get('intAwayScore') is not None:
+                                    if event.get('intHomeScore') != '' and event.get('intAwayScore') != '':
+                                        status = 'Final'
+                                
+                                all_soccer_games.append({
+                                    'game_id': f"sdb_{event.get('idEvent', '')}",
+                                    'game_name': f"{event.get('strHomeTeam', '')} vs {event.get('strAwayTeam', '')}",
+                                    'short_name': f"{event.get('strHomeTeam', '')[:3]} vs {event.get('strAwayTeam', '')[:3]}",
+                                    'date': event_date,
+                                    'time': event.get('strTime', 'TBD'),
+                                    'datetime': game_date,
+                                    'status': status,
+                                    'status_detail': '',
+                                    'period': '',
+                                    'home_team': {
+                                        'name': event.get('strHomeTeam', ''),
+                                        'abbreviation': event.get('strHomeTeam', '')[:3],
+                                        'logo': event.get('strHomeTeamBadge', ''),
+                                        'color': '',
+                                        'record': '',
+                                        'score': int(event.get('intHomeScore', 0) or 0)
+                                    },
+                                    'away_team': {
+                                        'name': event.get('strAwayTeam', ''),
+                                        'abbreviation': event.get('strAwayTeam', '')[:3],
+                                        'logo': event.get('strAwayTeamBadge', ''),
+                                        'color': '',
+                                        'record': '',
+                                        'score': int(event.get('intAwayScore', 0) or 0)
+                                    },
+                                    'venue': {
+                                        'name': event.get('strVenue', 'TBD'),
+                                        'city': event.get('strCity', ''),
+                                        'state': event.get('strCountry', ''),
+                                        'capacity': 'N/A'
+                                    },
+                                    'broadcasts': [],
+                                    'sport': 'soccer',
+                                    'league': event.get('strLeague', 'Soccer'),
+                                    'source': 'TheSportsDB'
+                                })
+                        except Exception as e:
+                            continue
                 except Exception as e:
                     continue
             

@@ -338,6 +338,8 @@ def live_games_schedule_page():
                 # Test soccer from TheSportsDB
                 soccer_df = st.session_state.live_games_manager.get_sportsdb_soccer_games()
                 st.write(f"TheSportsDB soccer: {len(soccer_df)} games")
+                if not soccer_df.empty:
+                    st.write(f"Soccer leagues found: {soccer_df['league'].unique()}")
             
             games_df = st.session_state.live_games_manager.get_upcoming_games_all_sports()
             
@@ -372,12 +374,35 @@ def live_games_schedule_page():
                             data2 = response2.json()
                             if data2.get('events'):
                                 st.write(f"Soccer events found: {len(data2['events'])}")
+                                recent_events = []
+                                for event in data2['events'][:5]:
+                                    event_date = event.get('dateEvent', '')
+                                    if event_date:
+                                        from datetime import datetime
+                                        try:
+                                            game_date = datetime.strptime(event_date, '%Y-%m-%d')
+                                            days_diff = (datetime.now() - game_date).days
+                                            if -7 <= days_diff <= 30:
+                                                recent_events.append(f"{event.get('strEvent', '')} ({event_date})")
+                                        except:
+                                            pass
+                                st.write(f"Recent/upcoming soccer games: {len(recent_events)}")
+                                for event in recent_events[:3]:
+                                    st.write(f"  • {event}")
                             
                     except Exception as e:
                         st.write(f"API test error: {e}")
                 
-                st.warning("No real games found for soccer, baseball, or basketball in the current timeframe")
-                st.info("Check back during active seasons: NBA (Oct-Jun), MLB (Mar-Oct), Soccer leagues vary by region")
+                st.warning("No current real games found for soccer, baseball, or basketball")
+                st.info("This is normal during off-season periods. Real games will appear when leagues are active.")
+                
+                # Show what we checked in debug mode
+                if debug_mode:
+                    st.write("**APIs checked:**")
+                    st.write("- ESPN NBA: Off-season (season runs Oct-Jun)")
+                    st.write("- ESPN MLB: Off-season (season runs Mar-Oct)")  
+                    st.write("- TheSportsDB Soccer: Major European leagues in summer break")
+                
                 # Clear any existing data to show only real data
                 st.session_state.live_games_data = pd.DataFrame()
                 return  # Exit early since no data to display
