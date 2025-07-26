@@ -42,7 +42,13 @@ class LiveGamesManager:
             data = response.json()
             games = []
             
-            if 'events' in data:
+            # Debug: log the API response structure
+            if st.session_state.get('debug_mode', False):
+                st.write(f"ESPN API Response keys: {list(data.keys())}")
+                if 'events' in data:
+                    st.write(f"Found {len(data['events'])} events")
+            
+            if 'events' in data and len(data['events']) > 0:
                 for event in data['events']:
                     try:
                         # Extract detailed game information
@@ -162,6 +168,7 @@ class LiveGamesManager:
             ('hockey', 'nhl')
         ]
         
+        # First try with specific dates
         for sport, league in sports_leagues:
             for date_str in dates_to_check:
                 try:
@@ -171,10 +178,21 @@ class LiveGamesManager:
                 except Exception as e:
                     continue
         
+        # If no games found with specific dates, try without date filter to get any recent games
+        if not all_games:
+            for sport, league in sports_leagues:
+                try:
+                    games_df = self.get_espn_live_schedule(sport, league, None)  # No date filter
+                    if not games_df.empty:
+                        all_games.append(games_df)
+                except Exception as e:
+                    continue
+        
         if all_games:
             combined_df = pd.concat(all_games, ignore_index=True)
             # Remove duplicates based on game_id
-            combined_df = combined_df.drop_duplicates(subset=['game_id'], keep='first')
+            if 'game_id' in combined_df.columns:
+                combined_df = combined_df.drop_duplicates(subset=['game_id'], keep='first')
             return combined_df
         else:
             return pd.DataFrame()
