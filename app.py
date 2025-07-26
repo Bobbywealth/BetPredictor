@@ -417,7 +417,7 @@ def historical_analysis_page():
     if len(sport_data) > 0:
         seasonal_stats = st.session_state.data_processor.get_seasonal_analysis(sport_data)
         
-        if seasonal_stats:
+        if seasonal_stats is not None and not seasonal_stats.empty:
             fig = st.session_state.visualizer.create_seasonal_chart(seasonal_stats)
             st.plotly_chart(fig, use_container_width=True)
 

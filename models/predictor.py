@@ -341,9 +341,9 @@ class SportsPredictor:
             
             # Calculate metrics
             accuracy = accuracy_score(self.y_test, y_pred)
-            precision = precision_score(self.y_test, y_pred, average='weighted', zero_division=0)
-            recall = recall_score(self.y_test, y_pred, average='weighted', zero_division=0)
-            f1 = f1_score(self.y_test, y_pred, average='weighted', zero_division=0)
+            precision = precision_score(self.y_test, y_pred, average='weighted', zero_division='warn')
+            recall = recall_score(self.y_test, y_pred, average='weighted', zero_division='warn')
+            f1 = f1_score(self.y_test, y_pred, average='weighted', zero_division='warn')
             
             # Feature importance
             feature_importance = {}
