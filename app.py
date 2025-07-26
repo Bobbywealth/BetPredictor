@@ -11,6 +11,7 @@ from models.predictor import SportsPredictor
 from utils.data_processor import DataProcessor
 from utils.visualization import Visualizer
 from utils.sports_apis import SportsAPIManager
+from utils.live_games import LiveGamesManager
 from data.sample_data import get_sample_data
 
 # Page configuration
@@ -30,6 +31,8 @@ if 'visualizer' not in st.session_state:
     st.session_state.visualizer = Visualizer()
 if 'sports_api_manager' not in st.session_state:
     st.session_state.sports_api_manager = SportsAPIManager()
+if 'live_games_manager' not in st.session_state:
+    st.session_state.live_games_manager = LiveGamesManager()
 
 def main():
     st.title("🏆 Sports Betting Prediction App")
@@ -46,6 +49,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox("Choose a page", [
         "Live Sports Data",
+        "Live Games Schedule",
         "Data Upload & Processing", 
         "Team Analysis",
         "Make Predictions",
@@ -55,6 +59,8 @@ def main():
     
     if page == "Live Sports Data":
         live_sports_data_page()
+    elif page == "Live Games Schedule":
+        live_games_schedule_page()
     elif page == "Data Upload & Processing":
         data_upload_page()
     elif page == "Team Analysis":
@@ -263,6 +269,274 @@ def live_sports_data_page():
         st.write("• ESPN API - No registration needed")
         st.write("• TheSportsDB - No registration needed")
         st.write("• Both provide real game results and scores")
+
+def live_games_schedule_page():
+    st.header("🏟️ Live Games Schedule")
+    
+    st.info(
+        "📅 **Real-time schedule of games across all major sports** - "
+        "See live games, upcoming matches, start times, venues, and broadcast information."
+    )
+    
+    # Filter controls
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        status_filter = st.selectbox(
+            "Game Status",
+            ["all", "live", "upcoming", "finished"],
+            help="Filter games by their current status"
+        )
+    
+    with col2:
+        sport_filter = st.selectbox(
+            "Sport",
+            ["all", "football", "basketball", "baseball", "hockey"],
+            help="Filter by specific sport"
+        )
+    
+    with col3:
+        auto_refresh = st.checkbox("Auto Refresh (30s)", help="Automatically refresh live data")
+    
+    # Auto refresh setup
+    if auto_refresh:
+        st.rerun()
+    
+    # Fetch live games
+    if st.button("🔄 Refresh Games", type="primary") or 'live_games_data' not in st.session_state:
+        with st.spinner("Fetching live games schedule..."):
+            games_df = st.session_state.live_games_manager.get_upcoming_games_all_sports()
+            
+            if not games_df.empty:
+                st.session_state.live_games_data = games_df
+                st.success(f"✅ Loaded {len(games_df)} games from multiple leagues")
+            else:
+                st.warning("⚠️ Could not fetch live games data")
+                # Create sample live games for demonstration
+                sample_games = create_sample_live_games()
+                st.session_state.live_games_data = sample_games
+                st.info("📊 Showing sample live games schedule")
+    
+    # Display games if available
+    if 'live_games_data' in st.session_state and not st.session_state.live_games_data.empty:
+        games_df = st.session_state.live_games_data.copy()
+        
+        # Apply filters
+        if status_filter != "all":
+            games_df = st.session_state.live_games_manager.filter_games_by_status(games_df, status_filter)
+        
+        if sport_filter != "all":
+            games_df = games_df[games_df['sport'] == sport_filter]
+        
+        if games_df.empty:
+            st.warning(f"No {status_filter} games found for {sport_filter}")
+            return
+        
+        # Games summary
+        st.subheader("📊 Games Overview")
+        col4, col5, col6, col7 = st.columns(4)
+        
+        with col4:
+            st.metric("Total Games", len(games_df))
+        with col5:
+            live_count = len(st.session_state.live_games_manager.filter_games_by_status(games_df, "live"))
+            st.metric("Live Now", live_count)
+        with col6:
+            upcoming_count = len(st.session_state.live_games_manager.filter_games_by_status(games_df, "upcoming"))
+            st.metric("Upcoming", upcoming_count)
+        with col7:
+            sports_count = games_df['sport'].nunique()
+            st.metric("Sports", sports_count)
+        
+        # Live games section
+        live_games = st.session_state.live_games_manager.filter_games_by_status(games_df, "live")
+        if not live_games.empty:
+            st.subheader("🔴 Live Games")
+            display_games_grid(live_games, "live")
+        
+        # Upcoming games section
+        upcoming_games = st.session_state.live_games_manager.filter_games_by_status(games_df, "upcoming")
+        if not upcoming_games.empty:
+            st.subheader("⏰ Upcoming Games")
+            display_games_grid(upcoming_games, "upcoming")
+        
+        # Recent finished games
+        finished_games = st.session_state.live_games_manager.filter_games_by_status(games_df, "finished")
+        if not finished_games.empty:
+            st.subheader("✅ Recent Results")
+            display_games_grid(finished_games.head(10), "finished")
+        
+        # Detailed games table
+        st.subheader("📋 All Games Details")
+        display_detailed_games_table(games_df)
+
+def display_games_grid(games_df, status_type):
+    """Display games in a grid format with game cards"""
+    games_per_row = 2
+    
+    for i in range(0, len(games_df), games_per_row):
+        cols = st.columns(games_per_row)
+        
+        for j, col in enumerate(cols):
+            game_idx = i + j
+            if game_idx < len(games_df):
+                game = games_df.iloc[game_idx]
+                
+                with col:
+                    create_game_card(game, status_type)
+
+def create_game_card(game, status_type):
+    """Create a visual card for each game"""
+    
+    # Determine card styling based on status
+    if status_type == "live":
+        card_class = "🔴"
+        status_color = "red"
+    elif status_type == "upcoming":
+        card_class = "⏰"
+        status_color = "blue"
+    else:
+        card_class = "✅"
+        status_color = "green"
+    
+    # Create card container
+    with st.container():
+        st.markdown(f"**{card_class} {game.get('league', 'LEAGUE')}**")
+        
+        # Game matchup
+        home_team = game.get('home_team', {})
+        away_team = game.get('away_team', {})
+        
+        if isinstance(home_team, dict) and isinstance(away_team, dict):
+            home_name = home_team.get('name', 'Home Team')
+            away_name = away_team.get('name', 'Away Team')
+            home_record = home_team.get('record', '')
+            away_record = away_team.get('record', '')
+            home_score = home_team.get('score', 0)
+            away_score = away_team.get('score', 0)
+        else:
+            # Fallback for simpler data structure
+            home_name = "Home Team"
+            away_name = "Away Team"
+            home_record = ""
+            away_record = ""
+            home_score = 0
+            away_score = 0
+        
+        # Score display
+        if status_type == "live" or status_type == "finished":
+            st.markdown(f"**{away_name}** {away_score}")
+            st.markdown(f"**{home_name}** {home_score}")
+        else:
+            st.markdown(f"**{away_name}** {away_record}")
+            st.markdown(f"**{home_name}** {home_record}")
+        
+        # Game details
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write(f"**Time:** {game.get('time', 'TBD')}")
+            st.write(f"**Status:** {game.get('status', 'Unknown')}")
+        
+        with col2:
+            venue = game.get('venue', {})
+            if isinstance(venue, dict):
+                venue_name = venue.get('name', 'TBD')
+                venue_city = venue.get('city', '')
+                if venue_city:
+                    st.write(f"**Venue:** {venue_name}")
+                    st.write(f"**Location:** {venue_city}")
+                else:
+                    st.write(f"**Venue:** {venue_name}")
+            else:
+                st.write("**Venue:** TBD")
+        
+        # Broadcast info
+        broadcasts = game.get('broadcasts', [])
+        if broadcasts:
+            broadcast_str = ", ".join(broadcasts[:3])  # Show first 3 networks
+            st.write(f"**TV:** {broadcast_str}")
+        
+        st.divider()
+
+def display_detailed_games_table(games_df):
+    """Display a detailed table view of all games"""
+    
+    # Prepare data for table display
+    table_data = []
+    
+    for _, game in games_df.iterrows():
+        home_team = game.get('home_team', {})
+        away_team = game.get('away_team', {})
+        venue = game.get('venue', {})
+        
+        if isinstance(home_team, dict) and isinstance(away_team, dict):
+            matchup = f"{away_team.get('name', 'Away')} @ {home_team.get('name', 'Home')}"
+            score = f"{away_team.get('score', 0)} - {home_team.get('score', 0)}"
+        else:
+            matchup = f"{game.get('away_team', 'Away')} @ {game.get('home_team', 'Home')}"
+            score = "0 - 0"
+        
+        venue_str = st.session_state.live_games_manager.format_venue_string(venue) if isinstance(venue, dict) else "TBD"
+        
+        broadcasts = game.get('broadcasts', [])
+        broadcast_str = ", ".join(broadcasts[:2]) if broadcasts else "N/A"
+        
+        table_data.append({
+            'Sport': game.get('league', 'N/A'),
+            'Matchup': matchup,
+            'Date': game.get('date', 'TBD'),
+            'Time': game.get('time', 'TBD'),
+            'Status': game.get('status', 'Unknown'),
+            'Score': score,
+            'Venue': venue_str,
+            'TV': broadcast_str
+        })
+    
+    if table_data:
+        table_df = pd.DataFrame(table_data)
+        st.dataframe(table_df, use_container_width=True)
+
+def create_sample_live_games():
+    """Create sample live games data for demonstration"""
+    from datetime import datetime, timedelta
+    
+    sample_data = []
+    now = datetime.now()
+    
+    # Sample games with realistic information
+    games = [
+        {
+            'game_id': '1', 'game_name': 'Chiefs vs Bills', 'short_name': 'KC @ BUF',
+            'date': now.strftime('%Y-%m-%d'), 'time': '8:00 PM ET',
+            'status': 'Live - 2nd Quarter', 'status_detail': '7:32',
+            'home_team': {'name': 'Buffalo Bills', 'score': 14, 'record': '10-3'},
+            'away_team': {'name': 'Kansas City Chiefs', 'score': 21, 'record': '11-2'},
+            'venue': {'name': 'Highmark Stadium', 'city': 'Buffalo', 'state': 'NY'},
+            'broadcasts': ['CBS', 'Amazon Prime'], 'sport': 'football', 'league': 'NFL'
+        },
+        {
+            'game_id': '2', 'game_name': 'Lakers vs Warriors', 'short_name': 'LAL @ GSW',
+            'date': now.strftime('%Y-%m-%d'), 'time': '10:30 PM ET',
+            'status': 'Scheduled', 'status_detail': '',
+            'home_team': {'name': 'Golden State Warriors', 'score': 0, 'record': '24-12'},
+            'away_team': {'name': 'Los Angeles Lakers', 'score': 0, 'record': '22-14'},
+            'venue': {'name': 'Chase Center', 'city': 'San Francisco', 'state': 'CA'},
+            'broadcasts': ['ESPN', 'NBA TV'], 'sport': 'basketball', 'league': 'NBA'
+        },
+        {
+            'game_id': '3', 'game_name': 'Rangers vs Devils', 'short_name': 'NYR @ NJD',
+            'date': (now + timedelta(days=1)).strftime('%Y-%m-%d'), 'time': '7:00 PM ET',
+            'status': 'Scheduled', 'status_detail': '',
+            'home_team': {'name': 'New Jersey Devils', 'score': 0, 'record': '28-14-4'},
+            'away_team': {'name': 'New York Rangers', 'score': 0, 'record': '26-16-4'},
+            'venue': {'name': 'Prudential Center', 'city': 'Newark', 'state': 'NJ'},
+            'broadcasts': ['MSG', 'TNT'], 'sport': 'hockey', 'league': 'NHL'
+        }
+    ]
+    
+    sample_data.extend(games)
+    return pd.DataFrame(sample_data)
 
 def data_upload_page():
     st.header("📊 Data Upload & Processing")

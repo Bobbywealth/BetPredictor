@@ -1,0 +1,222 @@
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+import streamlit as st
+import json
+
+class LiveGamesManager:
+    """Manager for fetching and displaying live/upcoming games with detailed information"""
+    
+    def __init__(self):
+        self.espn_base_url = "https://site.api.espn.com/apis/site/v2/sports"
+        self.sportsdb_base_url = "https://www.thesportsdb.com/api/v1/json/3"
+        
+    def get_espn_live_schedule(self, sport="football", league="nfl"):
+        """Get live and upcoming games from ESPN with detailed info"""
+        try:
+            sport_mapping = {
+                "football": "football",
+                "basketball": "basketball", 
+                "baseball": "baseball",
+                "hockey": "hockey"
+            }
+            
+            league_mapping = {
+                "football": "nfl",
+                "basketball": "nba",
+                "baseball": "mlb", 
+                "hockey": "nhl"
+            }
+            
+            sport_key = sport_mapping.get(sport, "football")
+            league_key = league_mapping.get(sport, "nfl")
+            
+            url = f"{self.espn_base_url}/{sport_key}/{league_key}/scoreboard"
+            
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            games = []
+            
+            if 'events' in data:
+                for event in data['events']:
+                    try:
+                        # Extract detailed game information
+                        game_date = event.get('date', '')
+                        game_name = event.get('name', '')
+                        short_name = event.get('shortName', '')
+                        status_info = event.get('status', {})
+                        status_type = status_info.get('type', {})
+                        
+                        # Get venue information
+                        competitions = event.get('competitions', [])
+                        venue_info = {}
+                        broadcast_info = []
+                        
+                        if competitions:
+                            competition = competitions[0]
+                            venue = competition.get('venue', {})
+                            venue_info = {
+                                'name': venue.get('fullName', 'TBD'),
+                                'city': venue.get('address', {}).get('city', ''),
+                                'state': venue.get('address', {}).get('state', ''),
+                                'capacity': venue.get('capacity', 'N/A')
+                            }
+                            
+                            # Get broadcast information
+                            broadcasts = competition.get('broadcasts', [])
+                            for broadcast in broadcasts:
+                                names = broadcast.get('names', [])
+                                if names:
+                                    broadcast_info.extend(names)
+                            
+                            # Get team information
+                            competitors = competition.get('competitors', [])
+                            
+                            if len(competitors) >= 2:
+                                home_team = competitors[0] if competitors[0].get('homeAway') == 'home' else competitors[1]
+                                away_team = competitors[1] if competitors[0].get('homeAway') == 'home' else competitors[0]
+                                
+                                # Team details
+                                home_team_info = {
+                                    'name': home_team['team']['displayName'],
+                                    'abbreviation': home_team['team'].get('abbreviation', ''),
+                                    'logo': home_team['team'].get('logo', ''),
+                                    'color': home_team['team'].get('color', ''),
+                                    'record': home_team.get('records', [{}])[0].get('summary', '') if home_team.get('records') else '',
+                                    'score': int(home_team.get('score', 0))
+                                }
+                                
+                                away_team_info = {
+                                    'name': away_team['team']['displayName'],
+                                    'abbreviation': away_team['team'].get('abbreviation', ''),
+                                    'logo': away_team['team'].get('logo', ''),
+                                    'color': away_team['team'].get('color', ''),
+                                    'record': away_team.get('records', [{}])[0].get('summary', '') if away_team.get('records') else '',
+                                    'score': int(away_team.get('score', 0))
+                                }
+                                
+                                # Parse game time
+                                game_datetime = None
+                                display_time = "TBD"
+                                if game_date:
+                                    try:
+                                        game_datetime = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+                                        display_time = game_datetime.strftime('%I:%M %p ET')
+                                    except:
+                                        display_time = "TBD"
+                                
+                                games.append({
+                                    'game_id': event.get('id', ''),
+                                    'game_name': game_name,
+                                    'short_name': short_name,
+                                    'date': game_date[:10] if game_date else datetime.now().strftime('%Y-%m-%d'),
+                                    'time': display_time,
+                                    'datetime': game_datetime,
+                                    'status': status_type.get('description', 'Unknown'),
+                                    'status_detail': status_info.get('displayClock', ''),
+                                    'period': status_info.get('period', ''),
+                                    'home_team': home_team_info,
+                                    'away_team': away_team_info,
+                                    'venue': venue_info,
+                                    'broadcasts': broadcast_info,
+                                    'sport': sport,
+                                    'league': league_key.upper(),
+                                    'source': 'ESPN'
+                                })
+                    except Exception as e:
+                        continue  # Skip malformed games
+            
+            return pd.DataFrame(games)
+            
+        except Exception as e:
+            st.error(f"Error fetching ESPN schedule: {str(e)}")
+            return pd.DataFrame()
+    
+    def get_upcoming_games_all_sports(self):
+        """Get upcoming games from all major sports"""
+        all_games = []
+        
+        sports_leagues = [
+            ('football', 'nfl'),
+            ('basketball', 'nba'),
+            ('baseball', 'mlb'),
+            ('hockey', 'nhl')
+        ]
+        
+        for sport, league in sports_leagues:
+            try:
+                games_df = self.get_espn_live_schedule(sport, league)
+                if not games_df.empty:
+                    all_games.append(games_df)
+            except Exception as e:
+                continue
+        
+        if all_games:
+            return pd.concat(all_games, ignore_index=True)
+        else:
+            return pd.DataFrame()
+    
+    def filter_games_by_status(self, games_df, status_filter="all"):
+        """Filter games by their status"""
+        if games_df.empty:
+            return games_df
+        
+        if status_filter == "live":
+            return games_df[games_df['status'].str.contains('In Progress|Live|Halftime|Overtime', case=False, na=False)]
+        elif status_filter == "upcoming":
+            return games_df[games_df['status'].str.contains('Scheduled|Pre-Game', case=False, na=False)]
+        elif status_filter == "finished":
+            return games_df[games_df['status'].str.contains('Final|Completed', case=False, na=False)]
+        else:
+            return games_df
+    
+    def get_game_details(self, game_id, sport="football", league="nfl"):
+        """Get detailed information about a specific game"""
+        try:
+            url = f"{self.espn_base_url}/{sport}/{league}/summary"
+            params = {'event': game_id}
+            
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return None
+        except Exception as e:
+            return None
+    
+    def format_venue_string(self, venue_info):
+        """Format venue information into a readable string"""
+        if not venue_info or not venue_info.get('name'):
+            return "Venue TBD"
+        
+        venue_str = venue_info['name']
+        if venue_info.get('city') and venue_info.get('state'):
+            venue_str += f" ({venue_info['city']}, {venue_info['state']})"
+        elif venue_info.get('city'):
+            venue_str += f" ({venue_info['city']})"
+        
+        return venue_str
+    
+    def get_time_until_game(self, game_datetime):
+        """Calculate time until game starts"""
+        if not game_datetime:
+            return "Time TBD"
+        
+        now = datetime.now(game_datetime.tzinfo)
+        time_diff = game_datetime - now
+        
+        if time_diff.total_seconds() < 0:
+            return "Started"
+        
+        days = time_diff.days
+        hours, remainder = divmod(time_diff.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+        elif hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m"
