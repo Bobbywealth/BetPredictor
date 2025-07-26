@@ -293,8 +293,8 @@ def live_games_schedule_page():
     st.header("🏟️ Live Games Schedule")
     
     st.info(
-        "📅 **Real-time schedule of games across all major sports** - "
-        "See live games, upcoming matches, start times, venues, and broadcast information."
+        "📅 **Real games for Soccer, Basketball, and Baseball only** - "
+        "No sample data, only authentic games from ESPN and TheSportsDB APIs."
     )
     
     # Filter controls
@@ -310,7 +310,7 @@ def live_games_schedule_page():
     with col2:
         sport_filter = st.selectbox(
             "Sport",
-            ["all", "football", "basketball", "baseball", "hockey"],
+            ["all", "soccer", "basketball", "baseball"],
             help="Filter by specific sport"
         )
     
@@ -330,10 +330,14 @@ def live_games_schedule_page():
         with st.spinner("Fetching real games from today and tomorrow..."):
             # Test individual sport APIs first
             if debug_mode:
-                st.write("Testing individual ESPN APIs...")
-                for sport, league in [('basketball', 'nba'), ('football', 'nfl')]:
+                st.write("Testing individual APIs...")
+                for sport, league in [('basketball', 'nba'), ('baseball', 'mlb')]:
                     test_df = st.session_state.live_games_manager.get_espn_live_schedule(sport, league)
-                    st.write(f"{sport}/{league}: {len(test_df)} games")
+                    st.write(f"ESPN {sport}/{league}: {len(test_df)} games")
+                
+                # Test soccer from TheSportsDB
+                soccer_df = st.session_state.live_games_manager.get_sportsdb_soccer_games()
+                st.write(f"TheSportsDB soccer: {len(soccer_df)} games")
             
             games_df = st.session_state.live_games_manager.get_upcoming_games_all_sports()
             
@@ -354,28 +358,36 @@ def live_games_schedule_page():
                     st.write("Attempting direct ESPN API test...")
                     try:
                         import requests
+                        # Test ESPN
                         test_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
                         response = requests.get(test_url, timeout=10)
-                        st.write(f"ESPN API Status: {response.status_code}")
-                        if response.status_code == 200:
-                            data = response.json()
-                            st.write(f"Response keys: {list(data.keys())}")
-                            if 'events' in data:
-                                st.write(f"Events found: {len(data['events'])}")
-                            else:
-                                st.write("No 'events' key in response")
+                        st.write(f"ESPN NBA API Status: {response.status_code}")
+                        
+                        # Test TheSportsDB
+                        sportsdb_url = "https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=4328"  # Premier League
+                        response2 = requests.get(sportsdb_url, timeout=10)
+                        st.write(f"TheSportsDB Soccer API Status: {response2.status_code}")
+                        
+                        if response2.status_code == 200:
+                            data2 = response2.json()
+                            if data2.get('events'):
+                                st.write(f"Soccer events found: {len(data2['events'])}")
+                            
                     except Exception as e:
                         st.write(f"API test error: {e}")
                 
-                st.info("This might happen during off-season periods when fewer games are scheduled")
-                # Show realistic current season games
-                current_games = create_current_live_games()
-                st.session_state.live_games_data = current_games
-                st.info("📊 Showing current season schedule based on today's date")
+                st.warning("No real games found for soccer, baseball, or basketball in the current timeframe")
+                st.info("Check back during active seasons: NBA (Oct-Jun), MLB (Mar-Oct), Soccer leagues vary by region")
+                # Clear any existing data to show only real data
+                st.session_state.live_games_data = pd.DataFrame()
+                return  # Exit early since no data to display
     
     # Display games if available
     if 'live_games_data' in st.session_state and not st.session_state.live_games_data.empty:
         games_df = st.session_state.live_games_data.copy()
+        
+        # Show data sources for transparency
+        st.info("✅ Showing real data from authentic sports APIs")
         
         # Apply filters
         if status_filter != "all":
@@ -385,7 +397,7 @@ def live_games_schedule_page():
             games_df = games_df[games_df['sport'] == sport_filter]
         
         if games_df.empty:
-            st.warning(f"No {status_filter} games found for {sport_filter}")
+            st.warning(f"No {status_filter} games found for {sport_filter} in current real data")
             return
         
         # Games summary
@@ -425,6 +437,8 @@ def live_games_schedule_page():
         # Detailed games table
         st.subheader("📋 All Games Details")
         display_detailed_games_table(games_df)
+    else:
+        st.info("📊 No live games data available. Click 'Refresh Games' to fetch real data for soccer, basketball, and baseball.")
 
 def display_games_grid(games_df, status_type):
     """Display games in a grid format with game cards"""
