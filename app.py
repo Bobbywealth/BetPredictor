@@ -466,8 +466,8 @@ def live_games_schedule_page():
         st.info("📊 No live games data available. Click 'Refresh Games' to fetch real data for soccer, basketball, and baseball.")
 
 def display_games_grid(games_df, status_type):
-    """Display games in a grid format with game cards"""
-    games_per_row = 2
+    """Display games in a clean grid format with organized game cards"""
+    games_per_row = 3  # Show 3 games per row for better layout
     
     for i in range(0, len(games_df), games_per_row):
         cols = st.columns(games_per_row)
@@ -479,80 +479,92 @@ def display_games_grid(games_df, status_type):
                 
                 with col:
                     create_game_card(game, status_type)
+            else:
+                # Empty column to maintain layout
+                with col:
+                    st.empty()
 
 def create_game_card(game, status_type):
-    """Create a visual card for each game"""
+    """Create a clean, organized visual card for each game"""
     
     # Determine card styling based on status
     if status_type == "live":
-        card_class = "🔴"
-        status_color = "red"
+        card_emoji = "🔴"
+        status_color = "#ff4444"
     elif status_type == "upcoming":
-        card_class = "⏰"
-        status_color = "blue"
+        card_emoji = "⏰"
+        status_color = "#4444ff"
     else:
-        card_class = "✅"
-        status_color = "green"
+        card_emoji = "✅"
+        status_color = "#44ff44"
     
-    # Create card container
+    # Get game data
+    home_team = game.get('home_team', {})
+    away_team = game.get('away_team', {})
+    venue = game.get('venue', {})
+    
+    # Extract team names
+    if isinstance(home_team, dict) and isinstance(away_team, dict):
+        home_name = home_team.get('name', 'Home Team')
+        away_name = away_team.get('name', 'Away Team')
+        home_score = home_team.get('score', 0)
+        away_score = away_team.get('score', 0)
+    else:
+        home_name = "Home Team"
+        away_name = "Away Team"
+        home_score = 0
+        away_score = 0
+    
+    # Format time better
+    game_time = game.get('time', 'TBD')
+    game_date = game.get('date', 'TBD')
+    
+    # Create organized card with proper styling
     with st.container():
-        st.markdown(f"**{card_class} {game.get('league', 'LEAGUE')}**")
+        # Header with league and status
+        st.markdown(f"""
+        <div style="background-color: {status_color}; padding: 8px; border-radius: 5px; margin-bottom: 10px;">
+            <h4 style="color: white; margin: 0;">{card_emoji} {game.get('league', 'LEAGUE')}</h4>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Game matchup
-        home_team = game.get('home_team', {})
-        away_team = game.get('away_team', {})
-        
-        if isinstance(home_team, dict) and isinstance(away_team, dict):
-            home_name = home_team.get('name', 'Home Team')
-            away_name = away_team.get('name', 'Away Team')
-            home_record = home_team.get('record', '')
-            away_record = away_team.get('record', '')
-            home_score = home_team.get('score', 0)
-            away_score = away_team.get('score', 0)
-        else:
-            # Fallback for simpler data structure
-            home_name = "Home Team"
-            away_name = "Away Team"
-            home_record = ""
-            away_record = ""
-            home_score = 0
-            away_score = 0
-        
-        # Score display
-        if status_type == "live" or status_type == "finished":
-            st.markdown(f"**{away_name}** {away_score}")
-            st.markdown(f"**{home_name}** {home_score}")
-        else:
-            st.markdown(f"**{away_name}** {away_record}")
-            st.markdown(f"**{home_name}** {home_record}")
-        
-        # Game details
-        col1, col2 = st.columns(2)
+        # Team matchup section
+        col1, col2, col3 = st.columns([4, 1, 4])
         
         with col1:
-            st.write(f"**Time:** {game.get('time', 'TBD')}")
-            st.write(f"**Status:** {game.get('status', 'Unknown')}")
+            st.markdown(f"**{away_name}**")
+            if status_type in ["live", "finished"] and away_score > 0:
+                st.markdown(f"Score: **{away_score}**")
         
         with col2:
-            venue = game.get('venue', {})
+            st.markdown("<div style='text-align: center; font-size: 20px; font-weight: bold;'>VS</div>", unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"**{home_name}**")
+            if status_type in ["live", "finished"] and home_score > 0:
+                st.markdown(f"Score: **{home_score}**")
+        
+        # Game info section
+        st.markdown("---")
+        
+        info_col1, info_col2 = st.columns(2)
+        
+        with info_col1:
+            st.markdown(f"**📅 Date:** {game_date}")
+            st.markdown(f"**⏰ Time:** {game_time}")
+            st.markdown(f"**📊 Status:** {game.get('status', 'Scheduled')}")
+        
+        with info_col2:
             if isinstance(venue, dict):
                 venue_name = venue.get('name', 'TBD')
                 venue_city = venue.get('city', '')
+                st.markdown(f"**🏟️ Venue:** {venue_name}")
                 if venue_city:
-                    st.write(f"**Venue:** {venue_name}")
-                    st.write(f"**Location:** {venue_city}")
-                else:
-                    st.write(f"**Venue:** {venue_name}")
+                    st.markdown(f"**📍 Location:** {venue_city}")
             else:
-                st.write("**Venue:** TBD")
+                st.markdown("**🏟️ Venue:** TBD")
         
-        # Broadcast info
-        broadcasts = game.get('broadcasts', [])
-        if broadcasts:
-            broadcast_str = ", ".join(broadcasts[:3])  # Show first 3 networks
-            st.write(f"**TV:** {broadcast_str}")
-        
-        st.divider()
+        st.markdown("---")
 
 def display_detailed_games_table(games_df):
     """Display a detailed table view of all games"""
@@ -578,14 +590,13 @@ def display_detailed_games_table(games_df):
         broadcast_str = ", ".join(broadcasts[:2]) if broadcasts else "N/A"
         
         table_data.append({
-            'Sport': game.get('league', 'N/A'),
-            'Matchup': matchup,
+            'League': game.get('league', 'N/A'),
+            'Teams': matchup,
             'Date': game.get('date', 'TBD'),
             'Time': game.get('time', 'TBD'),
-            'Status': game.get('status', 'Unknown'),
-            'Score': score,
-            'Venue': venue_str,
-            'TV': broadcast_str
+            'Status': game.get('status', 'Scheduled'),
+            'Score': score if status_type in ["live", "finished"] else "vs",
+            'Venue': venue_str
         })
     
     if table_data:

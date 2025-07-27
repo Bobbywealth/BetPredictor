@@ -256,12 +256,24 @@ class LiveGamesManager:
                                     if event.get('intHomeScore') != '' and event.get('intAwayScore') != '':
                                         status = 'Final'
                                 
+                                # Format time better - convert 24hr to 12hr if possible
+                                formatted_time = event.get('strTime', 'TBD')
+                                if formatted_time and formatted_time != 'TBD':
+                                    try:
+                                        # Try to parse and format time
+                                        from datetime import datetime
+                                        time_obj = datetime.strptime(formatted_time, '%H:%M:%S')
+                                        formatted_time = time_obj.strftime('%I:%M %p')
+                                    except:
+                                        # Keep original if parsing fails
+                                        pass
+                                
                                 all_soccer_games.append({
                                     'game_id': f"sdb_{event.get('idEvent', '')}",
                                     'game_name': f"{event.get('strHomeTeam', '')} vs {event.get('strAwayTeam', '')}",
                                     'short_name': f"{event.get('strHomeTeam', '')[:3]} vs {event.get('strAwayTeam', '')[:3]}",
                                     'date': event_date,
-                                    'time': event.get('strTime', 'TBD'),
+                                    'time': formatted_time,
                                     'datetime': game_date,
                                     'status': status,
                                     'status_detail': '',
