@@ -53,22 +53,43 @@ def show_todays_games():
     """Display today's games with predictions"""
     st.markdown("### 🎯 Today's Games & Predictions")
     
-    # Date selector
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    # Date and sport selectors
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
         selected_date = st.date_input("Select Date", value=datetime.now().date())
+    with col2:
+        sport_options = ["All Sports", "Basketball", "Baseball", "Football", "Soccer", "Hockey"]
+        selected_sport = st.selectbox("Filter by Sport", sport_options)
+    with col3:
+        if st.button("🔄 Refresh Games", type="primary"):
+            st.session_state.pop('live_games_manager', None)  # Force refresh
     
-    # Get live games
-    with st.spinner("Loading live games..."):
+    # Convert sport filter
+    sport_filter = None
+    if selected_sport != "All Sports":
+        sport_filter = selected_sport.lower()
+    
+    # Get live games with filters
+    with st.spinner(f"Loading {selected_sport.lower()} games for {selected_date}..."):
         live_games_manager = st.session_state.get('live_games_manager')
         if not live_games_manager:
             live_games_manager = LiveGamesManager()
             st.session_state.live_games_manager = live_games_manager
         
-        games_df = live_games_manager.get_upcoming_games_all_sports()
+        games_df = live_games_manager.get_upcoming_games_all_sports(
+            target_date=selected_date,
+            sport_filter=sport_filter
+        )
         
         if isinstance(games_df, pd.DataFrame) and len(games_df) > 0:
-            st.success(f"Found {len(games_df)} live games")
+            # Filter message based on selection
+            filter_msg = f"Found {len(games_df)} games"
+            if selected_sport != "All Sports":
+                filter_msg += f" in {selected_sport}"
+            if selected_date != datetime.now().date():
+                filter_msg += f" for {selected_date}"
+            
+            st.success(filter_msg)
             
             # Display games in organized cards
             for idx, game in games_df.iterrows():
@@ -113,16 +134,22 @@ def show_todays_games():
                     
                     st.divider()
         else:
-            st.info("Loading live games from ESPN and TheSportsDB APIs...")
-            st.markdown("""
-            **Available Sports:**
-            - Baseball: MLB games with live scores
-            - Basketball: NBA and WNBA games  
-            - Football: NFL games
-            - Soccer: International leagues via TheSportsDB
-            - Hockey: NHL games
+            no_games_msg = f"No {selected_sport.lower()} games found"
+            if selected_date != datetime.now().date():
+                no_games_msg += f" for {selected_date}"
             
-            *Some sports may be in off-season periods*
+            st.info(no_games_msg)
+            st.markdown(f"""
+            **Tip:** Try selecting a different date or sport filter. 
+            
+            **Available Sports:**
+            - Baseball: MLB (in season)
+            - Basketball: NBA, WNBA
+            - Football: NFL (in season) 
+            - Soccer: International leagues
+            - Hockey: NHL (in season)
+            
+            *Games are filtered by selected date to show only relevant matches*
             """)
 
 def show_game_prediction(game):

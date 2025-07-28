@@ -6,13 +6,13 @@ SportsBet Pro is now a complete SaaS (Software as a Service) platform for AI-pow
 
 ## Recent Changes (July 28, 2025)
 
-✓ **Comprehensive Sports Integration**: All major sports categories now included
-✓ **33+ Live Games**: MLB (15), Basketball (1), Football (1), Soccer (16) games
-✓ **Multi-API Coverage**: ESPN for US sports, TheSportsDB for international soccer
-✓ **All Sports Page**: Dedicated comprehensive sports display with category filtering
-✓ **Professional Organization**: Clean, tab-based navigation with role-based access
-✓ **Real-Time Data**: Authentic game data from multiple professional sports APIs
-✓ **Advanced Analytics**: AI-powered game analysis and prediction system
+✓ **Smart Date Filtering**: Games now filtered by selected date, removing out-of-season matches
+✓ **Sport-Specific Filters**: Individual sport filtering (Basketball, Baseball, Football, Soccer, Hockey)
+✓ **Intelligent Season Detection**: System recognizes when sports are in off-season vs active
+✓ **Enhanced User Experience**: Clear date selectors and refresh buttons on all pages
+✓ **Authentic Game Data**: 15+ MLB games for today, properly filtered by date relevance
+✓ **Clean Interface**: No more irrelevant old games like "Pacers vs OKC" from previous months
+✓ **Professional Organization**: Tab-based navigation with real-time data filtering
 
 ## User Preferences
 

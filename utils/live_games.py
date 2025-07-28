@@ -148,18 +148,27 @@ class LiveGamesManager:
                 st.error(f"Error fetching ESPN schedule: {str(e)}")
             return []
     
-    def get_upcoming_games_all_sports(self):
-        """Get comprehensive games across all major sports categories"""
+    def get_upcoming_games_all_sports(self, target_date=None, sport_filter=None):
+        """Get comprehensive games across all major sports categories with date filtering"""
         all_games = []
         
-        # Get today and surrounding dates
-        today = datetime.now()
-        yesterday = today - timedelta(days=1)
-        tomorrow = today + timedelta(days=1)
+        # Use target date or default to today
+        if target_date:
+            if isinstance(target_date, str):
+                target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+            elif hasattr(target_date, 'date'):
+                target_date = target_date.date()
+        else:
+            target_date = datetime.now().date()
+        
+        # Get dates around target date for API calls
+        target_datetime = datetime.combine(target_date, datetime.min.time())
+        yesterday = target_datetime - timedelta(days=1)
+        tomorrow = target_datetime + timedelta(days=1)
         
         dates_to_check = [
             yesterday.strftime('%Y%m%d'),
-            today.strftime('%Y%m%d'),
+            target_datetime.strftime('%Y%m%d'),
             tomorrow.strftime('%Y%m%d')
         ]
         
@@ -179,50 +188,73 @@ class LiveGamesManager:
             ('hockey', 'nhl')
         ]
         
-        # Fetch from ESPN with improved error handling
+        # Apply sport filter if specified
+        if sport_filter:
+            espn_sports = [(s, l) for s, l in espn_sports if s == sport_filter]
+        
+        # Fetch from ESPN with date filtering
         for sport, league in espn_sports:
             try:
-                # Try current schedule first (no date filter)
-                games = self.get_espn_live_schedule(sport, league, None)
-                if games and len(games) > 0:
-                    all_games.extend(games)
-                    if st.session_state.get('debug_mode', False):
-                        st.write(f"✅ Found {len(games)} {sport}/{league} games")
+                # Try target date first, then fallback to current
+                games_found = False
+                for date_str in [target_datetime.strftime('%Y%m%d'), None]:
+                    try:
+                        games = self.get_espn_live_schedule(sport, league, date_str)
+                        if games and len(games) > 0:
+                            # Filter games by target date
+                            filtered_games = self.filter_games_by_date(games, target_date)
+                            if filtered_games:
+                                all_games.extend(filtered_games)
+                                games_found = True
+                                break
+                    except Exception:
+                        continue
+                
+                if not games_found and st.session_state.get('debug_mode', False):
+                    st.write(f"⚠️ No {sport}/{league} games found for {target_date}")
+                    
             except Exception as e:
-                # Silently continue - some sports may be in off-season
                 if st.session_state.get('debug_mode', False):
                     st.write(f"⚠️ {sport}/{league}: {str(e)[:50]}...")
                 continue
         
-        # TheSportsDB for comprehensive soccer coverage
-        try:
-            soccer_games_df = self.get_sportsdb_soccer_games()
-            if isinstance(soccer_games_df, pd.DataFrame) and not soccer_games_df.empty:
-                # Convert DataFrame to list of dicts for consistency
-                soccer_games = soccer_games_df.to_dict('records')
-                all_games.extend(soccer_games)
-        except Exception as e:
-            pass
-        
-        # Additional soccer leagues from TheSportsDB
-        additional_soccer_leagues = [
-            '4328',  # Premier League
-            '4335',  # La Liga
-            '4331',  # Bundesliga
-            '4332',  # Serie A
-            '4334',  # Ligue 1
-            '4346',  # UEFA Champions League
-            '4480',  # UEFA Europa League
-            '4481'   # UEFA Conference League
-        ]
-        
-        for league_id in additional_soccer_leagues:
+        # TheSportsDB for comprehensive soccer coverage (only if no sport filter or soccer filter)
+        if not sport_filter or sport_filter == 'soccer':
             try:
-                league_games = self.get_sportsdb_league_specific(league_id)
-                if league_games:
-                    all_games.extend(league_games)
+                soccer_games_df = self.get_sportsdb_soccer_games()
+                if isinstance(soccer_games_df, pd.DataFrame) and not soccer_games_df.empty:
+                    # Convert DataFrame to list of dicts for consistency
+                    soccer_games = soccer_games_df.to_dict('records')
+                    # Filter soccer games by target date
+                    filtered_soccer = self.filter_games_by_date(soccer_games, target_date)
+                    if filtered_soccer:
+                        all_games.extend(filtered_soccer)
             except Exception as e:
-                continue
+                pass
+        
+        # Additional soccer leagues from TheSportsDB (only if no sport filter or soccer filter)
+        if not sport_filter or sport_filter == 'soccer':
+            additional_soccer_leagues = [
+                '4328',  # Premier League
+                '4335',  # La Liga
+                '4331',  # Bundesliga
+                '4332',  # Serie A
+                '4334',  # Ligue 1
+                '4346',  # UEFA Champions League
+                '4480',  # UEFA Europa League
+                '4481'   # UEFA Conference League
+            ]
+            
+            for league_id in additional_soccer_leagues:
+                try:
+                    league_games = self.get_sportsdb_league_specific(league_id)
+                    if league_games:
+                        # Filter by target date
+                        filtered_league_games = self.filter_games_by_date(league_games, target_date)
+                        if filtered_league_games:
+                            all_games.extend(filtered_league_games)
+                except Exception as e:
+                    continue
         
         # Convert to DataFrame and remove duplicates
         if all_games:
@@ -289,6 +321,44 @@ class LiveGamesManager:
             
         except Exception as e:
             return []
+    
+    def filter_games_by_date(self, games, target_date):
+        """Filter games to only include those on or around the target date"""
+        if not games or not target_date:
+            return games
+            
+        filtered_games = []
+        target_str = target_date.strftime('%Y-%m-%d')
+        
+        # Allow games within 2 days of target date to account for timezone differences
+        target_datetime = datetime.combine(target_date, datetime.min.time())
+        min_date = target_datetime - timedelta(days=2)
+        max_date = target_datetime + timedelta(days=2)
+        
+        for game in games:
+            game_date_str = game.get('date', '')
+            if game_date_str:
+                try:
+                    # Parse various date formats
+                    if len(game_date_str) == 10:  # YYYY-MM-DD
+                        game_date = datetime.strptime(game_date_str, '%Y-%m-%d')
+                    elif len(game_date_str) == 19:  # YYYY-MM-DDTHH:MM:SS
+                        game_date = datetime.strptime(game_date_str[:10], '%Y-%m-%d')
+                    else:
+                        continue
+                    
+                    # Include games within date range
+                    if min_date <= game_date <= max_date:
+                        filtered_games.append(game)
+                        
+                except (ValueError, TypeError):
+                    # If date parsing fails, include game to be safe
+                    continue
+            else:
+                # If no date, include recent games (they might be live)
+                filtered_games.append(game)
+        
+        return filtered_games
     
     def get_sportsdb_soccer_games(self):
         """Get soccer games from TheSportsDB API"""

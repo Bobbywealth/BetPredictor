@@ -59,13 +59,25 @@ def show_all_games():
     """Display all games from all sports"""
     st.markdown("### 🏈 All Live Sports Games")
     
-    with st.spinner("Loading all sports data..."):
+    # Date selector for filtering
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        selected_date = st.date_input("Select Date", value=datetime.now().date(), key="all_games_date")
+    with col2:
+        st.markdown("<div style='padding-top: 2rem;'></div>", unsafe_allow_html=True)
+        if st.button("🔄 Refresh All Games", type="primary"):
+            st.session_state.pop('live_games_manager', None)
+    with col3:
+        # Show selected date info
+        st.markdown(f"<div style='padding-top: 2rem; text-align: right;'>**{selected_date}**</div>", unsafe_allow_html=True)
+    
+    with st.spinner(f"Loading all sports data for {selected_date}..."):
         live_games_manager = st.session_state.get('live_games_manager')
         if not live_games_manager:
             live_games_manager = LiveGamesManager()
             st.session_state.live_games_manager = live_games_manager
         
-        all_games_df = live_games_manager.get_upcoming_games_all_sports()
+        all_games_df = live_games_manager.get_upcoming_games_all_sports(target_date=selected_date)
         
         if isinstance(all_games_df, pd.DataFrame) and len(all_games_df) > 0:
             # Sports summary
@@ -147,31 +159,40 @@ def show_other_sports():
 
 def display_sport_games(sport_filter, expected_leagues):
     """Display games for a specific sport"""
-    with st.spinner(f"Loading {sport_filter} games..."):
+    # Date selector for sport-specific filtering
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        selected_date = st.date_input("Select Date", value=datetime.now().date(), key=f"{sport_filter}_date")
+    with col2:
+        if st.button(f"🔄 Refresh {sport_filter.title()}", type="primary"):
+            st.session_state.pop('live_games_manager', None)
+    
+    with st.spinner(f"Loading {sport_filter} games for {selected_date}..."):
         live_games_manager = st.session_state.get('live_games_manager')
         if not live_games_manager:
             live_games_manager = LiveGamesManager()
             st.session_state.live_games_manager = live_games_manager
         
-        all_games_df = live_games_manager.get_upcoming_games_all_sports()
+        all_games_df = live_games_manager.get_upcoming_games_all_sports(
+            target_date=selected_date,
+            sport_filter=sport_filter
+        )
         
         if isinstance(all_games_df, pd.DataFrame) and len(all_games_df) > 0:
-            # Filter for specific sport
-            sport_games = all_games_df[all_games_df['sport'] == sport_filter]
+            # All games are already filtered by sport and date
+            st.success(f"Found {len(all_games_df)} {sport_filter} games for {selected_date}")
             
-            if len(sport_games) > 0:
-                st.success(f"Found {len(sport_games)} {sport_filter} games")
-                
-                # Group by league
-                leagues = sport_games['league'].unique()
-                for league in leagues:
-                    league_games = sport_games[sport_games['league'] == league]
-                    with st.expander(f"{league} ({len(league_games)} games)", expanded=True):
-                        display_games_table(league_games)
-            else:
-                st.info(f"No {sport_filter} games currently available. Expected leagues: {', '.join(expected_leagues)}")
+            # Group by league
+            leagues = all_games_df['league'].unique()
+            for league in leagues:
+                league_games = all_games_df[all_games_df['league'] == league]
+                with st.expander(f"{league} ({len(league_games)} games)", expanded=True):
+                    display_games_table(league_games)
         else:
-            st.info("No games data available")
+            date_msg = f" for {selected_date}" if selected_date != datetime.now().date() else ""
+            st.info(f"No {sport_filter} games found{date_msg}. Try selecting a different date.")
+            st.markdown(f"**Expected leagues:** {', '.join(expected_leagues)}")
+            st.caption("*Some sports may be in off-season periods*")
 
 def display_games_table(games_df):
     """Display games in a formatted table"""
