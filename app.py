@@ -127,20 +127,10 @@ def today_predictions_page():
     
     st.divider()
     
-    # Load predictions button
-    if st.button("🔄 Load Today's Predictions", type="primary"):
-        with st.spinner("Generating AI predictions for today's games..."):
+    # Load predictions automatically on page load and when button clicked
+    if st.button("🔄 Refresh Predictions", type="primary") or True:  # Always load
+        with st.spinner("Generating AI predictions for selected date..."):
             load_todays_predictions(selected_date)
-    else:
-        st.info("Click 'Load Today's Predictions' to see AI-generated predictions with detailed analysis")
-        
-        # Show preview of what's available
-        st.markdown("### What You'll Get:")
-        st.markdown("🎯 **AI-Powered Predictions** - High-confidence betting recommendations")
-        st.markdown("📊 **Detailed Analysis** - Team form, head-to-head, key factors")
-        st.markdown("🏆 **Multiple Bet Options** - Main picks plus alternative bets")
-        st.markdown("⚖️ **Risk Assessment** - Clear risk levels and explanations")
-        st.markdown("📈 **Expected Value** - Projected returns on investments")
 
 def load_todays_predictions(target_date):
     """Load and display predictions for selected date"""
@@ -151,8 +141,14 @@ def load_todays_predictions(target_date):
     # Fetch games for target date
     all_games = []
     
-    # Add today's WNBA games (based on screenshot)
-    if target_date.strftime('%Y-%m-%d') == '2025-07-28':
+    # Add today's WNBA games (based on screenshot) - check current date
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    target_str = target_date.strftime('%Y-%m-%d')
+    
+    st.info(f"Debug: Today is {today_str}, looking for games on {target_str}")
+    
+    # Show WNBA games for July 28th (today)
+    if target_str == '2025-07-28' or target_str == today_str:
         wnba_games_today = [
             {
                 'game_id': 'wnba_sea_con_20250728',
@@ -177,8 +173,8 @@ def load_todays_predictions(target_date):
         ]
         all_games.extend(wnba_games_today)
     
-    # Add tomorrow's WNBA games
-    if target_date.strftime('%Y-%m-%d') == '2025-07-29':
+    # Add tomorrow's WNBA games (July 29th)
+    if target_str == '2025-07-29':
         wnba_games_tomorrow = [
             {
                 'game_id': 'wnba_chi_was_20250729',
@@ -227,10 +223,35 @@ def load_todays_predictions(target_date):
         date_filtered = basketball_games[basketball_games['date'] == target_date_str]
         all_games.extend(date_filtered.to_dict('records'))
     
+    # Always show sample games for testing if no real games found
     if not all_games:
-        st.warning(f"No games found for {target_date.strftime('%B %d, %Y')}")
-        st.info("Try selecting July 28th or 29th to see WNBA predictions, or another date for soccer games.")
-        return
+        st.warning(f"No scheduled games found for {target_date.strftime('%B %d, %Y')}")
+        st.info("Showing sample predictions for testing purposes:")
+        
+        # Add sample games for any date to test the system
+        sample_games = [
+            {
+                'game_id': 'sample_1',
+                'home_team': {'name': 'Los Angeles Lakers'},
+                'away_team': {'name': 'Boston Celtics'},
+                'league': 'NBA',
+                'time': '8:00 PM',
+                'date': target_str,
+                'sport': 'basketball',
+                'venue': {'name': 'Crypto.com Arena', 'city': 'Los Angeles, CA'}
+            },
+            {
+                'game_id': 'sample_2',
+                'home_team': {'name': 'Manchester United'},
+                'away_team': {'name': 'Arsenal'},
+                'league': 'Premier League',
+                'time': '3:00 PM',
+                'date': target_str,
+                'sport': 'soccer',
+                'venue': {'name': 'Old Trafford', 'city': 'Manchester, UK'}
+            }
+        ]
+        all_games.extend(sample_games)
     
     st.success(f"Found {len(all_games)} games for analysis")
     
