@@ -72,6 +72,17 @@ def main():
     # Check if user needs to subscribe for premium features
     if not st.session_state.subscription_active:
         st.warning("🔒 **Free Plan Limitations**: Limited access to predictions and features. Upgrade for full access!")
+        
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            if st.button("🚀 Upgrade", type="primary", key="main_upgrade"):
+                st.switch_page("pages/2_Pricing.py")
+        with col2:
+            if st.button("🎯 Try Demo", type="secondary", key="main_demo"):
+                st.session_state.subscription_active = True
+                st.session_state.subscription_plan = 'pro'
+                st.success("Demo subscription activated! Try Today's Predictions now.")
+                st.rerun()
     
     # Sidebar navigation
     st.sidebar.markdown("## 🧭 Navigation")
@@ -117,16 +128,27 @@ def today_predictions_page():
     st.title("🎯 Today's Game Predictions")
     st.markdown("### AI-powered predictions with detailed analysis")
     
-    # Check subscription
+    # Check subscription - allow demo access
     subscription_manager = st.session_state.subscription_manager
     if not subscription_manager.check_feature_access('all_predictions'):
-        st.error("🔒 Premium Predictions - Subscription Required")
-        st.info("Upgrade to Pro or Enterprise to access detailed predictions with full analysis.")
+        st.warning("🔒 Premium Predictions - Subscription Required")
+        st.info("Activate demo subscription below to try predictions, or upgrade for full access.")
         
-        col1, col2 = st.columns([1, 4])
+        col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
             if st.button("🚀 Upgrade Now", type="primary"):
                 st.switch_page("pages/2_Pricing.py")
+        with col2:
+            if st.button("🎯 Try Demo", type="secondary"):
+                st.session_state.subscription_active = True
+                st.session_state.subscription_plan = 'pro'
+                st.success("Demo subscription activated!")
+                st.rerun()
+        
+        # Don't return, show limited preview instead
+        st.divider()
+        st.markdown("### Preview - What Premium Users Get:")
+        show_prediction_preview()
         return
     
     # Date selector
@@ -249,6 +271,48 @@ def display_detailed_prediction(game, prediction_number):
             st.info(f"Consider staking {random.randint(2, 5)}% of bankroll")
         
         st.divider()
+
+def show_prediction_preview():
+    """Show a preview of what predictions look like"""
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; margin: 15px 0; color: white; opacity: 0.7;">
+        <h2 style="margin: 0; text-align: center;">🎯 SAMPLE PREDICTION</h2>
+        <h3 style="margin: 10px 0; text-align: center;">Manchester City vs Liverpool</h3>
+        <p style="margin: 0; text-align: center; opacity: 0.9;">Premier League | 3:00 PM</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("""
+        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 5px solid #4CAF50; margin: 10px 0; opacity: 0.7;">
+            <h3 style="color: #2e7d32; margin: 0;">🏆 RECOMMENDED BET</h3>
+            <h2 style="color: #1b5e20; margin: 10px 0;">Both Teams to Score</h2>
+            <p style="color: #388e3c; font-size: 18px; margin: 0;">
+                <strong>Confidence: 87%</strong> | Expected Value: +19.4%
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("**📊 Key Analysis:**")
+        st.markdown("• Manchester City has strong home record (7-2-1 in last 10)")
+        st.markdown("• Liverpool averages 22 shots per game")
+        st.markdown("• Both teams scored in 8 of last 10 meetings")
+        st.markdown("• Weather conditions favor attacking play")
+    
+    with col2:
+        st.markdown("**🔥 Form Guide:**")
+        st.markdown("🏠 Manchester City: W-W-L-W-D")
+        st.markdown("✈️ Liverpool: W-L-W-W-L")
+        
+        st.markdown("**⚖️ Risk Level:**")
+        st.markdown("<span style='color: #4CAF50; font-weight: bold;'>LOW RISK</span>", unsafe_allow_html=True)
+        
+        st.markdown("**💰 Betting Tip:**")
+        st.info("Consider staking 3% of bankroll")
+    
+    st.info("💎 Activate subscription to see real predictions for today's games!")
 
 def live_sports_data_page():
     st.header("🔴 Live Sports Data")
