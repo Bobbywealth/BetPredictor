@@ -8,10 +8,6 @@ def main():
         layout="wide"
     )
     
-    # Back navigation
-    if st.button("← Back to Home", key="back_home"):
-        st.switch_page("pages/landing.py")
-    
     st.title("💰 Choose Your Plan")
     st.markdown("### Unlock the power of AI-driven sports predictions")
     
