@@ -12,12 +12,13 @@ from utils.data_processor import DataProcessor
 from utils.visualization import Visualizer
 from utils.sports_apis import SportsAPIManager
 from utils.live_games import LiveGamesManager
+from utils.subscription import SubscriptionManager
 from data.sample_data import get_sample_data
 
 # Page configuration
 st.set_page_config(
-    page_title="Sports Betting Predictor",
-    page_icon="⚽",
+    page_title="SportsBet Pro",
+    page_icon="🏆",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -33,30 +34,66 @@ if 'sports_api_manager' not in st.session_state:
     st.session_state.sports_api_manager = SportsAPIManager()
 if 'live_games_manager' not in st.session_state:
     st.session_state.live_games_manager = LiveGamesManager()
+if 'subscription_manager' not in st.session_state:
+    st.session_state.subscription_manager = SubscriptionManager()
+
+# Initialize subscription state for SaaS
+if 'subscription_active' not in st.session_state:
+    st.session_state.subscription_active = False
+if 'subscription_plan' not in st.session_state:
+    st.session_state.subscription_plan = 'free'
 
 def main():
-    st.title("🏆 Sports Betting Prediction App")
+    # Header with branding
+    col1, col2, col3 = st.columns([2, 3, 2])
     
+    with col1:
+        st.markdown("# 🏆 SportsBet Pro")
+    
+    with col2:
+        st.markdown("### AI-Powered Sports Predictions")
+    
+    with col3:
+        # Subscription status indicator
+        if st.session_state.subscription_active:
+            plan = st.session_state.subscription_plan or 'Free'
+            st.success(f"✅ {plan.title()} Plan")
+        else:
+            st.error("❌ No Subscription")
+            if st.button("🚀 Upgrade Now"):
+                st.switch_page("pages/2_Pricing.py")
+        
     # Gambling disclaimer
-    st.warning(
-        "⚠️ **IMPORTANT DISCLAIMER**: This application is for educational and entertainment purposes only. "
-        "Sports betting involves significant financial risk. Never bet more than you can afford to lose. "
-        "Predictions are not guaranteed and past performance does not indicate future results. "
-        "Please gamble responsibly and seek help if you have a gambling problem."
+    st.info(
+        "📋 **Educational Platform**: This is a professional sports analytics platform for educational purposes. "
+        "Always gamble responsibly and within your means."
     )
     
+    # Check if user needs to subscribe for premium features
+    if not st.session_state.subscription_active:
+        st.warning("🔒 **Free Plan Limitations**: Limited access to predictions and features. Upgrade for full access!")
+    
     # Sidebar navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox("Choose a page", [
-        "Live Sports Data",
+    st.sidebar.markdown("## 🧭 Navigation")
+    
+    # Main navigation pages
+    main_pages = [
         "Live Games Schedule",
-        "Data Upload & Processing", 
+        "Live Sports Data", 
+        "Data Upload & Processing",
         "Team Analysis",
         "Make Predictions",
         "Model Performance",
         "Historical Analysis"
-    ])
+    ]
     
+    page = st.sidebar.selectbox("Main Features", main_pages)
+    
+    # Add subscription status widget to sidebar
+    st.sidebar.divider()
+    st.session_state.subscription_manager.get_subscription_status_widget()
+    
+    # Route to pages
     if page == "Live Sports Data":
         live_sports_data_page()
     elif page == "Live Games Schedule":
@@ -595,7 +632,7 @@ def display_detailed_games_table(games_df):
             'Date': game.get('date', 'TBD'),
             'Time': game.get('time', 'TBD'),
             'Status': game.get('status', 'Scheduled'),
-            'Score': score if status_type in ["live", "finished"] else "vs",
+            'Score': score if game.get('status', '').lower() in ["final", "live"] else "vs",
             'Venue': venue_str
         })
     
