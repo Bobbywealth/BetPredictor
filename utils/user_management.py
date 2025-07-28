@@ -29,25 +29,50 @@ class UserManager:
         """Display login form"""
         st.markdown("### Login to SportsBet Pro")
         
+        # Display demo credentials
+        st.info("**Demo Login Credentials:**")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Customer Access:**")
+            st.code("Email: user@demo.com\nPassword: password")
+        with col2:
+            st.markdown("**Admin Access:**")
+            st.code("Email: admin@sportsbet.com\nPassword: admin123")
+        
         with st.form("login_form"):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Login")
+            email = st.text_input("Email", placeholder="user@demo.com or admin@sportsbet.com")
+            password = st.text_input("Password", type="password", placeholder="password or admin123")
+            submitted = st.form_submit_button("Login", type="primary")
             
             if submitted:
                 # Simple authentication for demo
                 if email and password:
-                    st.session_state.user_authenticated = True
-                    st.session_state.user_email = email
+                    # Check credentials
+                    valid_login = False
                     
-                    # Check if admin
-                    if email in self.admin_users:
+                    # Admin credentials
+                    if email == "admin@sportsbet.com" and password == "admin123":
+                        valid_login = True
                         st.session_state.user_role = 'admin'
-                    else:
+                    # Customer credentials  
+                    elif email == "user@demo.com" and password == "password":
+                        valid_login = True
                         st.session_state.user_role = 'user'
+                    # Fallback - any email/password for testing
+                    elif email and password:
+                        valid_login = True
+                        if email in self.admin_users:
+                            st.session_state.user_role = 'admin'
+                        else:
+                            st.session_state.user_role = 'user'
                     
-                    st.success(f"Welcome {'Admin' if self.is_admin() else 'User'}!")
-                    st.rerun()
+                    if valid_login:
+                        st.session_state.user_authenticated = True
+                        st.session_state.user_email = email
+                        st.success(f"Welcome {'Admin' if self.is_admin() else 'Customer'}!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid credentials. Use demo credentials above.")
                 else:
                     st.error("Please enter email and password")
                     
