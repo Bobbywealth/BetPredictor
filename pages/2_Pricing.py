@@ -1,5 +1,4 @@
 import streamlit as st
-import stripe
 from datetime import datetime
 
 def main():
