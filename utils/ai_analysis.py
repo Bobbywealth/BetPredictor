@@ -1,0 +1,375 @@
+import os
+import json
+import logging
+from datetime import datetime, date
+from typing import Dict, List, Optional
+import pandas as pd
+import streamlit as st
+
+# OpenAI integration
+from openai import OpenAI
+
+# Gemini integration
+from google import genai
+from google.genai import types
+from pydantic import BaseModel
+
+class GamePrediction(BaseModel):
+    """Structured prediction model"""
+    predicted_winner: str
+    confidence: float  # 0.0 to 1.0
+    predicted_score_home: int
+    predicted_score_away: int
+    key_factors: List[str]
+    risk_level: str  # "LOW", "MEDIUM", "HIGH"
+
+class AIGameAnalyzer:
+    """AI-powered game analysis using OpenAI and Gemini"""
+    
+    def __init__(self):
+        # Initialize OpenAI
+        self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        
+        # Initialize Gemini
+        self.gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        
+    def analyze_game_with_openai(self, game_data: Dict) -> Dict:
+        """Analyze game using OpenAI GPT-4o"""
+        try:
+            home_team = game_data.get('home_team', {}).get('name', 'Unknown')
+            away_team = game_data.get('away_team', {}).get('name', 'Unknown')
+            sport = game_data.get('sport', 'Unknown')
+            league = game_data.get('league', 'Unknown')
+            game_date = game_data.get('date', 'Unknown')
+            
+            prompt = f"""
+            Analyze this upcoming {sport} game in {league}:
+            
+            **Game**: {away_team} at {home_team}
+            **Date**: {game_date}
+            **Sport**: {sport} ({league})
+            
+            Provide a comprehensive analysis including:
+            1. Team strengths and weaknesses
+            2. Head-to-head history insights
+            3. Key players to watch
+            4. Predicted outcome with confidence level
+            5. Betting recommendation (if applicable)
+            6. Risk assessment
+            
+            Format your response as JSON with these fields:
+            {{
+                "analysis": "detailed analysis text",
+                "predicted_winner": "team name",
+                "confidence": 0.75,
+                "key_factors": ["factor1", "factor2", "factor3"],
+                "risk_level": "MEDIUM",
+                "betting_insight": "insight text"
+            }}
+            """
+            
+            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+            # do not change this unless explicitly requested by the user
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert sports analyst with deep knowledge of team statistics, player performance, and game predictions."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=1000
+            )
+            
+            content = response.choices[0].message.content
+            if content:
+                result = json.loads(content)
+                result['ai_source'] = 'OpenAI GPT-4o'
+                return result
+            else:
+                return {"error": "Empty response from OpenAI", "ai_source": "OpenAI GPT-4o"}
+            
+        except Exception as e:
+            return {
+                "error": f"OpenAI analysis failed: {str(e)}",
+                "ai_source": "OpenAI GPT-4o"
+            }
+    
+    def analyze_game_with_gemini(self, game_data: Dict) -> Dict:
+        """Analyze game using Google Gemini"""
+        try:
+            home_team = game_data.get('home_team', {}).get('name', 'Unknown')
+            away_team = game_data.get('away_team', {}).get('name', 'Unknown')
+            sport = game_data.get('sport', 'Unknown')
+            league = game_data.get('league', 'Unknown')
+            game_date = game_data.get('date', 'Unknown')
+            
+            prompt = f"""
+            As a professional sports analyst, analyze this {sport} matchup:
+            
+            Game: {away_team} @ {home_team}
+            League: {league}
+            Date: {game_date}
+            
+            Provide analysis in JSON format:
+            {{
+                "team_analysis": "comparison of both teams",
+                "prediction": "predicted winner",
+                "confidence_score": 0.80,
+                "score_prediction": "predicted final score",
+                "critical_factors": ["factor1", "factor2"],
+                "recommendation": "betting/viewing recommendation"
+            }}
+            """
+            
+            response = self.gemini_client.models.generate_content(
+                model="gemini-2.5-pro",
+                contents=[
+                    types.Content(role="user", parts=[types.Part(text=prompt)])
+                ],
+                config=types.GenerateContentConfig(
+                    system_instruction="You are an expert sports analyst specializing in game predictions and team analysis.",
+                    response_mime_type="application/json",
+                    max_output_tokens=800
+                ),
+            )
+            
+            response_text = response.text if response.text else ""
+            if response_text:
+                result = json.loads(response_text)
+                result['ai_source'] = 'Google Gemini'
+                return result
+            else:
+                return {"error": "Empty response from Gemini", "ai_source": "Google Gemini"}
+                
+        except Exception as e:
+            return {
+                "error": f"Gemini analysis failed: {str(e)}",
+                "ai_source": "Google Gemini"
+            }
+    
+    def get_game_recommendations(self, games_df: pd.DataFrame, user_preferences: Dict = None) -> List[Dict]:
+        """Get AI-powered game recommendations"""
+        try:
+            if len(games_df) == 0:
+                return []
+            
+            # Prepare games summary for AI
+            games_summary = []
+            for idx, game in games_df.head(10).iterrows():  # Limit to first 10 games
+                games_summary.append({
+                    'game': f"{game.get('away_team', {}).get('name', 'Unknown')} at {game.get('home_team', {}).get('name', 'Unknown')}",
+                    'sport': game.get('sport', 'Unknown'),
+                    'league': game.get('league', 'Unknown'),
+                    'time': game.get('time', 'TBD')
+                })
+            
+            prompt = f"""
+            Based on these available games today, recommend the top 5 most interesting games to watch:
+            
+            {json.dumps(games_summary, indent=2)}
+            
+            Consider factors like:
+            - Competitive matchups
+            - Star players
+            - Playoff implications
+            - Historical rivalries
+            - Entertainment value
+            
+            Return JSON with recommendations:
+            {{
+                "top_games": [
+                    {{
+                        "game": "Team A vs Team B",
+                        "reason": "why this game is interesting",
+                        "excitement_level": 9
+                    }}
+                ]
+            }}
+            """
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a sports entertainment expert who knows what makes games exciting for fans."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=600
+            )
+            
+            content = response.choices[0].message.content
+            if content:
+                result = json.loads(content)
+                return result.get('top_games', [])
+            else:
+                return []
+            
+        except Exception as e:
+            return [{"error": f"Recommendations failed: {str(e)}"}]
+    
+    def enhanced_game_discovery(self, date_str: str, sport_filter: str = None) -> Dict:
+        """AI-enhanced game discovery for specific dates"""
+        try:
+            prompt = f"""
+            Help find the most interesting sports games on {date_str}.
+            {f"Focus on {sport_filter} games." if sport_filter else "Include all major sports."}
+            
+            Consider:
+            - Major league games (NFL, NBA, MLB, NHL, WNBA, MLS)
+            - College sports if relevant
+            - International competitions
+            - Playoff or championship games
+            - Key matchups and rivalries
+            
+            Return suggestions in JSON format:
+            {{
+                "search_suggestions": [
+                    {{
+                        "sport": "basketball",
+                        "league": "NBA",
+                        "why_interesting": "reason",
+                        "search_terms": ["term1", "term2"]
+                    }}
+                ],
+                "date_context": "what's special about this date in sports"
+            }}
+            """
+            
+            response = self.gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            
+            response_text = response.text if response.text else ""
+            if response_text:
+                # Parse response (may not be perfect JSON)
+                return {"suggestions": response_text, "ai_source": "Gemini"}
+            else:
+                return {"suggestions": "No specific suggestions available", "ai_source": "Gemini"}
+                
+        except Exception as e:
+            return {"error": f"Game discovery failed: {str(e)}", "ai_source": "Gemini"}
+    
+    def generate_betting_insights(self, game_data: Dict) -> Dict:
+        """Generate responsible betting insights"""
+        try:
+            home_team = game_data.get('home_team', {}).get('name', 'Unknown')
+            away_team = game_data.get('away_team', {}).get('name', 'Unknown')
+            
+            prompt = f"""
+            Provide responsible betting analysis for: {away_team} at {home_team}
+            
+            Important: Include gambling responsibility warnings and focus on entertainment value.
+            
+            Analyze:
+            1. Team form and recent performance
+            2. Statistical trends
+            3. Potential value bets (educational only)
+            4. Risk factors to consider
+            
+            Return JSON:
+            {{
+                "analysis": "statistical analysis",
+                "risk_factors": ["factor1", "factor2"],
+                "educational_insights": "learning points",
+                "responsible_gambling_note": "warning about gambling risks"
+            }}
+            """
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a responsible sports analyst who emphasizes entertainment and education over gambling. Always include gambling warnings."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=700
+            )
+            
+            content = response.choices[0].message.content
+            if content:
+                result = json.loads(content)
+                result['ai_source'] = 'OpenAI GPT-4o'
+            else:
+                result = {"error": "Empty response from OpenAI", "ai_source": "OpenAI GPT-4o"}
+            
+            # Ensure responsible gambling message is included
+            if 'responsible_gambling_note' not in result:
+                result['responsible_gambling_note'] = "⚠️ Sports betting involves risk. Only bet what you can afford to lose. This analysis is for entertainment and educational purposes only."
+            
+            return result
+            
+        except Exception as e:
+            return {
+                "error": f"Betting insights failed: {str(e)}",
+                "responsible_gambling_note": "⚠️ Sports betting involves risk. Please gamble responsibly.",
+                "ai_source": "OpenAI GPT-4o"
+            }
+
+class AIGameFinder:
+    """AI-powered game discovery and search"""
+    
+    def __init__(self):
+        self.analyzer = AIGameAnalyzer()
+    
+    def smart_game_search(self, query: str, available_games: pd.DataFrame) -> List[Dict]:
+        """Use AI to interpret search queries and find relevant games"""
+        try:
+            if len(available_games) == 0:
+                return []
+            
+            # Convert games to searchable format
+            games_info = []
+            for idx, game in available_games.iterrows():
+                games_info.append({
+                    'id': idx,
+                    'teams': f"{game.get('away_team', {}).get('name', '')} vs {game.get('home_team', {}).get('name', '')}",
+                    'sport': game.get('sport', ''),
+                    'league': game.get('league', ''),
+                    'date': game.get('date', ''),
+                    'time': game.get('time', '')
+                })
+            
+            prompt = f"""
+            User search query: "{query}"
+            
+            Available games:
+            {json.dumps(games_info[:20], indent=2)}
+            
+            Find games that match the user's intent. They might be searching for:
+            - Specific teams
+            - Sports or leagues
+            - Game types or matchups
+            - Time preferences
+            
+            Return matching game IDs and reasons:
+            {{
+                "matches": [
+                    {{
+                        "game_id": 0,
+                        "relevance_score": 0.9,
+                        "match_reason": "why this game matches the query"
+                    }}
+                ]
+            }}
+            """
+            
+            response = self.analyzer.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a sports search expert who understands user intent and matches it to available games."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=500
+            )
+            
+            content = response.choices[0].message.content
+            if content:
+                result = json.loads(content)
+                return result.get('matches', [])
+            else:
+                return []
+            
+        except Exception as e:
+            return [{"error": f"Smart search failed: {str(e)}"}]

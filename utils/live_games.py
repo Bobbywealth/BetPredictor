@@ -1,8 +1,9 @@
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import streamlit as st
 import json
+from .date_helper import DateBasedSportsManager
 
 class LiveGamesManager:
     """Manager for fetching and displaying live/upcoming games with detailed information"""
@@ -10,6 +11,7 @@ class LiveGamesManager:
     def __init__(self):
         self.espn_base_url = "https://site.api.espn.com/apis/site/v2/sports"
         self.sportsdb_base_url = "https://www.thesportsdb.com/api/v1/json/3"
+        self.date_manager = DateBasedSportsManager()
         
     def get_espn_live_schedule(self, sport="football", league="nfl", date=None):
         """Get live and upcoming games from ESPN with detailed info"""
@@ -195,23 +197,42 @@ class LiveGamesManager:
         if sport_filter:
             espn_sports = [(s, l) for s, l in espn_sports if s == sport_filter]
         
-        # Fetch from ESPN with date filtering
+        # Enhanced date-based fetching using DateBasedSportsManager
         for sport, league in espn_sports:
             try:
-                # Get games without date filter first (current games)
-                games = self.get_espn_live_schedule(sport, league, None)
+                # Use enhanced date manager for specific date fetching
+                date_games = self.date_manager.fetch_espn_games_for_date(sport, league, target_date)
                 
-                if games and len(games) > 0:
-                    # Filter games by target date
-                    filtered_games = self.filter_games_by_date(games, target_date)
-                    if filtered_games:
-                        all_games.extend(filtered_games)
+                if date_games:
+                    all_games.extend(date_games)
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"✅ Found {len(date_games)} {sport}/{league} games for {target_date}")
+                else:
+                    # Fallback to original method
+                    games_found = []
+                    date_attempts = [
+                        target_datetime.strftime('%Y%m%d'),  # YYYYMMDD format
+                        target_datetime.strftime('%Y-%m-%d'), # YYYY-MM-DD format
+                        None  # Current games fallback
+                    ]
+                    
+                    for date_str in date_attempts:
+                        try:
+                            games = self.get_espn_live_schedule(sport, league, date_str)
+                            if games and len(games) > 0:
+                                filtered_games = self.filter_games_by_date(games, target_date)
+                                if filtered_games:
+                                    games_found.extend(filtered_games)
+                                    break
+                        except Exception:
+                            continue
+                    
+                    if games_found:
+                        all_games.extend(games_found)
                         if st.session_state.get('debug_mode', False):
-                            st.write(f"✅ Found {len(filtered_games)} {sport}/{league} games for {target_date}")
+                            st.write(f"✅ Found {len(games_found)} {sport}/{league} games for {target_date} (fallback)")
                     elif st.session_state.get('debug_mode', False):
-                        st.write(f"⚠️ {sport}/{league}: Found {len(games)} games but none for {target_date}")
-                elif st.session_state.get('debug_mode', False):
-                    st.write(f"⚠️ No {sport}/{league} games available")
+                        st.write(f"⚠️ No {sport}/{league} games found for {target_date}")
                     
             except Exception as e:
                 if st.session_state.get('debug_mode', False):
@@ -256,8 +277,8 @@ class LiveGamesManager:
                 except Exception as e:
                     continue
         
-        # Special handling for WNBA games if basketball is requested and no games found
-        if (not sport_filter or sport_filter == 'basketball') and len(all_games) == 0:
+        # Special handling for WNBA games if basketball is requested
+        if (not sport_filter or sport_filter == 'basketball'):
             try:
                 # Directly fetch current WNBA games
                 wnba_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
@@ -275,7 +296,7 @@ class LiveGamesManager:
                                 display_date = game_dt.strftime('%Y-%m-%d')
                                 display_time = game_dt.strftime('%I:%M %p ET')
                                 
-                                # Check if this game is for our target date
+                                # Check if this game matches our target date (within 1 day for timezone flexibility)
                                 game_date_obj = game_dt.date()
                                 if abs((game_date_obj - target_date).days) <= 1:
                                     competitors = event.get('competitions', [{}])[0].get('competitors', [])
@@ -329,6 +350,40 @@ class LiveGamesManager:
                 df = df.drop_duplicates(subset=['game_name', 'date'], keep='first')
             
             return df
+    
+    def get_monthly_calendar_games(self, year, month, sport_filter=None):
+        """Get all games for a specific month for calendar view"""
+        try:
+            # Define sports to fetch
+            all_sports = [
+                ('basketball', 'nba'),
+                ('basketball', 'wnba'),
+                ('baseball', 'mlb'),
+                ('football', 'nfl'),
+                ('hockey', 'nhl')
+            ]
+            
+            if sport_filter:
+                all_sports = [(s, l) for s, l in all_sports if s == sport_filter]
+            
+            # Use date manager to get monthly games
+            monthly_games = self.date_manager.get_monthly_games(year, month, all_sports)
+            
+            if monthly_games:
+                df = pd.DataFrame(monthly_games)
+                # Remove duplicates
+                if 'game_id' in df.columns:
+                    df = df.drop_duplicates(subset=['game_id'], keep='first')
+                else:
+                    df = df.drop_duplicates(subset=['game_name', 'date'], keep='first')
+                return df
+            else:
+                return pd.DataFrame()
+                
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"⚠️ Monthly calendar error: {str(e)}")
+            return pd.DataFrame()
         else:
             return pd.DataFrame()
     
