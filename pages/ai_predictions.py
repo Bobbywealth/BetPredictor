@@ -107,12 +107,15 @@ def show_game_analysis_tab(games_df: pd.DataFrame, selected_date: date):
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("🧠 Analyze with ChatGPT", type="primary"):
+            if st.button("🧠 Analyze with ChatGPT", type="primary", key=f"openai_analysis_{game_idx}"):
                 analyze_with_openai(selected_game, game_idx)
         
         with col2:
-            if st.button("⚡ Analyze with Gemini", type="secondary"):
+            if st.button("⚡ Analyze with Gemini", type="secondary", key=f"gemini_analysis_{game_idx}"):
                 analyze_with_gemini(selected_game, game_idx)
+        
+        # Display results area
+        st.markdown("---")
         
         # Show existing analyses
         show_cached_analyses(game_idx)
@@ -260,6 +263,7 @@ def analyze_with_openai(game_data: pd.Series, game_idx: int):
             try:
                 analysis = st.session_state.ai_analyzer.analyze_game_with_openai(game_data.to_dict())
                 st.session_state[cache_key] = analysis
+                st.success("ChatGPT analysis completed!")
             except Exception as e:
                 st.error(f"OpenAI analysis failed: {str(e)}")
                 return
@@ -313,6 +317,7 @@ def analyze_with_gemini(game_data: pd.Series, game_idx: int):
             try:
                 analysis = st.session_state.ai_analyzer.analyze_game_with_gemini(game_data.to_dict())
                 st.session_state[cache_key] = analysis
+                st.success("Gemini analysis completed!")
             except Exception as e:
                 st.error(f"Gemini analysis failed: {str(e)}")
                 return
