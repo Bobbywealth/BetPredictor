@@ -4,11 +4,11 @@ from utils.ai_chat import DualAIChat
 import json
 
 def show_ai_chat():
-    """Modern, user-friendly AI Chat interface"""
+    """Modern AI Chat Interface"""
     
-    # Import the modern chat interface
-    from pages.modern_ai_chat import show_modern_ai_chat
-    show_modern_ai_chat()
+    # Use the clean, working version
+    from pages.ai_chat_clean import show_ai_chat as show_clean_chat
+    show_clean_chat()
     
     # Responsible gambling notice
     st.warning("""
@@ -80,8 +80,9 @@ def show_ai_chat():
                         st.markdown("**🧠 Gemini**")
                         st.markdown(entry['gemini_response'])
                     
-                    # Consensus analysis
-                    st.info(entry['consensus'])
+                    # Consensus analysis (if available)
+                    if 'consensus' in entry:
+                        st.info(entry['consensus'])
                     
                 elif entry['chat_mode'] == 'openai':
                     st.markdown("**🤖 ChatGPT**")
