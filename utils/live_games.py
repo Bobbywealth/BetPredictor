@@ -134,7 +134,7 @@ class LiveGamesManager:
                                     'venue': venue_info,
                                     'broadcasts': broadcast_info,
                                     'sport': sport,
-                                    'league': league_key.upper(),
+                                    'league': league.upper(),
                                     'source': 'ESPN'
                                 })
                     except Exception as e:
@@ -177,12 +177,15 @@ class LiveGamesManager:
             # Basketball (Working)
             ('basketball', 'nba'),
             ('basketball', 'wnba'),
+            ('basketball', 'womens-college-basketball'),
             
             # Baseball (Working)
             ('baseball', 'mlb'),
+            ('baseball', 'college-baseball'),
             
-            # Football (Working)
+            # Football (Working)  
             ('football', 'nfl'),
+            ('football', 'college-football'),
             
             # Hockey (Working)
             ('hockey', 'nhl')
@@ -195,23 +198,20 @@ class LiveGamesManager:
         # Fetch from ESPN with date filtering
         for sport, league in espn_sports:
             try:
-                # Try target date first, then fallback to current
-                games_found = False
-                for date_str in [target_datetime.strftime('%Y%m%d'), None]:
-                    try:
-                        games = self.get_espn_live_schedule(sport, league, date_str)
-                        if games and len(games) > 0:
-                            # Filter games by target date
-                            filtered_games = self.filter_games_by_date(games, target_date)
-                            if filtered_games:
-                                all_games.extend(filtered_games)
-                                games_found = True
-                                break
-                    except Exception:
-                        continue
+                # Get games without date filter first (current games)
+                games = self.get_espn_live_schedule(sport, league, None)
                 
-                if not games_found and st.session_state.get('debug_mode', False):
-                    st.write(f"⚠️ No {sport}/{league} games found for {target_date}")
+                if games and len(games) > 0:
+                    # Filter games by target date
+                    filtered_games = self.filter_games_by_date(games, target_date)
+                    if filtered_games:
+                        all_games.extend(filtered_games)
+                        if st.session_state.get('debug_mode', False):
+                            st.write(f"✅ Found {len(filtered_games)} {sport}/{league} games for {target_date}")
+                    elif st.session_state.get('debug_mode', False):
+                        st.write(f"⚠️ {sport}/{league}: Found {len(games)} games but none for {target_date}")
+                elif st.session_state.get('debug_mode', False):
+                    st.write(f"⚠️ No {sport}/{league} games available")
                     
             except Exception as e:
                 if st.session_state.get('debug_mode', False):
@@ -255,6 +255,67 @@ class LiveGamesManager:
                             all_games.extend(filtered_league_games)
                 except Exception as e:
                     continue
+        
+        # Special handling for WNBA games if basketball is requested and no games found
+        if (not sport_filter or sport_filter == 'basketball') and len(all_games) == 0:
+            try:
+                # Directly fetch current WNBA games
+                wnba_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
+                response = requests.get(wnba_url, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    events = data.get('events', [])
+                    
+                    for event in events:
+                        try:
+                            game_date_str = event.get('date', '')
+                            if game_date_str:
+                                game_dt = datetime.fromisoformat(game_date_str.replace('Z', '+00:00'))
+                                display_date = game_dt.strftime('%Y-%m-%d')
+                                display_time = game_dt.strftime('%I:%M %p ET')
+                                
+                                # Check if this game is for our target date
+                                game_date_obj = game_dt.date()
+                                if abs((game_date_obj - target_date).days) <= 1:
+                                    competitors = event.get('competitions', [{}])[0].get('competitors', [])
+                                    
+                                    if len(competitors) >= 2:
+                                        home_team = competitors[0] if competitors[0].get('homeAway') == 'home' else competitors[1]
+                                        away_team = competitors[1] if competitors[0].get('homeAway') == 'home' else competitors[0]
+                                        
+                                        wnba_game = {
+                                            'game_id': f"wnba_{event.get('id', '')}",
+                                            'game_name': event.get('name', 'WNBA Game'),
+                                            'short_name': event.get('shortName', ''),
+                                            'date': display_date,
+                                            'time': display_time,
+                                            'status': event.get('status', {}).get('type', {}).get('name', 'Scheduled'),
+                                            'home_team': {
+                                                'name': home_team['team']['displayName'],
+                                                'abbreviation': home_team['team'].get('abbreviation', ''),
+                                                'logo': home_team['team'].get('logo', ''),
+                                                'score': int(home_team.get('score', 0))
+                                            },
+                                            'away_team': {
+                                                'name': away_team['team']['displayName'],
+                                                'abbreviation': away_team['team'].get('abbreviation', ''),
+                                                'logo': away_team['team'].get('logo', ''),
+                                                'score': int(away_team.get('score', 0))
+                                            },
+                                            'sport': 'basketball',
+                                            'league': 'WNBA',
+                                            'source': 'ESPN'
+                                        }
+                                        all_games.append(wnba_game)
+                                        
+                                        if st.session_state.get('debug_mode', False):
+                                            st.write(f"✅ Added WNBA game: {wnba_game['game_name']} for {display_date}")
+                        except Exception as e:
+                            continue
+            except Exception as e:
+                if st.session_state.get('debug_mode', False):
+                    st.write(f"⚠️ WNBA direct fetch error: {str(e)[:50]}...")
         
         # Convert to DataFrame and remove duplicates
         if all_games:
@@ -330,10 +391,10 @@ class LiveGamesManager:
         filtered_games = []
         target_str = target_date.strftime('%Y-%m-%d')
         
-        # Allow games within 2 days of target date to account for timezone differences
+        # Allow games within 1 day of target date to be more precise
         target_datetime = datetime.combine(target_date, datetime.min.time())
-        min_date = target_datetime - timedelta(days=2)
-        max_date = target_datetime + timedelta(days=2)
+        min_date = target_datetime - timedelta(days=1)
+        max_date = target_datetime + timedelta(days=1)
         
         for game in games:
             game_date_str = game.get('date', '')
