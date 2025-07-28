@@ -78,7 +78,7 @@ def main():
     
     # Organized navigation tabs
     if user_manager.is_admin():
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "🤖 AI Predictions", "📚 API Docs", "⚙️ Settings"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "📚 API Docs", "⚙️ Settings"])
         
         with tab1:
             st.switch_page("pages/admin_dashboard.py")
@@ -89,11 +89,13 @@ def main():
         with tab4:
             st.switch_page("pages/ai_predictions.py")
         with tab5:
-            st.switch_page("pages/3_API_Documentation.py")
+            st.switch_page("pages/live_odds.py")
         with tab6:
+            st.switch_page("pages/3_API_Documentation.py")
+        with tab7:
             st.info("Admin settings coming soon")
     else:
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "🤖 AI Predictions", "💰 Pricing", "👤 Account", "🎧 Support"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "💲 Pricing", "👤 Account", "🎧 Support"])
         
         with tab1:
             st.switch_page("pages/user_dashboard.py")
@@ -102,10 +104,12 @@ def main():
         with tab3:
             st.switch_page("pages/ai_predictions.py")
         with tab4:
-            st.switch_page("pages/2_Pricing.py")
+            st.switch_page("pages/live_odds.py")
         with tab5:
-            st.switch_page("pages/4_Account.py")
+            st.switch_page("pages/2_Pricing.py")
         with tab6:
+            st.switch_page("pages/4_Account.py")
+        with tab7:
             st.switch_page("pages/5_Support.py")
 
 if __name__ == "__main__":

@@ -272,7 +272,7 @@ def display_games_table(games_df):
         
         with col4:
             # Action button
-            if st.button(f"Analyze", key=f"analyze_{idx}_{game.get('game_id', idx)}"):
+            if st.button(f"Analyze", key=f"analyze_{idx}_{game.get('game_id', f'game_{idx}')}_{hash(str(game))}"):
                 show_game_analysis(game)
         
         st.divider()

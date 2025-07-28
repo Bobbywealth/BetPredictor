@@ -6,14 +6,15 @@ SportsBet Pro is now a complete SaaS (Software as a Service) platform for AI-pow
 
 ## Recent Changes (July 28, 2025)
 
+✓ **The Odds API Integration**: Live betting odds from 312+ games across NFL, MLB, NHL, WNBA
 ✓ **AI-Powered Analysis Integration**: Added ChatGPT and Gemini AI for intelligent game predictions
 ✓ **Smart Game Discovery**: AI-enhanced search and recommendation system
-✓ **WNBA Games Integration**: Successfully added 2 live WNBA games with proper scheduling
+✓ **WNBA Games Integration**: Successfully added live WNBA games with proper scheduling
 ✓ **Enhanced Monthly Calendar**: Comprehensive date-based game fetching for entire month
 ✓ **Responsible Gambling Features**: Educational betting insights with safety warnings
 ✓ **Multi-AI Comparison**: Side-by-side analysis from OpenAI GPT-4o and Google Gemini
-✓ **Smart Date Filtering**: Games filtered by selected date, removing out-of-season matches
-✓ **Professional Organization**: Tab-based navigation with AI predictions page
+✓ **Live Odds Page**: Real-time betting odds with AI analysis and value betting insights
+✓ **Professional Organization**: Complete SaaS platform with authentic live data
 
 ## User Preferences
 
@@ -74,6 +75,20 @@ Preferred communication style: Simple, everyday language.
 - **Data Aggregation**: Combines and cleans data from multiple sources
 - **Real-time Updates**: Fetches live scores and recent game results
 - **Connection Testing**: Validates API connectivity and key functionality
+
+### 7. The Odds API Integration (`utils/odds_api.py`)
+- **Live Betting Odds**: Real-time odds from 312+ games across major sports
+- **Multi-Sport Coverage**: NFL, NBA, MLB, NHL, WNBA with authentic bookmaker data
+- **Odds Analysis**: Value betting insights and bookmaker margin calculations
+- **API Management**: Request tracking with 500 daily API calls
+- **Professional Data**: American odds format with multiple bookmaker comparison
+
+### 8. AI Analysis Engine (`utils/ai_analysis.py`)
+- **Dual AI Integration**: ChatGPT GPT-4o and Google Gemini for comprehensive analysis
+- **Game Predictions**: Confidence scores, team analysis, and outcome predictions
+- **Smart Search**: Natural language game discovery and recommendations
+- **Responsible Gambling**: Educational insights with safety warnings
+- **Multi-Modal Analysis**: Combines AI predictions with live betting odds
 
 ## Data Flow
 
