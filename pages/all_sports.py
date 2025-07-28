@@ -11,6 +11,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.user_management import UserManager
 from utils.game_analyzer import GameAnalyzer
 from utils.live_games import LiveGamesManager
+from utils.cache_manager import OptimizedDataLoader, BatchAnalysisManager
+from utils.deep_analysis import DeepGameAnalyzer
 
 def main():
     """Comprehensive sports games display across all categories"""
