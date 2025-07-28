@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 import pandas as pd
 from datetime import datetime, date, timedelta
 import sys
@@ -93,6 +94,10 @@ def show_main_navigation():
     """)
     
     st.divider()
+    
+    # Speed optimization tracking
+    if 'page_load_start' not in st.session_state:
+        st.session_state.page_load_start = time.time()
     
     # Main navigation tabs
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
@@ -229,6 +234,11 @@ def show_sidebar_info():
         
         if st.button("🏆 Today's Picks", key="sidebar_picks"):
             st.rerun()
+        
+        # Speed metrics (collapsible)
+        with st.expander("⚡ Speed Metrics", expanded=False):
+            from utils.quick_cache import show_cache_status
+            show_cache_status()
         
         # System info
         st.markdown("### ℹ️ About")

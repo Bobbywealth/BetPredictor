@@ -15,6 +15,9 @@ class CacheManager:
         
         if 'cache_timestamps' not in st.session_state:
             st.session_state.cache_timestamps = {}
+        
+        # Initialize preload cache
+        self._preload_cache = {}
     
     def get_cache_key(self, prefix: str, params: Dict[str, Any]) -> str:
         """Generate a unique cache key"""

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date
 import streamlit as st
 import json
 from .date_helper import DateBasedSportsManager
+from utils.performance_cache import performance_cache
 
 class LiveGamesManager:
     """Manager for fetching and displaying live/upcoming games with detailed information"""
@@ -13,6 +14,7 @@ class LiveGamesManager:
         self.sportsdb_base_url = "https://www.thesportsdb.com/api/v1/json/3"
         self.date_manager = DateBasedSportsManager()
         
+    @performance_cache.cached_function(max_age=180)  # Cache for 3 minutes
     def get_espn_live_schedule(self, sport="football", league="nfl", date=None):
         """Get live and upcoming games from ESPN with detailed info"""
         try:

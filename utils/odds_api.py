@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, date
 from typing import Dict, List, Optional
 import streamlit as st
+from utils.performance_cache import performance_cache
 
 class OddsAPIManager:
     """Manager for The Odds API integration"""
@@ -42,6 +43,7 @@ class OddsAPIManager:
                 st.write(f"⚠️ Sports API error: {str(e)}")
             return []
     
+    @performance_cache.cached_function(max_age=300)  # Cache for 5 minutes
     def get_odds_for_sport(self, sport_key: str, regions: str = "us", markets: str = "h2h") -> List[Dict]:
         """Get odds for a specific sport"""
         try:
