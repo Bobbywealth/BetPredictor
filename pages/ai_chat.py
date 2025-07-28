@@ -123,13 +123,19 @@ def show_ai_chat():
         key="user_chat_input"
     )
     
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
     
     with col2:
         if st.button("Send 📤", type="primary", disabled=not user_message.strip()):
             if user_message.strip():
                 process_chat_message(user_message.strip(), chat_mode, ai_chat)
                 st.rerun()
+    
+    with col3:
+        if st.button("🧪 Test"):
+            test_response = ai_chat.get_chat_response("Hello! Can you help with NFL picks?", chat_mode)
+            st.success("AI Chat is working!")
+            st.json(test_response)
 
 def process_chat_message(user_message: str, chat_mode: str, ai_chat: DualAIChat):
     """Process and store chat message"""
@@ -139,35 +145,35 @@ def process_chat_message(user_message: str, chat_mode: str, ai_chat: DualAIChat)
     with st.spinner(f"Getting response from {chat_mode.upper()}..."):
         try:
             if chat_mode == "both":
-                responses = ai_chat.get_consensus_response(user_message)
+                response = ai_chat.get_chat_response(user_message, "both")
                 
                 chat_entry = {
                     'timestamp': timestamp,
                     'user_message': user_message,
                     'chat_mode': chat_mode,
-                    'openai_response': responses['openai'],
-                    'gemini_response': responses['gemini'],
-                    'consensus': responses['consensus']
+                    'openai_response': response.get('chatgpt', 'No response'),
+                    'gemini_response': response.get('gemini', 'No response'),
+                    'consensus': "Both AI models provided responses."
                 }
                 
             elif chat_mode == "openai":
-                openai_response = ai_chat.chat_with_openai(user_message)
+                response = ai_chat.get_chat_response(user_message, "openai")
                 
                 chat_entry = {
                     'timestamp': timestamp,
                     'user_message': user_message,
                     'chat_mode': chat_mode,
-                    'openai_response': openai_response
+                    'openai_response': response.get('chatgpt', 'No response')
                 }
                 
             elif chat_mode == "gemini":
-                gemini_response = ai_chat.chat_with_gemini(user_message)
+                response = ai_chat.get_chat_response(user_message, "gemini")
                 
                 chat_entry = {
                     'timestamp': timestamp,
                     'user_message': user_message,
                     'chat_mode': chat_mode,
-                    'gemini_response': gemini_response
+                    'gemini_response': response.get('gemini', 'No response')
                 }
             
             # Add to chat history

@@ -63,7 +63,7 @@ class DualAIChat:
         try:
             response = {"timestamp": datetime.now().isoformat()}
 
-            if ai_provider in ["both", "chatgpt"] and self.openai_client:
+            if ai_provider in ["both", "openai"] and self.openai_client:
                 response["chatgpt"] = self._get_chatgpt_response(user_message)
 
             if ai_provider in ["both", "gemini"] and self.genai_client:
