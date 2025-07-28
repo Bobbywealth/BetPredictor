@@ -84,22 +84,37 @@ class DualAIChat:
             }
 
     def _get_chatgpt_response(self, message: str) -> str:
-        """Get ChatGPT response with context"""
+        """Get expert sports betting response from ChatGPT"""
         try:
+            # Import expert system
+            from utils.sports_betting_expert import sports_expert
+            
             context = self._build_context()
+            expert_prompt = sports_expert.get_expert_prompt("general")
 
             messages = [
-                {"role": "system", "content": f"""You are a sports betting expert assistant. 
-                Current context: {context}
-                Provide concise, helpful responses about sports analysis and betting insights.
-                Focus on facts and statistical analysis."""},
+                {"role": "system", "content": f"""
+{expert_prompt}
+
+CURRENT CONTEXT: {context}
+
+You are a professional sports betting expert with 20+ years of experience. Provide detailed analysis with:
+- Statistical backing and advanced metrics
+- Value betting opportunities and market inefficiencies  
+- Risk assessment and confidence levels
+- Proper bankroll management advice
+- Key factors affecting outcomes
+- Always include responsible gambling warnings
+
+Respond with the expertise of a professional handicapper who consistently beats the market.
+"""},
                 {"role": "user", "content": message}
             ]
 
             response = self.openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",  # Use faster model for chat
+                model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
                 messages=messages,
-                max_tokens=500,  # Limit for faster responses
+                max_tokens=1000,
                 temperature=0.7
             )
 
@@ -109,17 +124,32 @@ class DualAIChat:
             return f"ChatGPT error: {str(e)}"
 
     def _get_gemini_response(self, message: str) -> str:
-        """Get Gemini response with context"""
+        """Get expert sports betting response from Gemini"""
         try:
+            # Import expert system
+            from utils.sports_betting_expert import sports_expert
+            
             context = self._build_context()
+            expert_prompt = sports_expert.get_expert_prompt("general")
 
-            prompt = f"""You are a sports betting expert assistant.
-            Current context: {context}
+            prompt = f"""
+{expert_prompt}
 
-            User question: {message}
+CURRENT CONTEXT: {context}
 
-            Provide a concise, helpful response about sports analysis and betting insights.
-            Focus on facts and statistical analysis."""
+You are a world-class professional sports betting expert with decades of experience managing multi-million dollar betting portfolios. Your expertise includes:
+
+- Advanced statistical modeling and market analysis
+- Professional bankroll management using Kelly Criterion
+- Sharp vs public money identification
+- Weather, injury, and situational analysis
+- Value betting and line shopping strategies
+- Risk management and variance control
+
+USER QUESTION: {message}
+
+Provide expert-level analysis with specific recommendations, statistical backing, risk assessment, and always include responsible gambling warnings. Respond as a professional handicapper who has consistently beaten the market long-term.
+"""
 
             response = self.genai_client.models.generate_content(
                 model="gemini-2.5-flash",
