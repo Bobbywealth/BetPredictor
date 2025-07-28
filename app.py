@@ -112,13 +112,32 @@ def show_main_navigation():
         show_legacy_pages()
 
 def show_legacy_pages():
-    """Show legacy page navigation"""
-    st.markdown("### ⚙️ Legacy Pages")
-    st.markdown("Access individual specialized pages for detailed analysis")
+    """Show legacy page navigation and authentication options"""
+    st.markdown("### ⚙️ Legacy Pages & Authentication")
+    st.markdown("Access individual specialized pages and authentication options")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
+        st.markdown("**Authentication**")
+        if st.button("🏠 Landing Page"):
+            st.switch_page("pages/landing.py")
+        if st.button("🔑 Login"):
+            st.switch_page("pages/login.py")
+        if st.button("✨ Sign Up"):
+            st.switch_page("pages/signup.py")
+        
+        # Logout option if authenticated
+        if st.session_state.get('user_authenticated', False):
+            if st.button("🚪 Logout"):
+                # Clear authentication
+                st.session_state.user_authenticated = False
+                st.session_state.user_email = ''
+                st.session_state.user_role = 'user'
+                st.success("Logged out successfully!")
+                st.switch_page("pages/landing.py")
+    
+    with col2:
         st.markdown("**Navigation Pages**")
         if st.button("📊 User Dashboard"):
             st.switch_page("pages/user_dashboard.py")
@@ -126,9 +145,6 @@ def show_legacy_pages():
             st.switch_page("pages/admin_dashboard.py")
         if st.button("🏈 All Sports"):
             st.switch_page("pages/all_sports.py")
-    
-    with col2:
-        st.markdown("**Analysis Pages**")
         if st.button("🔍 Deep Analysis"):
             st.switch_page("pages/deep_analysis_dashboard.py")
     
@@ -140,6 +156,8 @@ def show_legacy_pages():
             st.switch_page("pages/2_Pricing.py")
         if st.button("👤 Account"):
             st.switch_page("pages/4_Account.py")
+        if st.button("📚 Support"):
+            st.switch_page("pages/5_Support.py")
 
 def show_sidebar_info():
     """Show sidebar with system information"""
