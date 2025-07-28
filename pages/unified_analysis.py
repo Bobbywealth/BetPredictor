@@ -468,10 +468,21 @@ def generate_consensus_analysis(game_data: pd.Series, game_idx: int):
         with st.spinner("Generating dual AI consensus..."):
             try:
                 consensus = st.session_state.consensus_engine.analyze_game_consensus(game_data.to_dict())
+                
+                # Ensure consensus is a dictionary
+                if not isinstance(consensus, dict):
+                    consensus = {'error': f'Invalid consensus format: {type(consensus).__name__}'}
+                
                 st.session_state[cache_key] = consensus
-                st.success("Dual AI consensus analysis completed!")
+                
+                if 'error' not in consensus:
+                    st.success("Dual AI consensus analysis completed!")
+                else:
+                    st.error(f"Consensus analysis failed: {consensus.get('error', 'Unknown error')}")
+                    
             except Exception as e:
                 st.error(f"Consensus analysis failed: {str(e)}")
+                st.session_state[cache_key] = {'error': str(e)}
 
 def display_unified_analysis_results(game_idx: int):
     """Display unified analysis results"""
@@ -585,8 +596,13 @@ def display_pick_analysis(pick):
         st.markdown(f"Prediction: {gemini_data.get('prediction', 'N/A')}")
         st.markdown(f"Confidence: {gemini_data.get('confidence_score', 0):.1%}")
 
-def display_ai_analysis_result(analysis: Dict, ai_name: str):
+def display_ai_analysis_result(analysis, ai_name: str):
     """Display AI analysis result"""
+    # Handle case where analysis might not be a dict
+    if not isinstance(analysis, dict):
+        st.error(f"{ai_name} analysis failed: Invalid response format (received {type(analysis).__name__})")
+        return
+    
     if 'error' not in analysis:
         if ai_name == 'ChatGPT':
             st.markdown(f"**Prediction:** {analysis.get('predicted_winner', 'Unknown')}")
@@ -597,8 +613,13 @@ def display_ai_analysis_result(analysis: Dict, ai_name: str):
     else:
         st.error(f"{ai_name} analysis failed: {analysis.get('error', 'Unknown error')}")
 
-def display_consensus_result(consensus: Dict):
+def display_consensus_result(consensus):
     """Display consensus analysis result"""
+    # Handle case where consensus might be a boolean or other non-dict type
+    if not isinstance(consensus, dict):
+        st.error(f"Consensus analysis failed: Invalid response format (received {type(consensus).__name__})")
+        return
+    
     if 'error' not in consensus:
         st.markdown(f"**Consensus Pick:** {consensus.get('consensus_pick', 'No consensus')}")
         st.markdown(f"**Agreement Level:** {consensus.get('agreement_status', 'Unknown')}")
