@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 from utils.dual_ai_consensus import DualAIConsensusEngine, WinningPicksGenerator
 from utils.cache_manager import OptimizedDataLoader
 from utils.odds_api import OddsAPIManager
+from utils.result_tracker import GameResultTracker
 
 def show_winning_picks():
     """Display high-confidence winning picks with dual AI consensus"""
@@ -30,6 +31,9 @@ def show_winning_picks():
     
     if 'odds_manager' not in st.session_state:
         st.session_state.odds_manager = OddsAPIManager()
+    
+    if 'result_tracker' not in st.session_state:
+        st.session_state.result_tracker = GameResultTracker()
     
     # Controls
     col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
@@ -258,9 +262,20 @@ def show_top_picks(picks_df: pd.DataFrame):
                     st.markdown(f"**Recommendation**")
                     st.markdown(f"**{action.replace('_', ' ').title()}**")
             
-            # Expandable detailed analysis
-            with st.expander("🔍 View Detailed AI Analysis"):
-                show_individual_pick_analysis(pick)
+            # Action buttons  
+            button_col1, button_col2 = st.columns(2)
+            
+            with button_col1:
+                # Expandable detailed analysis
+                with st.expander("🔍 View Detailed AI Analysis"):
+                    show_individual_pick_analysis(pick)
+            
+            with button_col2:
+                # Track prediction button
+                if st.button(f"📊 Track This Pick", key=f"track_{i}_{hash(str(pick))}"):
+                    tracking_id = st.session_state.result_tracker.track_prediction(pick.to_dict())
+                    st.success(f"✅ Prediction tracked! ID: {tracking_id[:8]}...")
+                    st.info("Check the Performance Tracking page to monitor results")
             
             st.markdown("---")
 

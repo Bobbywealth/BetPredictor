@@ -131,6 +131,22 @@ Preferred communication style: Simple, everyday language.
 - **Export Functionality**: CSV download for pick tracking and analysis
 - **Responsible Gambling Integration**: Educational warnings and risk assessment
 
+### 13. Game Result Tracker (`utils/result_tracker.py`)
+- **Live Score Monitoring**: Automatic game result fetching from ESPN and other sources
+- **Prediction Accuracy Analysis**: Compare AI predictions against actual game outcomes
+- **Performance Tracking**: Comprehensive win/loss record with detailed metrics
+- **Model Calibration**: Statistical analysis of confidence vs actual accuracy
+- **Multi-Source Results**: ESPN API, TheSportsDB, and web scraping fallbacks
+- **Historical Analysis**: Long-term tracking with trend analysis and performance insights
+
+### 14. Performance Tracking Dashboard (`pages/performance_tracking.py`)
+- **Comprehensive Analytics**: Detailed performance metrics and trend analysis
+- **Win Rate Tracking**: Real-time accuracy monitoring with confidence calibration
+- **AI Model Performance**: Separate analysis for ChatGPT vs Gemini accuracy
+- **Sport-Specific Analysis**: Performance breakdown by NFL, NBA, MLB, NHL, WNBA
+- **Interactive Visualizations**: Charts for trends, calibration, and accuracy over time
+- **Export Capabilities**: CSV download for external analysis and record keeping
+
 ## Data Flow
 
 1. **Data Input**: Live API data, sample data generation, or user data upload
