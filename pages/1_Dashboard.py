@@ -5,6 +5,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import sys
 import os
+import numpy as np
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -65,10 +66,10 @@ def main():
         
         # Sample performance chart
         dates = pd.date_range(start='2025-06-01', end='2025-07-27', freq='D')
-        cumulative_profit = [0]
+        cumulative_profit = [0.0]
         for i in range(1, len(dates)):
             change = np.random.normal(0.5, 2)  # Slight positive bias
-            cumulative_profit.append(cumulative_profit[-1] + change)
+            cumulative_profit.append(float(cumulative_profit[-1] + change))
         
         fig = go.Figure()
         fig.add_trace(go.Scatter(

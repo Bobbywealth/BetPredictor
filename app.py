@@ -209,19 +209,28 @@ def load_todays_predictions(target_date):
         ]
         all_games.extend(wnba_games_tomorrow)
     
-    # Also try to get soccer games
-    soccer_games = live_games_manager.get_soccer_games()
-    if soccer_games is not None and len(soccer_games) > 0:
-        target_date_str = target_date.strftime('%Y-%m-%d')
-        date_filtered = soccer_games[soccer_games['date'] == target_date_str]
-        all_games.extend(date_filtered.to_dict('records'))
-    
-    # Try to get basketball games from API
-    basketball_games = live_games_manager.get_basketball_games()
-    if basketball_games is not None and len(basketball_games) > 0:
-        target_date_str = target_date.strftime('%Y-%m-%d')
-        date_filtered = basketball_games[basketball_games['date'] == target_date_str]
-        all_games.extend(date_filtered.to_dict('records'))
+    # Try to get real games from ESPN API
+    try:
+        # Format date for ESPN API (YYYYMMDD)
+        espn_date = target_date.strftime('%Y%m%d')
+        
+        # Get basketball games (NBA/WNBA)
+        basketball_games = live_games_manager.get_espn_live_schedule(sport="basketball", league="nba", date=espn_date)
+        if basketball_games:
+            all_games.extend(basketball_games)
+            
+        # Get soccer games (MLS)
+        soccer_games = live_games_manager.get_espn_live_schedule(sport="soccer", league="mls", date=espn_date)
+        if soccer_games:
+            all_games.extend(soccer_games)
+            
+        # Get baseball games (MLB) 
+        baseball_games = live_games_manager.get_espn_live_schedule(sport="baseball", league="mlb", date=espn_date)
+        if baseball_games:
+            all_games.extend(baseball_games)
+            
+    except Exception as e:
+        st.info(f"Live games API unavailable: {str(e)}")
     
     # Always show sample games for testing if no real games found
     if not all_games:
