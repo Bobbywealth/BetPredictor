@@ -14,6 +14,12 @@ from utils.live_games import LiveGamesManager
 
 def main():
     """Clean, organized admin dashboard"""
+    
+    # Initialize user manager if not exists
+    if 'user_manager' not in st.session_state:
+        from utils.user_management import UserManager
+        st.session_state.user_manager = UserManager()
+    
     user_manager = st.session_state.user_manager
     
     # Check authentication and admin role

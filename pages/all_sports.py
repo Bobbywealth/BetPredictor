@@ -16,6 +16,12 @@ from utils.deep_analysis import DeepGameAnalyzer
 
 def main():
     """Comprehensive sports games display across all categories"""
+    
+    # Initialize user manager if not exists
+    if 'user_manager' not in st.session_state:
+        from utils.user_management import UserManager
+        st.session_state.user_manager = UserManager()
+    
     user_manager = st.session_state.user_manager
     
     # Check authentication
