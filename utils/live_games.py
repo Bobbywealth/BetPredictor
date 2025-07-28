@@ -143,7 +143,9 @@ class LiveGamesManager:
             return games
             
         except Exception as e:
-            st.error(f"Error fetching ESPN schedule: {str(e)}")
+            # Don't show errors to users - handle gracefully
+            if st.session_state.get('debug_mode', False):
+                st.error(f"Error fetching ESPN schedule: {str(e)}")
             return []
     
     def get_upcoming_games_all_sports(self):
@@ -161,51 +163,36 @@ class LiveGamesManager:
             tomorrow.strftime('%Y%m%d')
         ]
         
-        # ESPN Sports - Comprehensive coverage
+        # ESPN Sports - Focus on working endpoints
         espn_sports = [
-            # Basketball
+            # Basketball (Working)
             ('basketball', 'nba'),
             ('basketball', 'wnba'),
-            ('basketball', 'mens-college-basketball'),
             
-            # Baseball
+            # Baseball (Working)
             ('baseball', 'mlb'),
-            ('baseball', 'college-baseball'),
             
-            # Football
+            # Football (Working)
             ('football', 'nfl'),
-            ('football', 'college-football'),
             
-            # Soccer
-            ('soccer', 'mls'),
-            ('soccer', 'fifa.world'),
-            ('soccer', 'uefa.euro'),
-            
-            # Hockey
-            ('hockey', 'nhl'),
-            
-            # Tennis
-            ('tennis', 'atp'),
-            ('tennis', 'wta'),
-            
-            # Golf
-            ('golf', 'pga'),
-            
-            # Other sports
-            ('racing', 'f1'),
-            ('mma', 'ufc')
+            # Hockey (Working)
+            ('hockey', 'nhl')
         ]
         
-        # Fetch from ESPN with error handling
+        # Fetch from ESPN with improved error handling
         for sport, league in espn_sports:
-            for date_str in [None] + dates_to_check:  # Try current first, then specific dates
-                try:
-                    games = self.get_espn_live_schedule(sport, league, date_str)
-                    if games and len(games) > 0:
-                        all_games.extend(games)
-                        break  # Found games, move to next sport
-                except Exception as e:
-                    continue  # Try next date or sport
+            try:
+                # Try current schedule first (no date filter)
+                games = self.get_espn_live_schedule(sport, league, None)
+                if games and len(games) > 0:
+                    all_games.extend(games)
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"✅ Found {len(games)} {sport}/{league} games")
+            except Exception as e:
+                # Silently continue - some sports may be in off-season
+                if st.session_state.get('debug_mode', False):
+                    st.write(f"⚠️ {sport}/{league}: {str(e)[:50]}...")
+                continue
         
         # TheSportsDB for comprehensive soccer coverage
         try:
