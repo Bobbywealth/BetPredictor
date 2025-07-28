@@ -140,7 +140,7 @@ class LiveGamesManager:
                     except Exception as e:
                         continue  # Skip malformed games
             
-            return pd.DataFrame(games)
+            return games
             
         except Exception as e:
             st.error(f"Error fetching ESPN schedule: {str(e)}")
