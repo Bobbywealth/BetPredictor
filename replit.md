@@ -6,6 +6,11 @@ SportsBet Pro is now a complete SaaS (Software as a Service) platform for AI-pow
 
 ## Recent Changes (July 28, 2025)
 
+✓ **Interactive AI Chat System**: Conversational interface with ChatGPT and Gemini for discussing sports picks and strategies
+✓ **Dual AI Chat Engine**: Real-time chat with both AIs simultaneously including consensus analysis
+✓ **Sports Context Integration**: Chat includes current games data and live odds for contextual discussions
+✓ **Chat History Management**: Persistent conversation history with export functionality and sample questions
+✓ **Educational Focus**: Responsible gambling integrated into all AI chat responses with strategy discussions
 ✓ **Authentication System Restored**: Complete login, landing, and signup pages with user management
 ✓ **Application Structure Fixed**: Restored main app.py with proper navigation and session state initialization
 ✓ **Session State Issues Resolved**: Fixed all "pages don't work" errors by adding proper manager initialization
@@ -153,7 +158,15 @@ Preferred communication style: Simple, everyday language.
 - **Interactive Visualizations**: Charts for trends, calibration, and accuracy over time
 - **Export Capabilities**: CSV download for external analysis and record keeping
 
-### 15. Unified Analysis Dashboard (`pages/unified_analysis.py`)
+### 15. Interactive AI Chat System (`utils/ai_chat.py`, `pages/ai_chat.py`)
+- **Dual AI Conversations**: Chat simultaneously with ChatGPT (GPT-4o) and Gemini (2.5-flash)
+- **Sports Context Awareness**: Real-time game data and odds integrated into chat responses
+- **Consensus Analysis**: Automatic comparison and agreement detection between AI responses
+- **Conversation History**: Persistent chat history with context maintenance and export options
+- **Educational Focus**: Responsible gambling reminders integrated into all sports discussions
+- **Interactive Features**: Sample questions, chat modes, and conversation management tools
+
+### 16. Unified Analysis Dashboard (`pages/unified_analysis.py`)
 - **Consolidated Interface**: Single dashboard combining all AI analysis features
 - **Multi-Tab Organization**: Winning picks, AI analysis, performance tracking, deep analysis, and live odds
 - **Streamlined Workflow**: Unified experience reducing page navigation complexity

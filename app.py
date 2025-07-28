@@ -48,6 +48,11 @@ def initialize_session_state():
     
     if 'deep_analyzer' not in st.session_state:
         st.session_state.deep_analyzer = DeepGameAnalyzer()
+    
+    # AI Chat system
+    if 'ai_chat' not in st.session_state:
+        from utils.ai_chat import DualAIChat
+        st.session_state.ai_chat = DualAIChat()
 
 def configure_page():
     """Configure the Streamlit page"""
@@ -79,8 +84,9 @@ def show_main_navigation():
     st.divider()
     
     # Main navigation tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "🎯 Unified Analysis", 
+        "💬 AI Chat",
         "🤖 AI Predictions", 
         "🏆 Winning Picks", 
         "📊 Performance", 
@@ -93,22 +99,26 @@ def show_main_navigation():
         show_unified_analysis()
     
     with tab2:
+        from pages.ai_chat import show_ai_chat
+        show_ai_chat()
+    
+    with tab3:
         from pages.ai_predictions import show_ai_predictions
         show_ai_predictions()
     
-    with tab3:
+    with tab4:
         from pages.winning_picks import show_winning_picks
         show_winning_picks()
     
-    with tab4:
+    with tab5:
         from pages.performance_tracking import show_performance_tracking
         show_performance_tracking()
     
-    with tab5:
+    with tab6:
         from pages.live_odds import show_live_odds
         show_live_odds()
     
-    with tab6:
+    with tab7:
         show_legacy_pages()
 
 def show_legacy_pages():
@@ -190,6 +200,9 @@ def show_sidebar_info():
         # Quick access
         st.markdown("### 🚀 Quick Access")
         if st.button("🎯 Unified Analysis", key="sidebar_unified"):
+            st.rerun()
+        
+        if st.button("💬 AI Chat", key="sidebar_chat"):
             st.rerun()
         
         if st.button("🏆 Today's Picks", key="sidebar_picks"):
