@@ -31,17 +31,8 @@ def main():
     if 'live_games_manager' not in st.session_state:
         st.session_state.live_games_manager = LiveGamesManager()
     
-    # Subscription check
-    if not check_subscription():
-        st.error("🔒 Premium Dashboard - Subscription Required")
-        st.info("Upgrade to Pro to access advanced analytics, predictions, and real-time data.")
-        
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("🚀 Upgrade Now", type="primary"):
-                st.session_state.show_pricing = True
-                st.rerun()
-        return
+    # Testing mode - full access
+    st.info("🧪 **Testing Mode**: Full dashboard access for system evaluation")
     
     st.title("📊 SportsBet Pro Dashboard")
     st.markdown("### Your personalized sports betting analytics platform")

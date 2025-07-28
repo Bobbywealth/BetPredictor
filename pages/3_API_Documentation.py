@@ -8,13 +8,8 @@ def main():
         layout="wide"
     )
     
-    # Check if user has API access
-    if not st.session_state.get('subscription_active') or st.session_state.get('subscription_plan') != 'enterprise':
-        st.error("🔒 API Access - Enterprise Subscription Required")
-        st.info("Upgrade to Enterprise to access our powerful REST API.")
-        if st.button("View Pricing"):
-            st.switch_page("pages/2_Pricing.py")
-        return
+    # Testing mode - full API access
+    st.info("🧪 **Testing Mode**: Full API documentation access for system evaluation")
     
     st.title("🔧 SportsBet Pro API Documentation")
     st.markdown("### Enterprise REST API for developers")

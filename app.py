@@ -59,9 +59,8 @@ def main():
             plan = st.session_state.subscription_plan or 'Free'
             st.success(f"✅ {plan.title()} Plan")
         else:
-            st.error("❌ No Subscription")
-            if st.button("🚀 Upgrade Now"):
-                st.switch_page("pages/2_Pricing.py")
+            st.info("🧪 Testing Mode")
+            st.caption("All features unlocked")
         
     # Gambling disclaimer
     st.info(
@@ -69,20 +68,8 @@ def main():
         "Always gamble responsibly and within your means."
     )
     
-    # Check if user needs to subscribe for premium features
-    if not st.session_state.subscription_active:
-        st.warning("🔒 **Free Plan Limitations**: Limited access to predictions and features. Upgrade for full access!")
-        
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            if st.button("🚀 Upgrade", type="primary", key="main_upgrade"):
-                st.switch_page("pages/2_Pricing.py")
-        with col2:
-            if st.button("🎯 Try Demo", type="secondary", key="main_demo"):
-                st.session_state.subscription_active = True
-                st.session_state.subscription_plan = 'pro'
-                st.success("Demo subscription activated! Try Today's Predictions now.")
-                st.rerun()
+    # Testing mode notice
+    st.success("🧪 **Testing Mode Active**: All features unlocked for system testing and evaluation")
     
     # Sidebar navigation
     st.sidebar.markdown("## 🧭 Navigation")
@@ -128,28 +115,8 @@ def today_predictions_page():
     st.title("🎯 Today's Game Predictions")
     st.markdown("### AI-powered predictions with detailed analysis")
     
-    # Check subscription - allow demo access
-    subscription_manager = st.session_state.subscription_manager
-    if not subscription_manager.check_feature_access('all_predictions'):
-        st.warning("🔒 Premium Predictions - Subscription Required")
-        st.info("Activate demo subscription below to try predictions, or upgrade for full access.")
-        
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            if st.button("🚀 Upgrade Now", type="primary"):
-                st.switch_page("pages/2_Pricing.py")
-        with col2:
-            if st.button("🎯 Try Demo", type="secondary"):
-                st.session_state.subscription_active = True
-                st.session_state.subscription_plan = 'pro'
-                st.success("Demo subscription activated!")
-                st.rerun()
-        
-        # Don't return, show limited preview instead
-        st.divider()
-        st.markdown("### Preview - What Premium Users Get:")
-        show_prediction_preview()
-        return
+    # Full access for testing - no subscription required
+    st.info("🧪 **Testing Mode**: Full access to all prediction features for system testing")
     
     # Date selector
     today = datetime.now().date()
