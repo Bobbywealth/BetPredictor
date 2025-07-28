@@ -4,10 +4,11 @@ from utils.ai_chat import DualAIChat
 import json
 
 def show_ai_chat():
-    """Interactive AI Chat for Sports Analysis"""
+    """Modern, user-friendly AI Chat interface"""
     
-    st.title("💬 AI Sports Chat")
-    st.markdown("**Chat with ChatGPT and Gemini about your sports picks and betting strategies**")
+    # Import the modern chat interface
+    from pages.modern_ai_chat import show_modern_ai_chat
+    show_modern_ai_chat()
     
     # Responsible gambling notice
     st.warning("""
