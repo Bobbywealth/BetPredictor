@@ -78,50 +78,55 @@ def main():
     
     # Organized navigation tabs
     if user_manager.is_admin():
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "🏆 Winning Picks", "📊 Performance", "🔍 Deep Analysis", "📚 API Docs", "⚙️ Settings"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "🚀 Unified Analysis", "📚 API Docs", "⚙️ Settings", "📋 Legacy Pages"])
         
         with tab1:
-            st.switch_page("pages/admin_dashboard.py")
+            st.switch_page("pages/dashboard.py")
         with tab2:
             st.switch_page("pages/user_dashboard.py")
         with tab3:
-            st.switch_page("pages/all_sports.py")
+            st.switch_page("pages/1_All_Sports.py")
         with tab4:
-            st.switch_page("pages/ai_predictions.py")
+            st.switch_page("pages/unified_analysis.py")
         with tab5:
-            st.switch_page("pages/live_odds.py")
-        with tab6:
-            st.switch_page("pages/winning_picks.py")
-        with tab7:
-            st.switch_page("pages/performance_tracking.py")
-        with tab8:
-            st.switch_page("pages/deep_analysis_dashboard.py")
-        with tab9:
             st.switch_page("pages/3_API_Documentation.py")
-        with tab10:
+        with tab6:
             st.info("Admin settings coming soon")
+        with tab7:
+            # Legacy pages for reference
+            st.markdown("### 📋 Legacy Individual Pages")
+            st.info("Individual pages maintained for specific use cases:")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("🤖 AI Predictions"):
+                    st.switch_page("pages/ai_predictions.py")
+                if st.button("🏆 Winning Picks"):
+                    st.switch_page("pages/winning_picks.py")
+            
+            with col2:
+                if st.button("💰 Live Odds"):
+                    st.switch_page("pages/live_odds.py")
+                if st.button("📊 Performance"):
+                    st.switch_page("pages/performance_tracking.py")
+            
+            with col3:
+                if st.button("🔍 Deep Analysis"):
+                    st.switch_page("pages/deep_analysis_dashboard.py")
     else:
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "🏆 Winning Picks", "📊 Performance", "🔍 Deep Analysis", "💲 Pricing", "👤 Account", "🎧 Support"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "🚀 Unified Analysis", "💲 Pricing", "👤 Account", "🎧 Support"])
         
         with tab1:
             st.switch_page("pages/user_dashboard.py")
         with tab2:
-            st.switch_page("pages/all_sports.py")
+            st.switch_page("pages/1_All_Sports.py")
         with tab3:
-            st.switch_page("pages/ai_predictions.py")
+            st.switch_page("pages/unified_analysis.py")
         with tab4:
-            st.switch_page("pages/live_odds.py")
-        with tab5:
-            st.switch_page("pages/winning_picks.py")
-        with tab6:
-            st.switch_page("pages/performance_tracking.py")
-        with tab7:
-            st.switch_page("pages/deep_analysis_dashboard.py")
-        with tab8:
             st.switch_page("pages/2_Pricing.py")
-        with tab9:
+        with tab5:
             st.switch_page("pages/4_Account.py")
-        with tab10:
+        with tab6:
             st.switch_page("pages/5_Support.py")
 
 if __name__ == "__main__":
