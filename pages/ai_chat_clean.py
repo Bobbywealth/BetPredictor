@@ -81,12 +81,12 @@ def show_ai_chat():
         )
     
     with col2:
-        if st.button("🗑️ Clear Chat"):
+        if st.button("🗑️ Clear Chat", key="clear_chat_btn"):
             st.session_state.clean_chat_history = []
             st.rerun()
     
     with col3:
-        if st.button("📥 Export"):
+        if st.button("📥 Export", key="export_chat_btn"):
             export_data = create_export()
             st.download_button(
                 "💾 Download",

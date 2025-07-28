@@ -76,66 +76,89 @@ def configure_page():
     )
 
 def show_main_navigation():
-    """Show main navigation and content"""
+    """Professional business website navigation"""
+        
+    # Check if user is logged in
+    if not st.session_state.get('is_authenticated', False):
+        # Show business homepage for non-authenticated users
+        from pages.business_home import show_business_home
+        show_business_home()
+        return
     
-    # Page header
-    st.markdown("""
-    <div style="text-align: center; padding: 2rem 0;">
-        <h1>🏆 SportsBet Pro</h1>
-        <h3>AI-Powered Sports Analysis & Prediction Platform</h3>
-        <p><em>Advanced dual AI consensus system with real-time odds integration</em></p>
+    # Authenticated user interface
+    username = st.session_state.get('username', 'User')
+    is_admin = st.session_state.get('is_admin', False)
+    
+    # Professional header for authenticated users
+    st.markdown(f"""
+    <div style="background: linear-gradient(90deg, #1e3c72, #2a5298); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        <h2>🏆 SportsBet Pro - Professional Dashboard</h2>
+        <p>Welcome back, <strong>{username}</strong>! {'(Administrator)' if is_admin else ''}</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Responsible gambling notice
-    st.warning("""
-    ⚠️ **RESPONSIBLE GAMBLING NOTICE**: This platform provides analytical insights for educational purposes only. 
-    Sports betting involves risk. Never bet more than you can afford to lose. Please gamble responsibly.
-    """)
+    # Main navigation for authenticated users
+    if is_admin:
+        # Admin navigation
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "🔧 Admin Dashboard",
+            "🎯 Analysis Tools", 
+            "💬 AI Chat",
+            "📊 System Monitor",
+            "👥 User Management"
+        ])
+        
+        with tab1:
+            from pages.admin_dashboard import show_admin_dashboard
+            show_admin_dashboard()
+        
+        with tab2:
+            from pages.unified_analysis import show_unified_analysis
+            show_unified_analysis()
+        
+        with tab3:
+            from pages.ai_chat import show_ai_chat
+            show_ai_chat()
+        
+        with tab4:
+            st.markdown("### 📊 System Monitoring")
+            st.info("Advanced system monitoring tools available here")
+        
+        with tab5:
+            st.markdown("### 👥 User Management") 
+            st.info("User management tools available here")
     
-    st.divider()
+    else:
+        # Customer navigation
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "🏠 My Portal",
+            "🎯 Analysis", 
+            "💬 AI Chat",
+            "🏆 Picks", 
+            "📊 Performance"
+        ])
+        
+        with tab1:
+            from pages.customer_portal import show_customer_portal
+            show_customer_portal()
+        
+        with tab2:
+            from pages.unified_analysis import show_unified_analysis
+            show_unified_analysis()
+        
+        with tab3:
+            from pages.ai_chat import show_ai_chat
+            show_ai_chat()
+        
+        with tab4:
+            from pages.winning_picks import show_winning_picks
+            show_winning_picks()
+        
+        with tab5:
+            from pages.performance_tracking import show_performance_tracking
+            show_performance_tracking()
     
-    # Speed optimization tracking
-    if 'page_load_start' not in st.session_state:
-        st.session_state.page_load_start = time.time()
-    
-    # Main navigation tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "🎯 Unified Analysis", 
-        "💬 AI Chat",
-        "🤖 AI Predictions", 
-        "🏆 Winning Picks", 
-        "📊 Performance", 
-        "💰 Live Odds",
-        "⚙️ Legacy Pages"
-    ])
-    
-    with tab1:
-        from pages.unified_analysis import show_unified_analysis
-        show_unified_analysis()
-    
-    with tab2:
-        from pages.ai_chat import show_ai_chat
-        show_ai_chat()
-    
-    with tab3:
-        from pages.ai_predictions import show_ai_predictions
-        show_ai_predictions()
-    
-    with tab4:
-        from pages.winning_picks import show_winning_picks
-        show_winning_picks()
-    
-    with tab5:
-        from pages.performance_tracking import show_performance_tracking
-        show_performance_tracking()
-    
-    with tab6:
-        from pages.live_odds import show_live_odds
-        show_live_odds()
-    
-    with tab7:
-        show_legacy_pages()
+
 
 def show_legacy_pages():
     """Show legacy page navigation and authentication options"""

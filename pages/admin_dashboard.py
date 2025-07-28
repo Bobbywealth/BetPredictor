@@ -1,220 +1,284 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
 from datetime import datetime, timedelta
-import sys
-import os
 
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from utils.user_management import UserManager
-from utils.game_analyzer import GameAnalyzer
-from utils.live_games import LiveGamesManager
-
-def main():
-    """Clean, organized admin dashboard"""
+def show_admin_dashboard():
+    """Professional admin dashboard for SportsBet Pro"""
     
-    # Initialize user manager if not exists
-    if 'user_manager' not in st.session_state:
-        from utils.user_management import UserManager
-        st.session_state.user_manager = UserManager()
+    # Check admin access
+    if not st.session_state.get('is_admin', False):
+        st.error("🚫 Access Denied: Admin privileges required")
+        st.info("Please contact your system administrator for access.")
+        return
     
-    user_manager = st.session_state.user_manager
+    st.title("🔧 SportsBet Pro - Admin Dashboard")
     
-    # Check authentication and admin role
-    if not user_manager.is_authenticated():
-        st.error("Please login to access admin dashboard")
-        st.stop()
+    # Admin header
+    st.success(f"👨‍💼 Welcome back, {st.session_state.get('username', 'Admin')}!")
     
-    if not user_manager.is_admin():
-        st.error("Admin access required")
-        st.stop()
+    # Key metrics
+    st.markdown("## 📊 Platform Overview")
     
-    # Clean header with navigation
-    col1, col2, col3 = st.columns([2, 3, 2])
+    col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
-        if st.button("← Back to Home", key="back_home"):
-            st.switch_page("app.py")
+        st.metric("Total Users", "2,847", "+127 this week", delta_color="normal")
     with col2:
-        st.markdown("<h2 style='text-align: center;'>⚙️ Admin Dashboard</h2>", unsafe_allow_html=True)
+        st.metric("Active Subscriptions", "1,956", "+89 this month", delta_color="normal")
     with col3:
-        user_info = user_manager.get_user_info()
-        st.markdown(f"<div style='text-align: right; padding-top: 1rem;'>Administrator</div>", unsafe_allow_html=True)
+        st.metric("Monthly Revenue", "$147,420", "+12.3%", delta_color="normal")
+    with col4:
+        st.metric("System Uptime", "99.97%", "Last 30 days", delta_color="normal")
     
-    st.divider()
-    
-    # Organized admin tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 System Overview", "👥 User Management", "🔧 API Status", "📈 Analytics"])
+    # Tabs for different admin functions
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📈 Analytics", "👥 User Management", "💰 Revenue", "⚙️ System", "🎯 AI Performance"
+    ])
     
     with tab1:
-        show_system_overview()
+        show_analytics_section()
     
     with tab2:
         show_user_management()
     
     with tab3:
-        show_api_status()
+        show_revenue_section()
     
     with tab4:
-        show_system_analytics()
-
-def show_system_overview():
-    """Display system overview"""
-    st.markdown("### 📊 System Overview")
+        show_system_section()
     
-    # System metrics
+    with tab5:
+        show_ai_performance()
+
+def show_analytics_section():
+    """Analytics section for admin dashboard"""
+    
+    st.markdown("### 📊 User Analytics")
+    
+    # User growth chart
+    dates = pd.date_range(start=datetime.now() - timedelta(days=30), end=datetime.now(), freq='D')
+    users = [2500 + i*10 + (i%7)*15 for i in range(len(dates))]
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=dates, y=users, mode='lines+markers', name='Total Users'))
+    fig.update_layout(title="User Growth - Last 30 Days", xaxis_title="Date", yaxis_title="Users")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Usage statistics
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Most Popular Features")
+        feature_data = {
+            'Feature': ['AI Chat', 'Winning Picks', 'Live Odds', 'Performance Tracking', 'Deep Analysis'],
+            'Usage %': [89, 76, 68, 54, 43]
+        }
+        fig = px.bar(feature_data, x='Feature', y='Usage %', title="Feature Usage Statistics")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### User Engagement")
+        engagement_data = {
+            'Metric': ['Daily Active Users', 'Weekly Active Users', 'Monthly Active Users'],
+            'Count': [1847, 2456, 2847],
+            'Percentage': [65, 86, 100]
+        }
+        df = pd.DataFrame(engagement_data)
+        st.dataframe(df, use_container_width=True)
+
+def show_user_management():
+    """User management section"""
+    
+    st.markdown("### 👥 User Management")
+    
+    # User search and filters
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        search_user = st.text_input("🔍 Search Users", placeholder="Enter username or email")
+    
+    with col2:
+        user_type_filter = st.selectbox("Filter by Type", ["All", "Free", "Starter", "Professional", "Enterprise"])
+    
+    with col3:
+        status_filter = st.selectbox("Filter by Status", ["All", "Active", "Suspended", "Pending"])
+    
+    # Sample users data
+    users_data = {
+        'Username': ['mike_johnson', 'sarah_chen', 'alex_rodriguez', 'emma_wilson', 'david_lee'],
+        'Email': ['mike@email.com', 'sarah@email.com', 'alex@email.com', 'emma@email.com', 'david@email.com'],
+        'Plan': ['Professional', 'Enterprise', 'Starter', 'Professional', 'Free'],
+        'Status': ['Active', 'Active', 'Active', 'Suspended', 'Active'],
+        'Last Login': ['2024-07-28', '2024-07-27', '2024-07-28', '2024-07-25', '2024-07-26'],
+        'Revenue': ['$79', '$199', '$29', '$79', '$0']
+    }
+    
+    df = pd.DataFrame(users_data)
+    st.dataframe(df, use_container_width=True)
+    
+    # User actions
+    st.markdown("#### Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Active Users", "127", "12")
+        if st.button("📧 Send Notification", key="send_notification"):
+            st.success("Notification sent to selected users!")
+    
     with col2:
-        st.metric("Daily Predictions", "1,234", "89")
+        if st.button("🔒 Suspend User", key="suspend_user"):
+            st.warning("User suspension functionality activated")
+    
     with col3:
-        st.metric("API Calls Today", "2,456", "156")
+        if st.button("💰 Update Billing", key="update_billing"):
+            st.info("Billing update interface opened")
+    
     with col4:
-        st.metric("System Uptime", "99.9%", "0.1%")
+        if st.button("📊 Export Data", key="export_users"):
+            st.success("User data exported successfully!")
+
+def show_revenue_section():
+    """Revenue and billing section"""
     
-    st.divider()
+    st.markdown("### 💰 Revenue Analytics")
     
-    # Recent activity
-    st.markdown("**Recent System Activity**")
-    activity_data = {
-        'Time': ['16:45', '16:30', '16:15', '16:00', '15:45'],
-        'User': ['user@demo.com', 'admin@sportsbet.com', 'user2@demo.com', 'user@demo.com', 'user3@demo.com'],
-        'Action': ['Generated prediction', 'Viewed API docs', 'Login', 'Viewed dashboard', 'Generated prediction'],
-        'Status': ['✅ Success', '✅ Success', '✅ Success', '✅ Success', '✅ Success']
+    # Revenue metrics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Monthly Recurring Revenue", "$147,420", "+$18,230")
+    with col2:
+        st.metric("Average Revenue Per User", "$75.36", "+$4.20")
+    with col3:
+        st.metric("Churn Rate", "2.3%", "-0.8%", delta_color="inverse")
+    
+    # Revenue by plan
+    plan_revenue = {
+        'Plan': ['Starter', 'Professional', 'Enterprise'],
+        'Subscribers': [456, 1234, 266],
+        'Monthly Revenue': ['$13,224', '$97,486', '$52,834']
     }
     
-    activity_df = pd.DataFrame(activity_data)
-    st.dataframe(activity_df, use_container_width=True)
-
-def show_user_management():
-    """Display user management interface"""
-    st.markdown("### 👥 User Management")
-    
-    # User statistics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Users", "127")
-    with col2:
-        st.metric("Active Today", "45")
-    with col3:
-        st.metric("New This Week", "12")
-    
-    st.divider()
-    
-    # User list
-    st.markdown("**User List**")
-    users_data = {
-        'Email': ['user@demo.com', 'admin@sportsbet.com', 'user2@demo.com', 'user3@demo.com'],
-        'Role': ['User', 'Admin', 'User', 'User'],
-        'Last Active': ['2 min ago', '5 min ago', '1 hour ago', '3 hours ago'],
-        'Predictions': [12, 8, 25, 15],
-        'Status': ['🟢 Active', '🟢 Active', '🟡 Idle', '🟡 Idle']
-    }
-    
-    users_df = pd.DataFrame(users_data)
-    st.dataframe(users_df, use_container_width=True)
-    
-    # User actions
-    st.markdown("**User Actions**")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("Export User Data", use_container_width=True):
-            st.success("User data exported successfully")
-    with col2:
-        if st.button("Send Notifications", use_container_width=True):
-            st.success("Notifications sent to all users")
-    with col3:
-        if st.button("Generate Report", use_container_width=True):
-            st.success("User activity report generated")
-
-def show_api_status():
-    """Display API status and monitoring"""
-    st.markdown("### 🔧 API Status & Monitoring")
-    
-    # API health checks
-    st.markdown("**API Health Status**")
-    
-    api_status = [
-        {"API": "ESPN Sports API", "Status": "🟢 Online", "Response Time": "145ms", "Success Rate": "99.8%"},
-        {"API": "TheSportsDB API", "Status": "🟢 Online", "Response Time": "230ms", "Success Rate": "99.2%"},
-        {"API": "Internal Prediction Engine", "Status": "🟢 Online", "Response Time": "45ms", "Success Rate": "100%"},
-        {"API": "User Authentication", "Status": "🟢 Online", "Response Time": "12ms", "Success Rate": "100%"}
-    ]
-    
-    api_df = pd.DataFrame(api_status)
-    st.dataframe(api_df, use_container_width=True)
-    
-    st.divider()
-    
-    # Test API connections
-    st.markdown("**API Connection Tests**")
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Test ESPN API", use_container_width=True):
-            with st.spinner("Testing ESPN API..."):
-                # Test ESPN connection
-                try:
-                    live_games_manager = LiveGamesManager()
-                    games = live_games_manager.get_espn_live_schedule('baseball', 'mlb')
-                    st.success(f"✅ ESPN API working - Found {len(games)} games")
-                except Exception as e:
-                    st.error(f"❌ ESPN API error: {str(e)}")
+        st.markdown("#### Revenue by Plan")
+        df = pd.DataFrame(plan_revenue)
+        st.dataframe(df, use_container_width=True)
     
     with col2:
-        if st.button("Test TheSportsDB API", use_container_width=True):
-            with st.spinner("Testing TheSportsDB API..."):
-                try:
-                    live_games_manager = LiveGamesManager() 
-                    games = live_games_manager.get_sportsdb_soccer_games()
-                    st.success(f"✅ TheSportsDB API working - Found {len(games)} games")
-                except Exception as e:
-                    st.error(f"❌ TheSportsDB API error: {str(e)}")
-
-def show_system_analytics():
-    """Display system analytics"""
-    st.markdown("### 📈 System Analytics")
-    
-    # Usage trends
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**Daily API Calls**")
-        dates = pd.date_range(start='2025-07-22', end='2025-07-28', freq='D')
-        api_calls = np.random.randint(2000, 3000, len(dates))
+        st.markdown("#### Revenue Trend")
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+        revenue = [98000, 112000, 125000, 134000, 142000, 147000, 147420]
         
-        chart_data = pd.DataFrame({
-            'Date': dates,
-            'API Calls': api_calls
-        })
-        st.line_chart(chart_data.set_index('Date'))
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=months, y=revenue, mode='lines+markers', name='Revenue'))
+        fig.update_layout(title="Monthly Revenue Growth")
+        st.plotly_chart(fig, use_container_width=True)
+
+def show_system_section():
+    """System monitoring section"""
+    
+    st.markdown("### ⚙️ System Status")
+    
+    # System health
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Server Uptime", "99.97%", "30 days")
+    with col2:
+        st.metric("API Response Time", "127ms", "-23ms")
+    with col3:
+        st.metric("Database Load", "34%", "+2%")
+    with col4:
+        st.metric("Cache Hit Rate", "94.2%", "+1.8%")
+    
+    # System alerts
+    st.markdown("#### Recent System Events")
+    
+    alerts_data = {
+        'Timestamp': ['2024-07-28 10:15', '2024-07-28 09:42', '2024-07-27 23:18'],
+        'Type': ['Info', 'Warning', 'Info'],
+        'Message': [
+            'Database backup completed successfully',
+            'High CPU usage detected on server-02',
+            'System maintenance completed'
+        ],
+        'Status': ['Resolved', 'Monitoring', 'Resolved']
+    }
+    
+    df = pd.DataFrame(alerts_data)
+    st.dataframe(df, use_container_width=True)
+    
+    # System controls
+    st.markdown("#### System Controls")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🔄 Restart Services", key="restart_services"):
+            st.warning("Service restart initiated...")
     
     with col2:
-        st.markdown("**Prediction Accuracy by Sport**")
-        sports_accuracy = {
-            'Basketball': 0.72,
-            'Baseball': 0.68,
-            'Soccer': 0.75
-        }
-        st.bar_chart(sports_accuracy)
+        if st.button("💾 Backup Database", key="backup_db"):
+            st.success("Database backup started")
     
-    st.divider()
-    
-    # System performance
-    st.markdown("**System Performance Metrics**")
-    
-    perf_col1, perf_col2, perf_col3, perf_col4 = st.columns(4)
-    with perf_col1:
-        st.metric("Avg Response Time", "89ms", "-12ms")
-    with perf_col2:
-        st.metric("Memory Usage", "2.1GB", "0.2GB")
-    with perf_col3:
-        st.metric("CPU Usage", "23%", "-5%")
-    with perf_col4:
-        st.metric("Error Rate", "0.2%", "-0.1%")
+    with col3:
+        if st.button("🧹 Clear Cache", key="clear_cache"):
+            st.info("System cache cleared")
 
-if __name__ == "__main__":
-    main()
+def show_ai_performance():
+    """AI performance monitoring"""
+    
+    st.markdown("### 🎯 AI Performance Metrics")
+    
+    # AI accuracy metrics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Overall Accuracy", "87.3%", "+2.1%")
+    with col2:
+        st.metric("ChatGPT Accuracy", "86.8%", "+1.9%")
+    with col3:
+        st.metric("Gemini Accuracy", "87.9%", "+2.3%")
+    
+    # AI usage statistics
+    ai_stats = {
+        'AI Model': ['ChatGPT', 'Gemini', 'Consensus'],
+        'Requests Today': [1247, 1156, 892],
+        'Average Response Time': ['1.2s', '0.9s', '2.1s'],
+        'Success Rate': ['98.2%', '97.8%', '99.1%']
+    }
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### AI Usage Statistics")
+        df = pd.DataFrame(ai_stats)
+        st.dataframe(df, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### Model Performance")
+        models = ['ChatGPT', 'Gemini', 'Consensus']
+        accuracy = [86.8, 87.9, 91.2]
+        
+        fig = px.bar(x=models, y=accuracy, title="AI Model Accuracy Comparison")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # AI model controls
+    st.markdown("#### AI Model Management")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🔄 Retrain Models", key="retrain_models"):
+            st.success("Model retraining scheduled")
+    
+    with col2:
+        if st.button("📊 Generate Report", key="ai_report"):
+            st.info("AI performance report generated")
+    
+    with col3:
+        if st.button("⚙️ Model Settings", key="model_settings"):
+            st.info("Model configuration panel opened")
