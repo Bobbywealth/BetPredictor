@@ -1,11 +1,12 @@
 import streamlit as st
 import openai
-import google.generativeai as genai
+import os
+from google import genai
+from google.genai import types
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
 import time
-from utils.performance_optimizer import performance_optimizer
 
 class DualAIChat:
     """Enhanced AI Chat system with performance optimizations"""
@@ -34,7 +35,7 @@ class DualAIChat:
     def openai_client(self):
         """Lazy load OpenAI client"""
         if self._openai_client is None:
-            api_key = st.secrets.get("OPENAI_API_KEY")
+            api_key = os.environ.get("OPENAI_API_KEY")
             if api_key:
                 self._openai_client = openai.OpenAI(api_key=api_key)
         return self._openai_client
@@ -43,13 +44,11 @@ class DualAIChat:
     def genai_client(self):
         """Lazy load Gemini client"""
         if self._genai_client is None:
-            api_key = st.secrets.get("GEMINI_API_KEY")
+            api_key = os.environ.get("GEMINI_API_KEY")
             if api_key:
-                genai.configure(api_key=api_key)
-                self._genai_client = genai.GenerativeModel('gemini-pro')
+                self._genai_client = genai.Client(api_key=api_key)
         return self._genai_client
 
-    @performance_optimizer.debounce(0.5)  # Debounce rapid queries
     def get_chat_response(self, user_message: str, ai_provider: str = "both") -> Dict[str, Any]:
         """Get AI response with performance optimizations"""
 
@@ -122,8 +121,11 @@ class DualAIChat:
             Provide a concise, helpful response about sports analysis and betting insights.
             Focus on facts and statistical analysis."""
 
-            response = self.genai_client.generate_content(prompt)
-            return response.text
+            response = self.genai_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            return response.text if response.text else "No response generated"
 
         except Exception as e:
             return f"Gemini error: {str(e)}"
@@ -167,7 +169,7 @@ class DualAIChat:
         if games:
             st.session_state.chat_context['current_games'] = games
 
-    defget_suggested_questions(self) -> List[str]:
+    def get_suggested_questions(self) -> List[str]:
         """Get context-aware suggested questions"""
         base_questions = [
             "What are today's best betting opportunities?",
@@ -186,7 +188,8 @@ class DualAIChat:
             return sport_questions + base_questions[:2]
 
         return base_questions
-```def export_chat_history(self) -> str:
+    
+    def export_chat_history(self) -> str:
         """Export chat history as formatted text"""
         if not st.session_state.chat_history:
             return "No chat history to export."
@@ -197,7 +200,16 @@ class DualAIChat:
         for entry in st.session_state.chat_history:
             export_text += f"[{entry['timestamp']}]\n"
             export_text += f"USER: {entry['user_message']}\n\n"
-            export_text += f"AI Response: {entry['ai_response']}\n\n"            
+            
+            if entry['chat_mode'] == 'both':
+                export_text += f"ChatGPT: {entry['openai_response']}\n\n"
+                export_text += f"Gemini: {entry['gemini_response']}\n\n"
+                export_text += f"Consensus: {entry['consensus']}\n\n"
+            else:
+                ai_name = entry['chat_mode'].upper()
+                response_key = f"{entry['chat_mode']}_response"
+                export_text += f"{ai_name}: {entry[response_key]}\n\n"
+            
             export_text += "-" * 40 + "\n\n"
         
         return export_text
