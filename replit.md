@@ -6,6 +6,12 @@ SportsBet Pro is now a complete SaaS (Software as a Service) platform for AI-pow
 
 ## Recent Changes (July 28, 2025)
 
+✓ **Dual AI Consensus System**: Advanced system combining ChatGPT and Gemini for high-confidence picks
+✓ **Python Success Algorithms**: Mathematical models for edge calculation and Kelly criterion analysis  
+✓ **Winning Picks Dashboard**: Dedicated page for high-confidence betting recommendations
+✓ **AI Agreement Analysis**: Sophisticated consensus detection between both AI models
+✓ **Success Probability Calculation**: Bayesian-inspired algorithms for win probability assessment
+✓ **Value Rating System**: Comprehensive betting value analysis with risk assessment
 ✓ **Deep Analysis System**: Comprehensive game analysis with caching and performance optimization
 ✓ **Performance Optimization**: Intelligent caching system reduces API calls and improves load times
 ✓ **Batch Analysis**: Efficient processing of multiple games with statistical and AI insights
@@ -18,6 +24,8 @@ SportsBet Pro is now a complete SaaS (Software as a Service) platform for AI-pow
 ✓ **Multi-AI Comparison**: Side-by-side analysis from OpenAI GPT-4o and Google Gemini
 ✓ **Live Odds Page**: Real-time betting odds with AI analysis and value betting insights
 ✓ **Deep Analysis Dashboard**: Dedicated page for comprehensive game analysis with visualizations
+
+
 
 ## User Preferences
 
@@ -106,6 +114,22 @@ Preferred communication style: Simple, everyday language.
 - **Performance Metrics**: Interest scores, value assessments, priority rankings
 - **Risk Assessment**: Betting risk factors and market efficiency analysis
 - **Visualization Ready**: Data structured for charts and interactive displays
+
+### 11. Dual AI Consensus System (`utils/dual_ai_consensus.py`)
+- **Advanced AI Fusion**: Combines ChatGPT GPT-4o and Gemini 2.5 Pro analyses
+- **Consensus Detection**: Sophisticated agreement analysis between AI models
+- **Python Success Algorithms**: Mathematical edge calculation and Kelly criterion
+- **Success Probability Models**: Bayesian-inspired win probability assessment
+- **Value Rating Engine**: Comprehensive betting value analysis with risk factors
+- **Pick Generation**: High-confidence winning picks with detailed reasoning
+
+### 12. Winning Picks Dashboard (`pages/winning_picks.py`)
+- **High-Confidence Picks**: Daily curated winning recommendations
+- **Dual AI Analysis Display**: Side-by-side ChatGPT vs Gemini comparisons
+- **Interactive Analytics**: Performance charts and success probability visualizations
+- **Pick Rankings**: Gold/Silver/Bronze system with composite scoring
+- **Export Functionality**: CSV download for pick tracking and analysis
+- **Responsible Gambling Integration**: Educational warnings and risk assessment
 
 ## Data Flow
 

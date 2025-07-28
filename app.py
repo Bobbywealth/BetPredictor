@@ -78,7 +78,7 @@ def main():
     
     # Organized navigation tabs
     if user_manager.is_admin():
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "🔍 Deep Analysis", "📚 API Docs", "⚙️ Settings"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "🏆 Winning Picks", "🔍 Deep Analysis", "📚 API Docs", "⚙️ Settings"])
         
         with tab1:
             st.switch_page("pages/admin_dashboard.py")
@@ -91,13 +91,15 @@ def main():
         with tab5:
             st.switch_page("pages/live_odds.py")
         with tab6:
-            st.switch_page("pages/deep_analysis_dashboard.py")
+            st.switch_page("pages/winning_picks.py")
         with tab7:
-            st.switch_page("pages/3_API_Documentation.py")
+            st.switch_page("pages/deep_analysis_dashboard.py")
         with tab8:
+            st.switch_page("pages/3_API_Documentation.py")
+        with tab9:
             st.info("Admin settings coming soon")
     else:
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "🔍 Deep Analysis", "💲 Pricing", "👤 Account", "🎧 Support"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "🤖 AI Predictions", "💰 Live Odds", "🏆 Winning Picks", "🔍 Deep Analysis", "💲 Pricing", "👤 Account", "🎧 Support"])
         
         with tab1:
             st.switch_page("pages/user_dashboard.py")
@@ -108,12 +110,14 @@ def main():
         with tab4:
             st.switch_page("pages/live_odds.py")
         with tab5:
-            st.switch_page("pages/deep_analysis_dashboard.py")
+            st.switch_page("pages/winning_picks.py")
         with tab6:
-            st.switch_page("pages/2_Pricing.py")
+            st.switch_page("pages/deep_analysis_dashboard.py")
         with tab7:
-            st.switch_page("pages/4_Account.py")
+            st.switch_page("pages/2_Pricing.py")
         with tab8:
+            st.switch_page("pages/4_Account.py")
+        with tab9:
             st.switch_page("pages/5_Support.py")
 
 if __name__ == "__main__":
