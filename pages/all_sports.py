@@ -210,10 +210,36 @@ def display_games_table(games_df):
             
             if isinstance(away_team, dict) and isinstance(home_team, dict):
                 st.markdown(f"**{away_team.get('name', 'TBD')} @ {home_team.get('name', 'TBD')}**")
-                st.caption(f"{game.get('league', 'Unknown')} | {game.get('date', 'TBD')} | {game.get('time', 'TBD')}")
+                
+                # Enhanced date/time display
+                game_date = game.get('date', '')
+                game_time = game.get('time', '')
+                game_status = game.get('status', 'Scheduled')
+                
+                if game_date and game_time and game_time != 'TBD':
+                    st.caption(f"📅 {game_date} at {game_time} | Status: {game_status}")
+                elif game_date:
+                    st.caption(f"📅 {game_date} | Status: {game_status}")
+                else:
+                    st.caption(f"📅 Date TBD | Status: {game_status}")
+                    
+                st.caption(f"🏆 {game.get('league', 'Unknown')} | {game.get('sport', 'Unknown').title()}")
             else:
                 st.markdown(f"**{game.get('game_name', 'Unknown Game')}**")
-                st.caption(f"{game.get('league', 'Unknown')} | {game.get('date', 'TBD')}")
+                
+                # Enhanced date/time display for general games
+                game_date = game.get('date', '')
+                game_time = game.get('time', '')
+                game_status = game.get('status', 'Scheduled')
+                
+                if game_date and game_time and game_time != 'TBD':
+                    st.caption(f"📅 {game_date} at {game_time} | Status: {game_status}")
+                elif game_date:
+                    st.caption(f"📅 {game_date} | Status: {game_status}")
+                else:
+                    st.caption(f"📅 Date TBD | Status: {game_status}")
+                    
+                st.caption(f"🏆 {game.get('league', 'Unknown')} | {game.get('sport', 'Unknown').title()}")
         
         with col2:
             # Score or status

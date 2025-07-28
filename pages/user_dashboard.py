@@ -103,10 +103,38 @@ def show_todays_games():
                         
                         if isinstance(away_team, dict) and isinstance(home_team, dict):
                             st.markdown(f"**{away_team.get('name', 'TBD')} @ {home_team.get('name', 'TBD')}**")
-                            st.caption(f"{game.get('league', 'Unknown')} | {game.get('date', 'TBD')}")
+                            
+                            # Display date and time
+                            game_date = game.get('date', '')
+                            game_time = game.get('time', '')
+                            
+                            datetime_info = ""
+                            if game_date and game_time and game_time != 'TBD':
+                                datetime_info = f"📅 {game_date} at {game_time}"
+                            elif game_date:
+                                datetime_info = f"📅 {game_date}"
+                            else:
+                                datetime_info = "📅 Date TBD"
+                                
+                            st.caption(datetime_info)
+                            st.caption(f"🏆 {game.get('league', 'Unknown')} | {game.get('sport', 'Unknown').title()}")
                         else:
                             st.markdown(f"**{game.get('game_name', 'Unknown Game')}**")
-                            st.caption(f"{game.get('league', 'Unknown')} | {game.get('date', 'TBD')}")
+                            
+                            # Display date and time for general games
+                            game_date = game.get('date', '')
+                            game_time = game.get('time', '')
+                            
+                            datetime_info = ""
+                            if game_date and game_time and game_time != 'TBD':
+                                datetime_info = f"📅 {game_date} at {game_time}"
+                            elif game_date:
+                                datetime_info = f"📅 {game_date}"
+                            else:
+                                datetime_info = "📅 Date TBD"
+                                
+                            st.caption(datetime_info)
+                            st.caption(f"🏆 {game.get('league', 'Unknown')} | {game.get('sport', 'Unknown').title()}")
                     
                     with col2:
                         # Score or VS
