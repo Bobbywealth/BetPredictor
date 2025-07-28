@@ -253,9 +253,17 @@ def main():
                 with col2:
                     away_score = game['away_team'].get('score', 0)
                     home_score = game['home_team'].get('score', 0)
-                    if away_score > 0 or home_score > 0:
-                        st.markdown(f"**{away_score} - {home_score}**")
-                    else:
+                    
+                    # Convert scores to integers safely
+                    try:
+                        away_score = int(away_score) if away_score else 0
+                        home_score = int(home_score) if home_score else 0
+                        
+                        if away_score > 0 or home_score > 0:
+                            st.markdown(f"**{away_score} - {home_score}**")
+                        else:
+                            st.markdown("**vs**")
+                    except (ValueError, TypeError):
                         st.markdown("**vs**")
                         
                 with col3:
