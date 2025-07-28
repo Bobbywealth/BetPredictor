@@ -144,58 +144,164 @@ class LiveGamesManager:
             
         except Exception as e:
             st.error(f"Error fetching ESPN schedule: {str(e)}")
-            return pd.DataFrame()
+            return []
     
     def get_upcoming_games_all_sports(self):
-        """Get real games for soccer, baseball, and basketball only"""
+        """Get comprehensive games across all major sports categories"""
         all_games = []
         
-        # Get today and tomorrow's dates in YYYYMMDD format
+        # Get today and surrounding dates
         today = datetime.now()
-        tomorrow = today + timedelta(days=1)
         yesterday = today - timedelta(days=1)
+        tomorrow = today + timedelta(days=1)
         
         dates_to_check = [
-            yesterday.strftime('%Y%m%d'),  # Yesterday for any ongoing games
-            today.strftime('%Y%m%d'),     # Today
-            tomorrow.strftime('%Y%m%d')   # Tomorrow
+            yesterday.strftime('%Y%m%d'),
+            today.strftime('%Y%m%d'),
+            tomorrow.strftime('%Y%m%d')
         ]
         
-        # Try ESPN for basketball and baseball - first without dates, then with dates
+        # ESPN Sports - Comprehensive coverage
         espn_sports = [
+            # Basketball
             ('basketball', 'nba'),
-            ('baseball', 'mlb')
+            ('basketball', 'wnba'),
+            ('basketball', 'mens-college-basketball'),
+            
+            # Baseball
+            ('baseball', 'mlb'),
+            ('baseball', 'college-baseball'),
+            
+            # Football
+            ('football', 'nfl'),
+            ('football', 'college-football'),
+            
+            # Soccer
+            ('soccer', 'mls'),
+            ('soccer', 'fifa.world'),
+            ('soccer', 'uefa.euro'),
+            
+            # Hockey
+            ('hockey', 'nhl'),
+            
+            # Tennis
+            ('tennis', 'atp'),
+            ('tennis', 'wta'),
+            
+            # Golf
+            ('golf', 'pga'),
+            
+            # Other sports
+            ('racing', 'f1'),
+            ('mma', 'ufc')
         ]
         
-        # Try ESPN but handle off-season gracefully
+        # Fetch from ESPN with error handling
         for sport, league in espn_sports:
-            try:
-                games_df = self.get_espn_live_schedule(sport, league, None)
-                if not games_df.empty:
-                    all_games.append(games_df)
-            except Exception as e:
-                # ESPN may return 400 during off-season, which is expected
-                if st.session_state.get('debug_mode', False):
-                    st.write(f"ESPN {sport}/{league}: Off-season or no games")
+            for date_str in [None] + dates_to_check:  # Try current first, then specific dates
+                try:
+                    games = self.get_espn_live_schedule(sport, league, date_str)
+                    if games and len(games) > 0:
+                        all_games.extend(games)
+                        break  # Found games, move to next sport
+                except Exception as e:
+                    continue  # Try next date or sport
         
-        # Try TheSportsDB for soccer (more comprehensive soccer coverage)
+        # TheSportsDB for comprehensive soccer coverage
         try:
-            soccer_games = self.get_sportsdb_soccer_games()
-            if not soccer_games.empty:
-                all_games.append(soccer_games)
+            soccer_games_df = self.get_sportsdb_soccer_games()
+            if isinstance(soccer_games_df, pd.DataFrame) and not soccer_games_df.empty:
+                # Convert DataFrame to list of dicts for consistency
+                soccer_games = soccer_games_df.to_dict('records')
+                all_games.extend(soccer_games)
         except Exception as e:
             pass
         
-        # ESPN soccer leagues are often limited, TheSportsDB is more reliable for soccer
+        # Additional soccer leagues from TheSportsDB
+        additional_soccer_leagues = [
+            '4328',  # Premier League
+            '4335',  # La Liga
+            '4331',  # Bundesliga
+            '4332',  # Serie A
+            '4334',  # Ligue 1
+            '4346',  # UEFA Champions League
+            '4480',  # UEFA Europa League
+            '4481'   # UEFA Conference League
+        ]
         
+        for league_id in additional_soccer_leagues:
+            try:
+                league_games = self.get_sportsdb_league_specific(league_id)
+                if league_games:
+                    all_games.extend(league_games)
+            except Exception as e:
+                continue
+        
+        # Convert to DataFrame and remove duplicates
         if all_games:
-            combined_df = pd.concat(all_games, ignore_index=True)
-            # Remove duplicates based on game_id
-            if 'game_id' in combined_df.columns:
-                combined_df = combined_df.drop_duplicates(subset=['game_id'], keep='first')
-            return combined_df
+            df = pd.DataFrame(all_games)
+            
+            # Remove duplicates based on game_id if available
+            if 'game_id' in df.columns:
+                df = df.drop_duplicates(subset=['game_id'], keep='first')
+            else:
+                # Fallback: remove duplicates based on game name and date
+                df = df.drop_duplicates(subset=['game_name', 'date'], keep='first')
+            
+            return df
         else:
             return pd.DataFrame()
+    
+    def get_sportsdb_league_specific(self, league_id):
+        """Get games from a specific TheSportsDB league"""
+        try:
+            # Get recent and upcoming games for specific league
+            games_list = []
+            
+            # Try both past and upcoming events
+            urls = [
+                f"{self.sportsdb_base_url}/eventspastleague.php?id={league_id}",
+                f"{self.sportsdb_base_url}/eventsnextleague.php?id={league_id}"
+            ]
+            
+            for url in urls:
+                try:
+                    response = requests.get(url, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('events'):
+                            # Take recent/upcoming games (limit to 3 per endpoint)
+                            for event in data['events'][:3]:
+                                games_list.append({
+                                    'game_id': f"sdb_league_{event.get('idEvent', '')}",
+                                    'game_name': f"{event.get('strHomeTeam', '')} vs {event.get('strAwayTeam', '')}",
+                                    'short_name': f"{event.get('strHomeTeam', '')[:3]} vs {event.get('strAwayTeam', '')[:3]}",
+                                    'date': event.get('dateEvent', ''),
+                                    'time': event.get('strTime', 'TBD'),
+                                    'status': 'Final' if event.get('intHomeScore') else 'Scheduled',
+                                    'home_team': {
+                                        'name': event.get('strHomeTeam', ''),
+                                        'score': event.get('intHomeScore', 0) or 0,
+                                        'logo': event.get('strHomeTeamBadge', ''),
+                                        'abbreviation': event.get('strHomeTeam', '')[:3] if event.get('strHomeTeam') else ''
+                                    },
+                                    'away_team': {
+                                        'name': event.get('strAwayTeam', ''),
+                                        'score': event.get('intAwayScore', 0) or 0,
+                                        'logo': event.get('strAwayTeamBadge', ''),
+                                        'abbreviation': event.get('strAwayTeam', '')[:3] if event.get('strAwayTeam') else ''
+                                    },
+                                    'league': event.get('strLeague', 'Soccer'),
+                                    'sport': 'soccer',
+                                    'source': 'TheSportsDB'
+                                })
+                except Exception as e:
+                    continue
+            
+            return games_list
+            
+        except Exception as e:
+            return []
     
     def get_sportsdb_soccer_games(self):
         """Get soccer games from TheSportsDB API"""

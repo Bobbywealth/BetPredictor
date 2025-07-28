@@ -78,26 +78,30 @@ def main():
     
     # Organized navigation tabs
     if user_manager.is_admin():
-        tab1, tab2, tab3, tab4 = st.tabs(["🏠 Dashboard", "👥 User View", "📚 API Docs", "⚙️ Settings"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏠 Dashboard", "👥 User View", "🏈 All Sports", "📚 API Docs", "⚙️ Settings"])
         
         with tab1:
             st.switch_page("pages/admin_dashboard.py")
         with tab2:
             st.switch_page("pages/user_dashboard.py")
         with tab3:
-            st.switch_page("pages/3_API_Documentation.py")
+            st.switch_page("pages/all_sports.py")
         with tab4:
+            st.switch_page("pages/3_API_Documentation.py")
+        with tab5:
             st.info("Admin settings coming soon")
     else:
-        tab1, tab2, tab3, tab4 = st.tabs(["🏠 Dashboard", "💰 Pricing", "👤 Account", "🎧 Support"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏠 Dashboard", "🏈 All Sports", "💰 Pricing", "👤 Account", "🎧 Support"])
         
         with tab1:
             st.switch_page("pages/user_dashboard.py")
         with tab2:
-            st.switch_page("pages/2_Pricing.py")
+            st.switch_page("pages/all_sports.py")
         with tab3:
-            st.switch_page("pages/4_Account.py")
+            st.switch_page("pages/2_Pricing.py")
         with tab4:
+            st.switch_page("pages/4_Account.py")
+        with tab5:
             st.switch_page("pages/5_Support.py")
 
 if __name__ == "__main__":
