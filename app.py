@@ -190,20 +190,51 @@ def show_sidebar_info():
         - Responsible gambling tools
         """)
 
+# Test if imports work first
+try:
+    from utils.user_management import UserManager
+    from utils.live_games import LiveGamesManager
+    from utils.odds_api import OddsAPIManager
+    IMPORTS_OK = True
+except Exception as e:
+    IMPORTS_OK = False
+    IMPORT_ERROR = str(e)
+
 def main():
     """Main application entry point"""
     
     # Configure page
     configure_page()
     
-    # Initialize session state
-    initialize_session_state()
+    if not IMPORTS_OK:
+        st.error(f"Import Error: {IMPORT_ERROR}")
+        st.info("Running in basic mode...")
+        st.title("🏆 SportsBet Pro")
+        st.markdown("Application is loading but some features may be unavailable due to import issues.")
+        return
     
-    # Show sidebar
-    show_sidebar_info()
-    
-    # Show main content
-    show_main_navigation()
+    try:
+        # Initialize session state
+        initialize_session_state()
+        
+        # Show sidebar
+        show_sidebar_info()
+        
+        # Show main content
+        show_main_navigation()
+        
+    except Exception as e:
+        st.error(f"Application Error: {str(e)}")
+        st.info("Displaying basic interface...")
+        st.title("🏆 SportsBet Pro")
+        st.markdown("Application encountered an error. Please try refreshing the page.")
+        
+        # Show basic content
+        st.markdown("""
+        ### Available Features:
+        - This basic interface is working
+        - Full features will be restored once issues are resolved
+        """)
 
 if __name__ == "__main__":
     main()

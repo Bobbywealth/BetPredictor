@@ -24,6 +24,14 @@ args = "Streamlit Server"
 task = "workflow.run"
 args = "streamlit_website"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test App"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Debug App"
+
 [[workflows.workflow]]
 name = "Streamlit Server"
 author = "agent"
@@ -41,9 +49,31 @@ author = "agent"
 task = "shell.exec"
 args = "uv add plotly scikit-learn"
 
+[[workflows.workflow]]
+name = "Test App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "streamlit run test_simple_app.py --server.port 5001"
+waitForPort = 5001
+
+[[workflows.workflow]]
+name = "Debug App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "streamlit run debug_app.py --server.port 5001"
+waitForPort = 5001
+
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3000
 
 [agent]
 integrations = ["python_openai==1.0.0", "python_gemini==1.0.0", "web_scraper==1.0.0"]
