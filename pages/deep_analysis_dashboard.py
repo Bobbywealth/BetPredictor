@@ -119,6 +119,7 @@ def merge_games_with_odds(games_df: pd.DataFrame, odds_df: pd.DataFrame, target_
         )
     
     if 'home_team' in filtered_odds.columns and 'away_team' in filtered_odds.columns:
+        filtered_odds = filtered_odds.copy()
         filtered_odds['merge_key'] = filtered_odds.apply(
             lambda x: f"{x.get('away_team', '')}_{x.get('home_team', '')}", 
             axis=1
