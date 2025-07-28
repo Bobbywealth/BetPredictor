@@ -32,6 +32,29 @@ class CacheManager:
         
         return (now - cache_time).total_seconds() < (ttl_minutes * 60)
     
+    def preload_data(self, cache_key: str, data: Any, ttl_minutes: int = 30) -> None:
+        """Preload data for faster access"""
+        self._preload_cache[cache_key] = {
+            'data': data,
+            'timestamp': datetime.now(),
+            'ttl': ttl_minutes
+        }
+    
+    def get_preloaded_data(self, cache_key: str) -> Optional[Any]:
+        """Get preloaded data if available and valid"""
+        if cache_key not in self._preload_cache:
+            return None
+        
+        cached_item = self._preload_cache[cache_key]
+        age_minutes = (datetime.now() - cached_item['timestamp']).total_seconds() / 60
+        
+        if age_minutes < cached_item['ttl']:
+            return cached_item['data']
+        else:
+            # Clean up expired preload cache
+            del self._preload_cache[cache_key]
+            return None
+    
     def get_cached_data(self, cache_key: str, ttl_minutes: int = 15) -> Optional[Any]:
         """Retrieve cached data if valid"""
         if not self.is_cache_valid(cache_key, ttl_minutes):
@@ -73,6 +96,7 @@ class OptimizedDataLoader:
     
     def __init__(self):
         self.cache = CacheManager()
+        self._preload_cache = {}  # In-memory preload cache
     
     def load_games_with_cache(self, date_str: str, sport_filter: List[str] = None) -> pd.DataFrame:
         """Load games with intelligent caching"""
@@ -82,8 +106,13 @@ class OptimizedDataLoader:
         }
         cache_key = self.cache.get_cache_key('games', cache_params)
         
+        # Try preloaded data first (fastest)
+        preloaded_games = self.cache.get_preloaded_data(cache_key)
+        if preloaded_games is not None:
+            return preloaded_games
+        
         # Try to get cached data
-        cached_games = self.cache.get_cached_data(cache_key, ttl_minutes=10)
+        cached_games = self.cache.get_cached_data(cache_key, ttl_minutes=30)  # Increased TTL
         if cached_games is not None:
             return cached_games
         
@@ -99,8 +128,9 @@ class OptimizedDataLoader:
             if sport_filter:
                 games_df = games_df[games_df['sport'].isin(sport_filter)]
             
-            # Cache the results
+            # Cache the results and preload for next access
             self.cache.set_cached_data(cache_key, games_df)
+            self.cache.preload_data(cache_key, games_df, ttl_minutes=60)
             return games_df
             
         except Exception as e:

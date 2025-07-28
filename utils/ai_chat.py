@@ -1,222 +1,192 @@
 import streamlit as st
-import json
-import os
-from datetime import datetime
-from typing import Dict, List, Any, Optional
-from utils.cache_manager import CacheManager
-
-# Import AI clients
 import openai
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+import json
+import time
+from utils.performance_optimizer import performance_optimizer
 
 class DualAIChat:
-    """Interactive chat interface with both ChatGPT and Gemini for sports analysis"""
-    
+    """Enhanced AI Chat system with performance optimizations"""
+
     def __init__(self):
-        self.cache = CacheManager()
-        
-        # Initialize OpenAI
-        self.openai_client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        
-        # Initialize Gemini
-        self.gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-        
-        # Initialize chat history if not exists
+        # Initialize API clients lazily
+        self._openai_client = None
+        self._genai_client = None
+
+        # Chat history management
         if 'chat_history' not in st.session_state:
             st.session_state.chat_history = []
-        
-        if 'ai_contexts' not in st.session_state:
-            st.session_state.ai_contexts = {
-                'openai': [],
-                'gemini': []
+
+        if 'chat_context' not in st.session_state:
+            st.session_state.chat_context = {
+                'current_sport': None,
+                'current_games': [],
+                'user_preferences': {}
             }
-    
-    def get_sports_context(self) -> str:
-        """Get current sports context for the chat"""
-        try:
-            from utils.live_games import LiveGamesManager
-            from utils.odds_api import OddsAPIManager
-            from datetime import date
-            
-            games_manager = LiveGamesManager()
-            odds_manager = OddsAPIManager()
-            
-            # Get today's games
-            today_games = games_manager.get_upcoming_games_all_sports(target_date=date.today())
-            odds_data = odds_manager.get_comprehensive_odds()
-            
-            context = f"""
-Current Sports Context:
-- Today's Games Available: {len(today_games)}
-- Live Odds Available: {len(odds_data)} games
-- Date: {date.today().strftime('%B %d, %Y')}
 
-You are a sports analysis expert with access to real-time data. Help users analyze games, 
-discuss betting strategies (for educational purposes), and provide insights based on current 
-sports information. Always include responsible gambling reminders.
-"""
-            return context
-            
+        # Response caching for similar queries
+        if 'chat_cache' not in st.session_state:
+            st.session_state.chat_cache = {}
+
+    @property
+    def openai_client(self):
+        """Lazy load OpenAI client"""
+        if self._openai_client is None:
+            api_key = st.secrets.get("OPENAI_API_KEY")
+            if api_key:
+                self._openai_client = openai.OpenAI(api_key=api_key)
+        return self._openai_client
+
+    @property  
+    def genai_client(self):
+        """Lazy load Gemini client"""
+        if self._genai_client is None:
+            api_key = st.secrets.get("GEMINI_API_KEY")
+            if api_key:
+                genai.configure(api_key=api_key)
+                self._genai_client = genai.GenerativeModel('gemini-pro')
+        return self._genai_client
+
+    @performance_optimizer.debounce(0.5)  # Debounce rapid queries
+    def get_chat_response(self, user_message: str, ai_provider: str = "both") -> Dict[str, Any]:
+        """Get AI response with performance optimizations"""
+
+        # Check cache first
+        cache_key = f"{ai_provider}_{hash(user_message)}"
+        if cache_key in st.session_state.chat_cache:
+            cached_response = st.session_state.chat_cache[cache_key]
+            # Use cache if less than 5 minutes old
+            if time.time() - cached_response['timestamp'] < 300:
+                return cached_response['response']
+
+        try:
+            response = {"timestamp": datetime.now().isoformat()}
+
+            if ai_provider in ["both", "chatgpt"] and self.openai_client:
+                response["chatgpt"] = self._get_chatgpt_response(user_message)
+
+            if ai_provider in ["both", "gemini"] and self.genai_client:
+                response["gemini"] = self._get_gemini_response(user_message)
+
+            # Cache successful responses
+            st.session_state.chat_cache[cache_key] = {
+                'response': response,
+                'timestamp': time.time()
+            }
+
+            return response
+
         except Exception as e:
-            return f"Sports context unavailable: {str(e)}"
-    
-    def chat_with_openai(self, user_message: str, include_context: bool = True) -> str:
-        """Chat with ChatGPT about sports picks"""
-        try:
-            # Build conversation context
-            messages = [
-                {
-                    "role": "system", 
-                    "content": f"""You are a sports analysis expert helping users discuss sports picks and betting strategies.
-                    
-{self.get_sports_context() if include_context else ''}
+            return {
+                "error": f"Chat error: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
 
-Rules:
-1. Provide educational analysis only
-2. Always remind users about responsible gambling
-3. Be conversational and helpful
-4. Reference current games when relevant
-5. Discuss strategy, not guaranteed wins
-6. Keep responses concise but informative"""
-                }
+    def _get_chatgpt_response(self, message: str) -> str:
+        """Get ChatGPT response with context"""
+        try:
+            context = self._build_context()
+
+            messages = [
+                {"role": "system", "content": f"""You are a sports betting expert assistant. 
+                Current context: {context}
+                Provide concise, helpful responses about sports analysis and betting insights.
+                Focus on facts and statistical analysis."""},
+                {"role": "user", "content": message}
             ]
-            
-            # Add conversation history (last 6 messages for context)
-            recent_openai_context = st.session_state.ai_contexts['openai'][-6:] if st.session_state.ai_contexts['openai'] else []
-            messages.extend(recent_openai_context)
-            
-            # Add current user message
-            messages.append({"role": "user", "content": user_message})
-            
-            # Get response from OpenAI
+
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o",  # Latest OpenAI model
+                model="gpt-3.5-turbo",  # Use faster model for chat
                 messages=messages,
-                max_tokens=500,
+                max_tokens=500,  # Limit for faster responses
                 temperature=0.7
             )
-            
-            ai_response = response.choices[0].message.content
-            
-            # Update context
-            st.session_state.ai_contexts['openai'].extend([
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": ai_response}
-            ])
-            
-            # Keep context manageable (last 12 messages)
-            if len(st.session_state.ai_contexts['openai']) > 12:
-                st.session_state.ai_contexts['openai'] = st.session_state.ai_contexts['openai'][-12:]
-            
-            return ai_response
-            
+
+            return response.choices[0].message.content
+
         except Exception as e:
-            return f"ChatGPT Error: {str(e)}"
-    
-    def chat_with_gemini(self, user_message: str, include_context: bool = True) -> str:
-        """Chat with Gemini about sports picks"""
+            return f"ChatGPT error: {str(e)}"
+
+    def _get_gemini_response(self, message: str) -> str:
+        """Get Gemini response with context"""
         try:
-            # Build system instruction
-            system_instruction = f"""You are a sports analysis expert helping users discuss sports picks and betting strategies.
+            context = self._build_context()
 
-{self.get_sports_context() if include_context else ''}
+            prompt = f"""You are a sports betting expert assistant.
+            Current context: {context}
 
-Rules:
-1. Provide educational analysis only
-2. Always remind users about responsible gambling
-3. Be conversational and helpful
-4. Reference current games when relevant
-5. Discuss strategy, not guaranteed wins
-6. Keep responses concise but informative"""
-            
-            # Build conversation history
-            conversation_parts = []
-            
-            # Add recent context (last 6 messages)
-            recent_gemini_context = st.session_state.ai_contexts['gemini'][-6:] if st.session_state.ai_contexts['gemini'] else []
-            
-            for msg in recent_gemini_context:
-                if msg['role'] == 'user':
-                    conversation_parts.append(types.Part(text=f"User: {msg['content']}"))
-                else:
-                    conversation_parts.append(types.Part(text=f"Assistant: {msg['content']}"))
-            
-            # Add current message
-            conversation_parts.append(types.Part(text=f"User: {user_message}"))
-            
-            # Get response from Gemini
-            response = self.gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=conversation_parts,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    max_output_tokens=500,
-                    temperature=0.7
-                )
-            )
-            
-            ai_response = response.text if response.text else "No response generated"
-            
-            # Update context
-            st.session_state.ai_contexts['gemini'].extend([
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": ai_response}
-            ])
-            
-            # Keep context manageable (last 12 messages)
-            if len(st.session_state.ai_contexts['gemini']) > 12:
-                st.session_state.ai_contexts['gemini'] = st.session_state.ai_contexts['gemini'][-12:]
-            
-            return ai_response
-            
+            User question: {message}
+
+            Provide a concise, helpful response about sports analysis and betting insights.
+            Focus on facts and statistical analysis."""
+
+            response = self.genai_client.generate_content(prompt)
+            return response.text
+
         except Exception as e:
-            return f"Gemini Error: {str(e)}"
-    
-    def get_consensus_response(self, user_message: str) -> Dict[str, str]:
-        """Get responses from both AIs and analyze consensus"""
-        
-        # Get responses from both AIs
-        openai_response = self.chat_with_openai(user_message)
-        gemini_response = self.chat_with_gemini(user_message)
-        
-        # Analyze consensus (simple keyword matching for now)
-        consensus_analysis = self.analyze_consensus(openai_response, gemini_response, user_message)
-        
-        return {
-            'openai': openai_response,
-            'gemini': gemini_response,
-            'consensus': consensus_analysis
+            return f"Gemini error: {str(e)}"
+
+    def _build_context(self) -> str:
+        """Build context string for AI responses"""
+        context_parts = []
+
+        if st.session_state.chat_context.get('current_sport'):
+            context_parts.append(f"Sport: {st.session_state.chat_context['current_sport']}")
+
+        if st.session_state.chat_context.get('current_games'):
+            games = st.session_state.chat_context['current_games'][:3]  # Limit context
+            context_parts.append(f"Current games: {', '.join(games)}")
+
+        return "; ".join(context_parts) if context_parts else "General sports discussion"
+
+    def add_to_history(self, user_message: str, ai_response: Dict[str, Any]):
+        """Add exchange to chat history with size limits"""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'user_message': user_message,
+            'ai_response': ai_response
         }
-    
-    def analyze_consensus(self, openai_response: str, gemini_response: str, user_message: str) -> str:
-        """Analyze consensus between AI responses"""
-        
-        # Simple consensus analysis
-        openai_lower = openai_response.lower()
-        gemini_lower = gemini_response.lower()
-        
-        # Check for agreement indicators
-        agreement_keywords = ['agree', 'similar', 'same', 'both', 'consensus']
-        disagreement_keywords = ['however', 'but', 'different', 'disagree', 'contrary']
-        
-        openai_sentiment = 'positive' if any(word in openai_lower for word in ['good', 'strong', 'confident', 'likely']) else 'neutral'
-        gemini_sentiment = 'positive' if any(word in gemini_lower for word in ['good', 'strong', 'confident', 'likely']) else 'neutral'
-        
-        if openai_sentiment == gemini_sentiment:
-            return f"🤝 **AI Consensus**: Both AIs show {openai_sentiment} sentiment. This suggests alignment in their analysis."
-        else:
-            return f"🔄 **Mixed Analysis**: Different perspectives detected. ChatGPT leans {openai_sentiment}, Gemini leans {gemini_sentiment}. Consider both viewpoints."
-    
-    def clear_chat_history(self):
-        """Clear chat history and contexts"""
+
+        st.session_state.chat_history.append(entry)
+
+        # Keep only last 20 exchanges for performance
+        if len(st.session_state.chat_history) > 20:
+            st.session_state.chat_history = st.session_state.chat_history[-20:]
+
+    def clear_history(self):
+        """Clear chat history and cache"""
         st.session_state.chat_history = []
-        st.session_state.ai_contexts = {
-            'openai': [],
-            'gemini': []
-        }
-    
-    def export_chat_history(self) -> str:
+        st.session_state.chat_cache = {}
+
+    def update_context(self, sport: str = None, games: List[str] = None):
+        """Update chat context for better responses"""
+        if sport:
+            st.session_state.chat_context['current_sport'] = sport
+        if games:
+            st.session_state.chat_context['current_games'] = games
+
+    defget_suggested_questions(self) -> List[str]:
+        """Get context-aware suggested questions"""
+        base_questions = [
+            "What are today's best betting opportunities?",
+            "Analyze the upcoming games for value bets",
+            "What should I know about tonight's matchups?",
+            "Compare the AI predictions for accuracy"
+        ]
+
+        current_sport = st.session_state.chat_context.get('current_sport')
+        if current_sport:
+            sport_questions = [
+                f"What are the key factors in {current_sport} betting?",
+                f"How do weather conditions affect {current_sport} games?",
+                f"What's the best strategy for {current_sport} spreads?"
+            ]
+            return sport_questions + base_questions[:2]
+
+        return base_questions
+```def export_chat_history(self) -> str:
         """Export chat history as formatted text"""
         if not st.session_state.chat_history:
             return "No chat history to export."
@@ -227,16 +197,7 @@ Rules:
         for entry in st.session_state.chat_history:
             export_text += f"[{entry['timestamp']}]\n"
             export_text += f"USER: {entry['user_message']}\n\n"
-            
-            if entry['chat_mode'] == 'both':
-                export_text += f"ChatGPT: {entry['openai_response']}\n\n"
-                export_text += f"Gemini: {entry['gemini_response']}\n\n"
-                export_text += f"Consensus: {entry['consensus']}\n\n"
-            else:
-                ai_name = entry['chat_mode'].upper()
-                response_key = f"{entry['chat_mode']}_response"
-                export_text += f"{ai_name}: {entry[response_key]}\n\n"
-            
+            export_text += f"AI Response: {entry['ai_response']}\n\n"            
             export_text += "-" * 40 + "\n\n"
         
         return export_text

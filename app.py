@@ -18,41 +18,52 @@ from utils.ai_analysis import AIGameAnalyzer
 from utils.deep_analysis import DeepGameAnalyzer
 
 def initialize_session_state():
-    """Initialize all session state variables"""
+    """Initialize all session state variables with lazy loading"""
     
-    # Core managers
+    # Core managers (always needed)
     if 'user_manager' not in st.session_state:
         st.session_state.user_manager = UserManager()
-    
-    if 'games_manager' not in st.session_state:
-        st.session_state.games_manager = LiveGamesManager()
-    
-    if 'odds_manager' not in st.session_state:
-        st.session_state.odds_manager = OddsAPIManager()
     
     if 'data_loader' not in st.session_state:
         st.session_state.data_loader = OptimizedDataLoader()
     
-    # AI systems
+    # Initialize flags for lazy loading
+    if 'managers_initialized' not in st.session_state:
+        st.session_state.managers_initialized = False
+    
+    if 'ai_systems_initialized' not in st.session_state:
+        st.session_state.ai_systems_initialized = False
+
+def get_games_manager():
+    """Lazy load games manager"""
+    if 'games_manager' not in st.session_state:
+        st.session_state.games_manager = LiveGamesManager()
+    return st.session_state.games_manager
+
+def get_odds_manager():
+    """Lazy load odds manager"""
+    if 'odds_manager' not in st.session_state:
+        st.session_state.odds_manager = OddsAPIManager()
+    return st.session_state.odds_manager
+
+def get_consensus_engine():
+    """Lazy load consensus engine"""
     if 'consensus_engine' not in st.session_state:
         st.session_state.consensus_engine = DualAIConsensusEngine()
-    
-    if 'picks_generator' not in st.session_state:
-        st.session_state.picks_generator = WinningPicksGenerator()
-    
-    if 'result_tracker' not in st.session_state:
-        st.session_state.result_tracker = GameResultTracker()
-    
+    return st.session_state.consensus_engine
+
+def get_ai_analyzer():
+    """Lazy load AI analyzer"""
     if 'ai_analyzer' not in st.session_state:
         st.session_state.ai_analyzer = AIGameAnalyzer()
-    
-    if 'deep_analyzer' not in st.session_state:
-        st.session_state.deep_analyzer = DeepGameAnalyzer()
-    
-    # AI Chat system
+    return st.session_state.ai_analyzer
+
+def get_ai_chat():
+    """Lazy load AI chat"""
     if 'ai_chat' not in st.session_state:
         from utils.ai_chat import DualAIChat
         st.session_state.ai_chat = DualAIChat()
+    return st.session_state.ai_chat
 
 def configure_page():
     """Configure the Streamlit page"""
@@ -178,18 +189,29 @@ def show_sidebar_info():
         # System status
         st.markdown("### 📊 System Status")
         
-        # Get real data counts
-        try:
-            games_df = st.session_state.games_manager.get_upcoming_games_all_sports(target_date=date.today())
-            games_count = len(games_df)
-        except:
-            games_count = 0
+        # Get cached data counts for speed
+        cache_key_games = f"sidebar_games_count_{date.today()}"
+        cache_key_odds = f"sidebar_odds_count_{datetime.now().hour}"
         
-        try:
-            odds_df = st.session_state.odds_manager.get_comprehensive_odds()
-            odds_count = len(odds_df)
-        except:
-            odds_count = 0
+        games_count = st.session_state.get(cache_key_games, 0)
+        odds_count = st.session_state.get(cache_key_odds, 0)
+        
+        # Update counts only if cache is empty (avoid blocking sidebar)
+        if games_count == 0:
+            try:
+                games_df = get_games_manager().get_upcoming_games_all_sports(target_date=date.today())
+                games_count = len(games_df)
+                st.session_state[cache_key_games] = games_count
+            except:
+                games_count = 0
+        
+        if odds_count == 0:
+            try:
+                odds_df = get_odds_manager().get_comprehensive_odds()
+                odds_count = len(odds_df) 
+                st.session_state[cache_key_odds] = odds_count
+            except:
+                odds_count = 0
         
         col1, col2 = st.columns(2)
         with col1:
