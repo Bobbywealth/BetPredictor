@@ -29,64 +29,76 @@ if 'game_analyzer' not in st.session_state:
 st.session_state.user_manager.initialize_session()
 
 def main():
-    """Main application with modern navigation"""
+    """Main application with organized navigation"""
     user_manager = st.session_state.user_manager
     
     # Check authentication
     if not user_manager.is_authenticated():
-        # Welcome page for unauthenticated users
-        st.title("🏆 SportsBet Pro")
-        st.markdown("### Professional AI-Powered Sports Analytics Platform")
-        
-        st.markdown("""
-        Welcome to SportsBet Pro - your gateway to professional sports analytics and AI-powered predictions.
-        
-        **Features:**
-        - Real-time game analysis and predictions
-        - Advanced analytics dashboard
-        - Personalized performance tracking
-        - Professional betting insights
-        """)
-        
-        st.info("Please login to access your personalized dashboard")
-        user_manager.login_form()
+        # Clean welcome page
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style='text-align: center; padding: 2rem 0;'>
+                <h1>🏆 SportsBet Pro</h1>
+                <h3>Professional Sports Analytics Platform</h3>
+                <p style='color: #666; margin: 1rem 0;'>
+                    AI-powered predictions and analytics for professional sports betting
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Feature highlights
+            st.markdown("---")
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.markdown("**🎯 Live Predictions**\nReal-time AI analysis")
+            with col_b:
+                st.markdown("**📊 Advanced Analytics**\nDeep statistical insights")
+            with col_c:
+                st.markdown("**🔒 Secure Platform**\nProfessional-grade security")
+            
+            st.markdown("---")
+            user_manager.login_form()
         return
     
-    # Navigation based on user role
+    # Navigation for authenticated users
     user_info = user_manager.get_user_info()
     
-    # Modern sidebar navigation
-    with st.sidebar:
-        st.markdown(f"### 👤 {user_info['email'].split('@')[0].title()}")
-        st.caption(f"Role: {user_info['role'].title()}")
-        
-        if st.button("🚪 Logout"):
+    # Clean header
+    header_col1, header_col2, header_col3 = st.columns([2, 3, 2])
+    with header_col1:
+        st.markdown("# 🏆 SportsBet Pro")
+    with header_col2:
+        st.markdown(f"<div style='text-align: center; padding-top: 1rem;'><h4>Welcome, {user_info['email'].split('@')[0].title()}</h4></div>", unsafe_allow_html=True)
+    with header_col3:
+        if st.button("🚪 Logout", type="secondary"):
             user_manager.logout()
-            
-        st.divider()
-        
-        # Navigation based on role
-        if user_manager.is_admin():
-            st.markdown("### 🔧 Admin Navigation")
-            if st.button("⚙️ Admin Dashboard", use_container_width=True):
-                st.switch_page("pages/admin_dashboard.py")
-            if st.button("👥 User Dashboard", use_container_width=True):
-                st.switch_page("pages/user_dashboard.py")
-            if st.button("🔧 API Documentation", use_container_width=True):
-                st.switch_page("pages/3_API_Documentation.py")
-        else:
-            st.markdown("### 📊 User Navigation")
-            if st.button("📊 My Dashboard", use_container_width=True):
-                st.switch_page("pages/user_dashboard.py")
-            if st.button("💰 Pricing", use_container_width=True):
-                st.switch_page("pages/2_Pricing.py")
-            if st.button("👤 Account", use_container_width=True):
-                st.switch_page("pages/4_Account.py")
-            if st.button("🎧 Support", use_container_width=True):
-                st.switch_page("pages/5_Support.py")
     
-    # Default to user dashboard
-    st.switch_page("pages/user_dashboard.py")
+    st.divider()
+    
+    # Organized navigation tabs
+    if user_manager.is_admin():
+        tab1, tab2, tab3, tab4 = st.tabs(["🏠 Dashboard", "👥 User View", "📚 API Docs", "⚙️ Settings"])
+        
+        with tab1:
+            st.switch_page("pages/admin_dashboard.py")
+        with tab2:
+            st.switch_page("pages/user_dashboard.py")
+        with tab3:
+            st.switch_page("pages/3_API_Documentation.py")
+        with tab4:
+            st.info("Admin settings coming soon")
+    else:
+        tab1, tab2, tab3, tab4 = st.tabs(["🏠 Dashboard", "💰 Pricing", "👤 Account", "🎧 Support"])
+        
+        with tab1:
+            st.switch_page("pages/user_dashboard.py")
+        with tab2:
+            st.switch_page("pages/2_Pricing.py")
+        with tab3:
+            st.switch_page("pages/4_Account.py")
+        with tab4:
+            st.switch_page("pages/5_Support.py")
 
 if __name__ == "__main__":
     main()
