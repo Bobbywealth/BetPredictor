@@ -1323,6 +1323,9 @@ def show_winning_picks():
     </div>
     """, unsafe_allow_html=True)
     
+    # Live odds status check
+    show_odds_api_status()
+    
     # Responsible gambling warning
     st.warning("⚠️ **RESPONSIBLE GAMBLING**: These are analytical insights for educational purposes only. Gamble responsibly.")
     
@@ -2390,15 +2393,23 @@ def show_settings():
     # Save API Keys
     if st.button("💾 Save API Configuration", type="primary", use_container_width=True):
         keys_to_save = []
+        
+        # Save odds API key to session state
         if odds_api_key:
+            st.session_state.odds_api_key = odds_api_key
             keys_to_save.append("The Odds API")
+        
+        # Save AI keys to session state  
         if openai_key:
+            st.session_state.openai_api_key = openai_key
             keys_to_save.append("OpenAI")
         if google_key:
+            st.session_state.google_api_key = google_key
             keys_to_save.append("Google AI")
             
         if keys_to_save:
             st.success(f"✅ Saved: {', '.join(keys_to_save)}")
+            st.info("🔄 Keys saved for this session. Set environment variables for permanent storage.")
             st.balloons()
         else:
             st.warning("No API keys to save")
@@ -2570,8 +2581,13 @@ def get_odds_for_game(game):
             
         import requests
         odds_url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+        # Try to get API key from environment or session state
+        api_key = get_odds_api_key()
+        if not api_key:
+            return generate_mock_odds_data(game)
+            
         params = {
-            'apiKey': 'demo-key',  # You'll need to get a real API key
+            'apiKey': api_key,
             'regions': 'us',
             'markets': 'h2h,spreads,totals',
             'oddsFormat': 'american'
@@ -2596,8 +2612,204 @@ def get_odds_for_game(game):
                     
     except Exception as e:
         print(f"Error fetching odds: {e}")
+        return generate_mock_odds_data(game)
     
     return []
+
+def get_odds_api_key():
+    """Get The Odds API key from various sources"""
+    import os
+    
+    # Try environment variable first
+    api_key = os.environ.get('ODDS_API_KEY')
+    if api_key:
+        return api_key
+    
+    # Try session state (from settings page)
+    if hasattr(st.session_state, 'odds_api_key') and st.session_state.odds_api_key:
+        return st.session_state.odds_api_key
+    
+    # Try common environment variable names
+    alt_names = ['THE_ODDS_API_KEY', 'ODDS_API_TOKEN', 'SPORTSBOOK_API_KEY']
+    for name in alt_names:
+        key = os.environ.get(name)
+        if key:
+            return key
+    
+    return None
+
+def generate_mock_odds_data(game):
+    """Generate realistic mock odds data when API key not available"""
+    import random
+    
+    home_team = game.get('home_team', 'Home Team')
+    away_team = game.get('away_team', 'Away Team')
+    
+    # Generate realistic odds
+    spread = random.uniform(-7.5, 7.5)
+    total = random.uniform(42.5, 58.5)
+    
+    # Determine favorite based on spread
+    if spread > 0:
+        favorite = away_team
+        underdog = home_team
+        fav_ml = random.randint(-200, -110)
+        dog_ml = random.randint(110, 250)
+    else:
+        favorite = home_team
+        underdog = away_team
+        fav_ml = random.randint(-200, -110)
+        dog_ml = random.randint(110, 250)
+        spread = abs(spread)
+    
+    # Create mock bookmaker data
+    bookmakers = [
+        {
+            'key': 'draftkings',
+            'title': 'DraftKings',
+            'last_update': '2025-01-08T12:00:00Z',
+            'markets': [
+                {
+                    'key': 'h2h',
+                    'outcomes': [
+                        {
+                            'name': home_team,
+                            'price': fav_ml if favorite == home_team else dog_ml
+                        },
+                        {
+                            'name': away_team,
+                            'price': fav_ml if favorite == away_team else dog_ml
+                        }
+                    ]
+                },
+                {
+                    'key': 'spreads',
+                    'outcomes': [
+                        {
+                            'name': home_team,
+                            'price': -110,
+                            'point': spread if favorite == away_team else -spread
+                        },
+                        {
+                            'name': away_team,
+                            'price': -110,
+                            'point': spread if favorite == home_team else -spread
+                        }
+                    ]
+                },
+                {
+                    'key': 'totals',
+                    'outcomes': [
+                        {
+                            'name': 'Over',
+                            'price': -110,
+                            'point': total
+                        },
+                        {
+                            'name': 'Under',
+                            'price': -110,
+                            'point': total
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            'key': 'fanduel',
+            'title': 'FanDuel',
+            'last_update': '2025-01-08T12:01:00Z',
+            'markets': [
+                {
+                    'key': 'h2h',
+                    'outcomes': [
+                        {
+                            'name': home_team,
+                            'price': (fav_ml + random.randint(-10, 10)) if favorite == home_team else (dog_ml + random.randint(-15, 15))
+                        },
+                        {
+                            'name': away_team,
+                            'price': (fav_ml + random.randint(-10, 10)) if favorite == away_team else (dog_ml + random.randint(-15, 15))
+                        }
+                    ]
+                },
+                {
+                    'key': 'spreads',
+                    'outcomes': [
+                        {
+                            'name': home_team,
+                            'price': random.choice([-105, -110, -115]),
+                            'point': (spread + random.uniform(-0.5, 0.5)) if favorite == away_team else -(spread + random.uniform(-0.5, 0.5))
+                        },
+                        {
+                            'name': away_team,
+                            'price': random.choice([-105, -110, -115]),
+                            'point': (spread + random.uniform(-0.5, 0.5)) if favorite == home_team else -(spread + random.uniform(-0.5, 0.5))
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            'key': 'betmgm',
+            'title': 'BetMGM',
+            'last_update': '2025-01-08T11:58:00Z',
+            'markets': [
+                {
+                    'key': 'h2h',
+                    'outcomes': [
+                        {
+                            'name': home_team,
+                            'price': (fav_ml + random.randint(-5, 15)) if favorite == home_team else (dog_ml + random.randint(-20, 10))
+                        },
+                        {
+                            'name': away_team,
+                            'price': (fav_ml + random.randint(-5, 15)) if favorite == away_team else (dog_ml + random.randint(-20, 10))
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+    
+    return bookmakers
+
+def show_odds_api_status():
+    """Show current odds API status and setup instructions"""
+    
+    api_key = get_odds_api_key()
+    
+    if api_key:
+        # Test the API key
+        test_result = test_odds_api(api_key)
+        if test_result['success']:
+            st.success(f"✅ **Live Odds Active!** {test_result['remaining']} requests remaining today")
+            return True
+        else:
+            st.error(f"❌ **Odds API Error:** {test_result['error']}")
+            st.info("💡 Check your API key in Settings page")
+            return False
+    else:
+        st.warning("⚠️ **Using Mock Odds Data** - Configure real API key for live odds")
+        
+        with st.expander("🔗 How to Get FREE Live Odds (500/month)"):
+            st.markdown("""
+            **Quick Setup (2 minutes):**
+            
+            1. **🌐 Visit:** [the-odds-api.com](https://the-odds-api.com/)
+            2. **📝 Sign Up:** Free account 
+            3. **🎯 Get Key:** 500 free requests/month
+            4. **⚙️ Configure:** Go to Settings → API Configuration
+            5. **✅ Test:** Verify your key works
+            
+            **What You Get:**
+            - ✅ Real-time odds from 50+ bookmakers
+            - ✅ Moneylines, spreads, totals
+            - ✅ DraftKings, FanDuel, BetMGM, Caesars
+            - ✅ Updates every minute
+            - ✅ 500 free requests monthly
+            """)
+        
+        return False
 
 def test_odds_api(api_key):
     """Test The Odds API key functionality"""
