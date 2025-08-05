@@ -612,12 +612,15 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         st.error(f"Error generating picks: {str(e)}")
 
 def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
-    """Unified card showing AI pick + live odds comparison"""
+    """Unified card showing AI pick + live odds comparison with comprehensive game data"""
     
     home_team = game.get('home_team', 'Unknown')
     away_team = game.get('away_team', 'Unknown')
     game_time = game.get('est_time', 'TBD')
     analysis = game.get('ai_analysis', {})
+    
+    # Get comprehensive game data
+    game_data = get_comprehensive_game_data(game)
     
     # Rank styling
     rank_colors = {1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32'}
@@ -625,13 +628,50 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
     badge_color = rank_colors.get(rank, '#667eea')
     badge_icon = rank_icons.get(rank, f'#{rank}')
     
-    # Main pick card
-    with st.expander(f"{badge_icon} {away_team} @ {home_team} • {game_time} • {analysis.get('confidence', 0):.1%} Confidence", expanded=rank <= 3):
+    # Main pick card with enhanced title
+    stadium_info = f" • {game_data.get('stadium', 'TBD')}" if game_data.get('stadium') else ""
+    with st.expander(f"{badge_icon} {away_team} @ {home_team} • {game_time} • {analysis.get('confidence', 0):.1%} Confidence{stadium_info}", expanded=rank <= 3):
         
-        # Top section: AI Pick + Quick Stats
-        col1, col2, col3 = st.columns([2, 2, 1])
+        # Game Details Header
+        st.markdown("#### 📋 Game Details")
+        detail_col1, detail_col2, detail_col3, detail_col4 = st.columns(4)
         
-        with col1:
+        with detail_col1:
+            st.markdown(f"""
+            **📅 Date:** {game_data.get('game_date', 'TBD')}  
+            **🕐 Time:** {game_time}  
+            **🏟️ Stadium:** {game_data.get('stadium', 'TBD')}
+            """)
+        
+        with detail_col2:
+            st.markdown(f"""
+            **🏠 Home:** {home_team}  
+            **✈️ Away:** {away_team}  
+            **📍 City:** {game_data.get('city', 'TBD')}
+            """)
+            
+        with detail_col3:
+            weather = game_data.get('weather', {})
+            st.markdown(f"""
+            **🌡️ Temp:** {weather.get('temperature', 'TBD')}  
+            **☁️ Conditions:** {weather.get('conditions', 'TBD')}  
+            **💨 Wind:** {weather.get('wind', 'TBD')}
+            """)
+            
+        with detail_col4:
+            st.markdown(f"""
+            **🎯 Surface:** {game_data.get('surface', 'TBD')}  
+            **🏟️ Type:** {game_data.get('venue_type', 'TBD')}  
+            **👥 Capacity:** {game_data.get('capacity', 'TBD')}
+            """)
+        
+        st.markdown("---")
+        
+        # AI Pick Analysis Section
+        st.markdown("#### 🤖 AI Analysis & Pick")
+        pick_col1, pick_col2, pick_col3 = st.columns([2, 2, 1])
+        
+        with pick_col1:
             st.markdown(f"""
             **🤖 AI Pick:** {analysis.get('pick', 'TBD')}  
             **🎯 Confidence:** {analysis.get('confidence', 0):.1%}  
@@ -639,17 +679,19 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
             **💪 Strength:** {analysis.get('strength', 'TBD')}
             """)
         
-        with col2:
+        with pick_col2:
             st.markdown(f"""
-            **🏠 Home:** {home_team}  
-            **✈️ Away:** {away_team}  
-            **🕐 Time:** {game_time}  
-            **📊 Value:** {analysis.get('value_rating', 'TBD')}
+            **📊 Value Rating:** {analysis.get('value_rating', 'TBD')}  
+            **🎲 Risk Level:** {analysis.get('risk_level', 'TBD')}  
+            **💰 Expected Value:** {analysis.get('expected_value', 'TBD')}  
+            **📈 Trend:** {analysis.get('trend', 'TBD')}
             """)
         
-        with col3:
+        with pick_col3:
             if st.button(f"⭐ Favorite", key=f"fav_unified_{rank}"):
                 st.success("Added to favorites!")
+            if st.button(f"📊 Details", key=f"details_unified_{rank}"):
+                st.info("Detailed analysis opened!")
         
         # AI Analysis Section
         st.markdown("#### 🤖 AI Analysis")
@@ -1372,32 +1414,68 @@ def get_games_for_date(target_date, sports=['NFL']):
                             game_dt_est = game_dt_utc.astimezone(est)
                             game_date_str = game_dt_est.strftime('%Y-%m-%d')
                             
-                            # More flexible matching - include if within 24 hours
-                            if game_date_str == target_str:
-                                game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
-                                game['sport'] = sport  # Add sport identifier
+                            # Format time properly and add game 
+                            game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
+                            game['sport'] = sport  # Add sport identifier
+                            game['game_datetime_est'] = game_dt_est  # Store for filtering
+                            
+                            # Include games for today and future dates
+                            current_est = datetime.now(est)
+                            if game_dt_est.date() >= current_est.date():
                                 all_games.append(game)
-                            else:
-                                # Check if it's close to target date (within 24 hours)
-                                target_dt = datetime.combine(target_date, datetime.min.time())
-                                target_dt_est = est.localize(target_dt)
-                                time_diff = abs((game_dt_est - target_dt_est).total_seconds() / 3600)  # Hours
-                                
-                                if time_diff <= 24:  # Within 24 hours
-                                    game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
-                                    game['sport'] = sport  # Add sport identifier
-                                    all_games.append(game)
                         except:
                             continue
         except Exception:
             continue
     
-    # If we got real games, return them
+    # If we got real games, filter out past games and return them
     if all_games:
-        return all_games
+        filtered_games = filter_upcoming_games(all_games)
+        if filtered_games:
+            return filtered_games
     
     # Otherwise generate realistic games for selected sports
     return get_ai_generated_games(target_date, sports)
+
+def filter_upcoming_games(games):
+    """Filter out games that have already started or finished"""
+    
+    from datetime import datetime
+    import pytz
+    
+    # Get current time in EST
+    est = pytz.timezone('US/Eastern')
+    current_time = datetime.now(est)
+    
+    upcoming_games = []
+    past_games_count = 0
+    
+    for game in games:
+        commence_time = game.get('commence_time', '')
+        if not commence_time:
+            continue
+            
+        try:
+            # Parse game time
+            game_dt_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+            game_dt_est = game_dt_utc.astimezone(est)
+            
+            # Only include games that haven't started yet
+            if game_dt_est > current_time:
+                upcoming_games.append(game)
+            else:
+                past_games_count += 1
+                
+        except Exception:
+            # If we can't parse the time, include the game to be safe
+            upcoming_games.append(game)
+            continue
+    
+    # Log filtering info for debugging (can be removed in production)
+    if past_games_count > 0:
+        print(f"Filtered out {past_games_count} past games, showing {len(upcoming_games)} upcoming games")
+    
+    return upcoming_games
 
 def get_ai_generated_games(target_date, sports=['NFL']):
     """Use AI to generate realistic games for selected sports"""
@@ -1550,8 +1628,9 @@ def generate_fallback_games(target_date, sports=['NFL']):
             
             game_time = random.choice(game_times)
             
-            # Create realistic commence_time
+            # Create realistic commence_time (ensure future time)
             est = pytz.timezone('US/Eastern')
+            current_time = datetime.now(est)
             
             # Parse game time
             time_parts = game_time.replace(' ET', '').split(':')
@@ -1564,8 +1643,16 @@ def generate_fallback_games(target_date, sports=['NFL']):
             elif 'AM' in game_time and hour == 12:
                 hour = 0
                 
+            # Create game datetime
             game_dt = datetime.combine(target_date, datetime.min.time().replace(hour=hour, minute=minute))
             game_dt_est = est.localize(game_dt)
+            
+            # If the game time has passed today, schedule it for tomorrow
+            if game_dt_est <= current_time:
+                from datetime import timedelta
+                game_dt += timedelta(days=1) 
+                game_dt_est = est.localize(game_dt)
+            
             game_dt_utc = game_dt_est.astimezone(pytz.UTC)
             
             # Sport-specific formatting
@@ -1607,6 +1694,127 @@ def generate_fallback_games(target_date, sports=['NFL']):
             all_games.append(game)
     
     return all_games
+
+def get_comprehensive_game_data(game):
+    """Get comprehensive data for a game including stadium, weather, and venue details"""
+    
+    home_team = game.get('home_team', '')
+    sport = game.get('sport', 'NFL')
+    commence_time = game.get('commence_time', '')
+    
+    # Stadium database by sport and team
+    stadium_data = {
+        'NFL': {
+            'Buffalo Bills': {'stadium': 'Highmark Stadium', 'city': 'Orchard Park, NY', 'surface': 'Grass', 'capacity': '71,608', 'venue_type': 'Outdoor'},
+            'Miami Dolphins': {'stadium': 'Hard Rock Stadium', 'city': 'Miami Gardens, FL', 'surface': 'Grass', 'capacity': '64,326', 'venue_type': 'Outdoor'},
+            'New England Patriots': {'stadium': 'Gillette Stadium', 'city': 'Foxborough, MA', 'surface': 'Turf', 'capacity': '65,878', 'venue_type': 'Outdoor'},
+            'New York Jets': {'stadium': 'MetLife Stadium', 'city': 'East Rutherford, NJ', 'surface': 'Turf', 'capacity': '82,500', 'venue_type': 'Outdoor'},
+            'Baltimore Ravens': {'stadium': 'M&T Bank Stadium', 'city': 'Baltimore, MD', 'surface': 'Grass', 'capacity': '71,008', 'venue_type': 'Outdoor'},
+            'Cincinnati Bengals': {'stadium': 'Paycor Stadium', 'city': 'Cincinnati, OH', 'surface': 'Turf', 'capacity': '65,515', 'venue_type': 'Outdoor'},
+            'Cleveland Browns': {'stadium': 'Cleveland Browns Stadium', 'city': 'Cleveland, OH', 'surface': 'Grass', 'capacity': '67,431', 'venue_type': 'Outdoor'},
+            'Pittsburgh Steelers': {'stadium': 'Heinz Field', 'city': 'Pittsburgh, PA', 'surface': 'Grass', 'capacity': '68,400', 'venue_type': 'Outdoor'},
+            'Dallas Cowboys': {'stadium': 'AT&T Stadium', 'city': 'Arlington, TX', 'surface': 'Turf', 'capacity': '80,000', 'venue_type': 'Dome'},
+            'Kansas City Chiefs': {'stadium': 'Arrowhead Stadium', 'city': 'Kansas City, MO', 'surface': 'Grass', 'capacity': '76,416', 'venue_type': 'Outdoor'},
+            'Green Bay Packers': {'stadium': 'Lambeau Field', 'city': 'Green Bay, WI', 'surface': 'Grass', 'capacity': '81,441', 'venue_type': 'Outdoor'},
+            'Los Angeles Rams': {'stadium': 'SoFi Stadium', 'city': 'Los Angeles, CA', 'surface': 'Turf', 'capacity': '70,240', 'venue_type': 'Dome'},
+            'San Francisco 49ers': {'stadium': 'Levi\'s Stadium', 'city': 'Santa Clara, CA', 'surface': 'Grass', 'capacity': '68,500', 'venue_type': 'Outdoor'},
+            'Seattle Seahawks': {'stadium': 'Lumen Field', 'city': 'Seattle, WA', 'surface': 'Turf', 'capacity': '68,740', 'venue_type': 'Outdoor'},
+            'Denver Broncos': {'stadium': 'Empower Field', 'city': 'Denver, CO', 'surface': 'Grass', 'capacity': '76,125', 'venue_type': 'Outdoor'},
+            'Las Vegas Raiders': {'stadium': 'Allegiant Stadium', 'city': 'Las Vegas, NV', 'surface': 'Grass', 'capacity': '65,000', 'venue_type': 'Dome'},
+        },
+        'NBA': {
+            'Lakers': {'stadium': 'Crypto.com Arena', 'city': 'Los Angeles, CA', 'surface': 'Hardwood', 'capacity': '20,000', 'venue_type': 'Indoor'},
+            'Warriors': {'stadium': 'Chase Center', 'city': 'San Francisco, CA', 'surface': 'Hardwood', 'capacity': '18,064', 'venue_type': 'Indoor'},
+            'Celtics': {'stadium': 'TD Garden', 'city': 'Boston, MA', 'surface': 'Hardwood', 'capacity': '19,156', 'venue_type': 'Indoor'},
+            'Heat': {'stadium': 'FTX Arena', 'city': 'Miami, FL', 'surface': 'Hardwood', 'capacity': '19,600', 'venue_type': 'Indoor'},
+            'Knicks': {'stadium': 'Madison Square Garden', 'city': 'New York, NY', 'surface': 'Hardwood', 'capacity': '20,789', 'venue_type': 'Indoor'},
+        },
+        'WNBA': {
+            'Aces': {'stadium': 'Michelob ULTRA Arena', 'city': 'Las Vegas, NV', 'surface': 'Hardwood', 'capacity': '12,000', 'venue_type': 'Indoor'},
+            'Storm': {'stadium': 'Climate Pledge Arena', 'city': 'Seattle, WA', 'surface': 'Hardwood', 'capacity': '18,100', 'venue_type': 'Indoor'},
+            'Liberty': {'stadium': 'Barclays Center', 'city': 'Brooklyn, NY', 'surface': 'Hardwood', 'capacity': '17,732', 'venue_type': 'Indoor'},
+            'Sun': {'stadium': 'Mohegan Sun Arena', 'city': 'Uncasville, CT', 'surface': 'Hardwood', 'capacity': '9,323', 'venue_type': 'Indoor'},
+            'Wings': {'stadium': 'College Park Center', 'city': 'Arlington, TX', 'surface': 'Hardwood', 'capacity': '7,000', 'venue_type': 'Indoor'},
+        },
+        'MLB': {
+            'Yankees': {'stadium': 'Yankee Stadium', 'city': 'Bronx, NY', 'surface': 'Grass', 'capacity': '47,309', 'venue_type': 'Outdoor'},
+            'Red Sox': {'stadium': 'Fenway Park', 'city': 'Boston, MA', 'surface': 'Grass', 'capacity': '37,755', 'venue_type': 'Outdoor'},
+            'Dodgers': {'stadium': 'Dodger Stadium', 'city': 'Los Angeles, CA', 'surface': 'Grass', 'capacity': '56,000', 'venue_type': 'Outdoor'},
+            'Giants': {'stadium': 'Oracle Park', 'city': 'San Francisco, CA', 'surface': 'Grass', 'capacity': '41,915', 'venue_type': 'Outdoor'},
+            'Cubs': {'stadium': 'Wrigley Field', 'city': 'Chicago, IL', 'surface': 'Grass', 'capacity': '41,649', 'venue_type': 'Outdoor'},
+            'Cardinals': {'stadium': 'Busch Stadium', 'city': 'St. Louis, MO', 'surface': 'Grass', 'capacity': '45,494', 'venue_type': 'Outdoor'},
+            'Braves': {'stadium': 'Truist Park', 'city': 'Atlanta, GA', 'surface': 'Grass', 'capacity': '41,149', 'venue_type': 'Outdoor'},
+            'Astros': {'stadium': 'Minute Maid Park', 'city': 'Houston, TX', 'surface': 'Grass', 'capacity': '41,168', 'venue_type': 'Retractable Roof'},
+            'Mets': {'stadium': 'Citi Field', 'city': 'New York, NY', 'surface': 'Grass', 'capacity': '41,922', 'venue_type': 'Outdoor'},
+            'Phillies': {'stadium': 'Citizens Bank Park', 'city': 'Philadelphia, PA', 'surface': 'Grass', 'capacity': '43,647', 'venue_type': 'Outdoor'},
+        }
+    }
+    
+    # Get stadium info for the home team
+    team_info = stadium_data.get(sport, {}).get(home_team, {})
+    
+    # Parse date from commence time
+    game_date = 'TBD'
+    if commence_time:
+        try:
+            from datetime import datetime
+            import pytz
+            game_dt_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+            est = pytz.timezone('US/Eastern')
+            game_dt_est = game_dt_utc.astimezone(est)
+            game_date = game_dt_est.strftime('%A, %B %d, %Y')
+        except:
+            pass
+    
+    # Get weather data (simulated for now - in production would use weather API)
+    weather_data = get_weather_for_game(team_info.get('city', ''), sport)
+    
+    return {
+        'stadium': team_info.get('stadium', 'TBD'),
+        'city': team_info.get('city', 'TBD'),
+        'surface': team_info.get('surface', 'TBD'),
+        'capacity': team_info.get('capacity', 'TBD'),
+        'venue_type': team_info.get('venue_type', 'TBD'),
+        'game_date': game_date,
+        'weather': weather_data
+    }
+
+def get_weather_for_game(city, sport):
+    """Get weather data for game location (simulated realistic data)"""
+    
+    import random
+    
+    # Indoor sports don't need weather
+    if sport in ['NBA', 'WNBA'] or 'Indoor' in city:
+        return {
+            'temperature': 'N/A (Indoor)',
+            'conditions': 'Controlled',
+            'wind': 'N/A'
+        }
+    
+    # Realistic weather patterns by region
+    weather_patterns = {
+        'default': {
+            'temps': ['72°F', '68°F', '75°F', '71°F', '69°F', '74°F'],
+            'conditions': ['Clear', 'Partly Cloudy', 'Sunny', 'Overcast', 'Light Clouds'],
+            'winds': ['5 mph', '8 mph', '12 mph', '3 mph', '7 mph', '10 mph']
+        },
+        'cold': {
+            'temps': ['45°F', '38°F', '52°F', '41°F', '48°F'],
+            'conditions': ['Cold', 'Partly Cloudy', 'Overcast', 'Light Snow', 'Clear & Cold'],
+            'winds': ['15 mph', '12 mph', '18 mph', '8 mph', '20 mph']
+        }
+    }
+    
+    # Choose pattern based on city
+    pattern = 'cold' if any(cold_city in city.lower() for cold_city in ['green bay', 'cleveland', 'buffalo', 'boston']) else 'default'
+    weather = weather_patterns[pattern]
+    
+    return {
+        'temperature': random.choice(weather['temps']),
+        'conditions': random.choice(weather['conditions']),
+        'wind': random.choice(weather['winds'])
+    }
 
 def analyze_market_trends(games, depth):
     """Analyze market trends from game data"""
