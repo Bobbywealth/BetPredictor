@@ -7,9 +7,6 @@ import time
 import concurrent.futures
 from datetime import datetime, date, timedelta
 import os
-from bs4 import BeautifulSoup
-import re
-from urllib.parse import urljoin, urlparse
 import random
 import hashlib
 import pickle
@@ -1390,19 +1387,27 @@ def show_todays_top_predictions():
         # Use cached predictions
         top_predictions = cached_predictions
     else:
-        # Generate fresh predictions
-        with st.spinner("🧠 Generating today's predictions..."):
+        # Check if APIs are configured
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        google_key = os.environ.get("GOOGLE_API_KEY")
+        
+        if not openai_key and not google_key:
+            st.warning("⚠️ Configure OpenAI or Google Gemini API keys to see AI predictions")
             top_predictions = []
-            
-            for sport in all_sports:
-                games = get_games_for_date(today, [sport])
+        else:
+            # Generate fresh predictions
+            with st.spinner("🧠 Generating today's predictions..."):
+                top_predictions = []
                 
-                for game in games[:3]:  # Limit to 3 games per sport for dashboard
-                    analysis = get_ai_analysis(game)
+                for sport in all_sports:
+                    games = get_games_for_date(today, [sport])
                     
-                    if analysis and analysis.get('confidence', 0) >= 0.7:  # High confidence only
-                        game['ai_analysis'] = analysis
-                        top_predictions.append(game)
+                    for game in games[:3]:  # Limit to 3 games per sport for dashboard
+                        analysis = get_ai_analysis(game)
+                        
+                        if analysis and analysis.get('confidence', 0) >= 0.7:  # High confidence only
+                            game['ai_analysis'] = analysis
+                            top_predictions.append(game)
     
     if top_predictions:
         # Sort by confidence and take top 6
@@ -2269,6 +2274,27 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             progress_bar = st.progress(0)
             status_text = st.empty()
             
+            # Check if APIs are configured before processing
+            openai_key = os.environ.get("OPENAI_API_KEY")
+            google_key = os.environ.get("GOOGLE_API_KEY")
+            
+            if not openai_key and not google_key:
+                # No APIs configured - show error and stop
+                loading_container.empty()
+                progress_bar.empty()
+                status_text.empty()
+                
+                st.error("🚨 No AI APIs configured!")
+                st.warning("Please configure OpenAI and/or Google Gemini API keys to generate predictions.")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.info("**OpenAI API Key:** Set `OPENAI_API_KEY` environment variable")
+                with col2:
+                    st.info("**Google Gemini API Key:** Set `GOOGLE_API_KEY` environment variable")
+                
+                return
+            
             # Process each game with enhanced progress tracking
             for i, game in enumerate(games):
                 progress = (i + 1) / len(games)
@@ -2277,13 +2303,11 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 game_name = f"{game.get('away_team', 'Team A')} @ {game.get('home_team', 'Team B')}"
                 status_text.info(f"🔍 Analyzing {game_name} ({i+1}/{len(games)})")
                 
-                # Get AI analysis with detailed status
+                # Get AI analysis with detailed status - ONLY from real APIs
                 analysis = get_ai_analysis_with_status(game, status_text)
                 
-                # Filter by confidence level
-                confidence = analysis.get('confidence', 0.0) if analysis else 0.0
-                
-                if confidence >= min_confidence:
+                # Only include games where AI analysis succeeded
+                if analysis and analysis.get('confidence', 0.0) >= min_confidence:
                     game['ai_analysis'] = analysis
                     analyzed_games.append(game)
             
@@ -3238,9 +3262,9 @@ def show_settings():
                         st.error(f"❌ API test failed: {test_result['error']}")
     
     with api_col2:
-        st.markdown("### 🤖 AI Enhancement (Optional)")
-        st.markdown("**Current:** Smart AI fallback system")
-        st.markdown("**Enhanced:** ChatGPT + Gemini analysis")
+        st.markdown("### 🤖 AI Enhancement (Required)")
+        st.markdown("**Required:** ChatGPT + Gemini API keys for predictions")
+        st.markdown("**Note:** No fallback system - real APIs only")
         
         openai_key = st.text_input(
             "OpenAI API Key (Optional)",
@@ -3260,9 +3284,9 @@ def show_settings():
             st.info("""
             **✅ Current Status:** Spizo works excellently with built-in AI
             
-            **🚀 With API Keys:** Enhanced analysis from ChatGPT & Gemini
+            **🚀 With API Keys:** Real AI analysis from ChatGPT & Gemini
             
-            **🎯 Without Keys:** Smart fallback provides great predictions
+            **⚠️ Without Keys:** No predictions available - API keys required
             """)
     
     # Save API Keys
@@ -5574,8 +5598,7 @@ def get_ai_analysis_with_status(game, status_display):
     return get_ai_analysis(game)
 
 def get_ai_analysis(game):
-    """Get fast AI analysis with dual-AI comparison system"""
-    import random
+    """Get AI analysis ONLY from real OpenAI and Gemini APIs - no fallbacks"""
     import concurrent.futures
     import time
     
@@ -5583,15 +5606,15 @@ def get_ai_analysis(game):
     away_team = game.get('away_team', 'Unknown')
     sport = game.get('sport', 'NFL')
     
-    # Quick API key check - if no keys, use instant fallback
+    # Check for API keys - REQUIRED for analysis
     openai_key = os.environ.get("OPENAI_API_KEY")
     google_key = os.environ.get("GOOGLE_API_KEY")
     
     if not openai_key and not google_key:
-        # No API keys - instant fallback
-        return generate_instant_fallback_analysis(home_team, away_team, sport)
+        # No API keys available - return None instead of fallback
+        return None
     
-    # Run both AI systems in parallel for speed and comparison
+    # Run both AI systems in parallel 
     start_time = time.time()
     
     try:
@@ -5604,41 +5627,42 @@ def get_ai_analysis(game):
             if google_key:
                 futures['gemini'] = executor.submit(get_gemini_analysis_complete, home_team, away_team, sport)
             
-            # Get results with short timeout for speed
+            # Get results with reasonable timeout
             openai_result = None
             gemini_result = None
             
             if 'openai' in futures:
                 try:
-                    openai_result = futures['openai'].result(timeout=5)  # 5 second timeout
+                    openai_result = futures['openai'].result(timeout=15)  # Longer timeout for real API
                 except Exception as e:
-                    print(f"OpenAI timeout/error: {e}")
+                    print(f"OpenAI API error: {e}")
                     openai_result = None
                     
             if 'gemini' in futures:
                 try:
-                    gemini_result = futures['gemini'].result(timeout=5)  # 5 second timeout
+                    gemini_result = futures['gemini'].result(timeout=15)  # Longer timeout for real API
                 except Exception as e:
-                    print(f"Gemini timeout/error: {e}")
+                    print(f"Gemini API error: {e}")
                     gemini_result = None
         
         analysis_time = time.time() - start_time
         
-        # If both failed or took too long, use instant fallback
+        # If both APIs failed, return None - NO FALLBACKS
         if openai_result is None and gemini_result is None:
-            return generate_instant_fallback_analysis(home_team, away_team, sport)
+            return None
         
-        # Combine results and track performance
+        # Combine results from successful APIs only
         final_analysis = combine_ai_results(openai_result, gemini_result, analysis_time)
+        
+        # Store comparison data for admin panel
+        if final_analysis:
+            store_ai_comparison(game, openai_result, gemini_result, final_analysis)
+        
+        return final_analysis
         
     except Exception as e:
         print(f"AI analysis error: {e}")
-        return generate_instant_fallback_analysis(home_team, away_team, sport)
-    
-    # Store comparison data for admin panel
-    store_ai_comparison(game, openai_result, gemini_result, final_analysis)
-    
-    return final_analysis
+        return None  # Return None instead of fallback
 
 def get_openai_analysis(home_team, away_team, sport):
     """Get ChatGPT/OpenAI analysis"""
@@ -6632,7 +6656,7 @@ def get_openai_analysis_complete(home_team, away_team, sport):
     
     openai_key = os.environ.get("OPENAI_API_KEY")
     if not openai_key:
-        return generate_advanced_fallback_analysis(home_team, away_team, sport, "ChatGPT (No API)")
+        return None
         
     try:
         from openai import OpenAI
@@ -6664,7 +6688,7 @@ def get_openai_analysis_complete(home_team, away_team, sport):
     except Exception as e:
         print(f"OpenAI error: {e}")
         
-    return generate_advanced_fallback_analysis(home_team, away_team, sport, "ChatGPT (Error)")
+    return None
 
 def get_expert_system_prompt(sport):
     """Get expert system prompt for the AI to act as a professional sports analyst"""
@@ -6810,170 +6834,21 @@ def generate_realistic_team_stats(team_name):
         'injuries': random.choice(['Healthy', 'Minor concerns', 'Key player questionable'])
     }
 
-def generate_advanced_fallback_analysis(home_team, away_team, sport, source):
-    """Generate sophisticated fallback analysis with realistic betting metrics"""
-    import random
-    import time
-    
-    start_time = time.time()
-    
-    # Advanced team strength modeling
-    team_ratings = get_team_power_ratings(home_team, away_team, sport)
-    
-    # Calculate true probabilities
-    home_rating = team_ratings['home_rating']
-    away_rating = team_ratings['away_rating']
-    
-    # Home field advantage (typically 2-3 points in NFL)
-    home_advantage = 2.5
-    adjusted_home_rating = home_rating + home_advantage
-    
-    # Calculate win probability using logistic regression model
-    rating_diff = adjusted_home_rating - away_rating
-    home_win_prob = 1 / (1 + pow(10, -rating_diff/15))  # NFL spread-to-probability conversion
-    
-    # Determine winner and confidence
-    if home_win_prob > 0.52:  # Slight edge to home
-        winner = home_team
-        confidence = min(0.95, home_win_prob)
-    else:
-        winner = away_team
-        confidence = min(0.95, 1 - home_win_prob)
-    
-    # Calculate betting value
-    implied_prob = confidence
-    market_prob = 0.50  # Assuming even money for fallback
-    edge = implied_prob - market_prob
-    
-    # Advanced factors based on team analysis
-    factors = generate_advanced_factors(home_team, away_team, sport, team_ratings)
-    
-    return {
-        'predicted_winner': winner,
-        'confidence': confidence,
-        'true_probability': home_win_prob if winner == home_team else (1 - home_win_prob),
-        'betting_edge': abs(edge),
-        'primary_factors': factors,
-        'statistical_reasoning': f"Power rating differential: {rating_diff:.1f} points favoring {winner}",
-        'value_assessment': get_value_rating(edge),
-        'recommended_bet_type': get_recommended_bet_type(confidence, edge),
-        'recommended_stake': get_stake_recommendation(confidence, edge),
-        'risk_factors': get_risk_factors(team_ratings),
-        'alternative_bets': get_alternative_bets(home_team, away_team),
-        'confidence_intervals': {
-            'conservative': max(0.55, confidence - 0.1),
-            'aggressive': min(0.95, confidence + 0.1)
-        },
-        'expected_value': calculate_expected_value(confidence, edge),
-        'roi_projection': f"{(edge * 100):.1f}%",
-        'ai_model': f'Advanced Statistical Model ({source})',
-        'analysis_time': time.time() - start_time,
-        'power_ratings': team_ratings
-    }
+# Removed fallback analysis function - using only real APIs
 
-def get_team_power_ratings(home_team, away_team, sport):
-    """Calculate power ratings for teams based on performance"""
-    import random
-    
-    # Simulate power ratings (in production, calculate from real stats)
-    base_rating = random.uniform(85, 95)  # Average team rating
-    variance = random.uniform(-8, 8)      # Team strength variance
-    
-    home_rating = base_rating + variance
-    away_rating = base_rating + random.uniform(-8, 8)
-    
-    return {
-        'home_rating': home_rating,
-        'away_rating': away_rating,
-        'home_team': home_team,
-        'away_team': away_team
-    }
+# Removed helper function - using only real APIs
 
-def generate_advanced_factors(home_team, away_team, sport, team_ratings):
-    """Generate sophisticated analysis factors"""
-    import random
-    
-    factor_pool = [
-        f"{home_team} superior power rating ({team_ratings['home_rating']:.1f} vs {team_ratings['away_rating']:.1f})",
-        f"Home field advantage worth 2.5 points in {sport}",
-        f"Offensive efficiency matchup favors {random.choice([home_team, away_team])}",
-        f"Defensive strength advantage to {random.choice([home_team, away_team])}",
-        f"Recent form trending upward for {random.choice([home_team, away_team])}",
-        f"Head-to-head history slight edge to {random.choice([home_team, away_team])}",
-        f"Weather conditions favor {random.choice(['ground game', 'passing attack', 'defense'])}",
-        f"Injury report impact minimal for both teams",
-        f"Motivation factor: {random.choice(['revenge game', 'playoff implications', 'divisional rivalry'])}",
-        f"Coaching matchup slight advantage to {random.choice([home_team, away_team])}"
-    ]
-    
-    return random.sample(factor_pool, 3)
+# Removed helper function - using only real APIs
 
-def get_value_rating(edge):
-    """Determine value assessment based on betting edge"""
-    if edge > 0.15:
-        return "EXCELLENT"
-    elif edge > 0.08:
-        return "GOOD"
-    elif edge > 0.02:
-        return "FAIR"
-    elif edge > -0.05:
-        return "POOR"
-    else:
-        return "AVOID"
+# Removed helper function - using only real APIs
 
-def get_recommended_bet_type(confidence, edge):
-    """Recommend optimal bet type based on analysis"""
-    if confidence > 0.75 and edge > 0.1:
-        return "MONEYLINE"
-    elif confidence > 0.65 and edge > 0.05:
-        return "SPREAD"
-    elif edge > 0.08:
-        return "TOTAL"
-    elif confidence > 0.60:
-        return "PROPS"
-    else:
-        return "AVOID"
+# Removed helper function - using only real APIs
 
-def get_stake_recommendation(confidence, edge):
-    """Recommend stake size using Kelly Criterion concepts"""
-    if confidence > 0.80 and edge > 0.12:
-        return "HEAVY"
-    elif confidence > 0.70 and edge > 0.06:
-        return "MODERATE"
-    elif confidence > 0.60 and edge > 0.02:
-        return "LIGHT"
-    else:
-        return "AVOID"
+# Removed helper function - using only real APIs
 
-def get_risk_factors(team_ratings):
-    """Identify potential risks to the prediction"""
-    import random
-    
-    risk_pool = [
-        "Key player injury could impact performance",
-        "Weather conditions may change game script",
-        "Team motivation difficult to quantify",
-        "Referee tendencies in close games",
-        "Late week line movement suggests sharp money",
-        "Divisional games often closer than expected",
-        "Coaching adjustments in second half",
-        "Turnover variance can swing close games"
-    ]
-    
-    return random.sample(risk_pool, 2)
+# Removed helper function - using only real APIs
 
-def get_alternative_bets(home_team, away_team):
-    """Suggest alternative betting opportunities"""
-    import random
-    
-    alt_bets = [
-        f"{random.choice([home_team, away_team])} team total over",
-        f"First half {random.choice(['over', 'under'])}",
-        f"{random.choice([home_team, away_team])} to score first",
-        f"Game to go to overtime: No"
-    ]
-    
-    return random.sample(alt_bets, 2)
+# Removed helper function - using only real APIs
 
 def calculate_expected_value(confidence, edge):
     """Calculate expected value of the bet"""
@@ -7010,7 +6885,7 @@ JSON only: {{"predicted_winner": "{home_team}", "confidence": 0.72, "key_factors
     except Exception as e:
         print(f"Gemini error: {e}")
         
-    return generate_fallback_analysis(home_team, away_team, sport, "Gemini (Error)")
+    return None
 
 def combine_ai_results(openai_result, gemini_result, total_time):
     """Combine both AI results for consensus prediction"""
@@ -7058,149 +6933,14 @@ def combine_ai_results(openai_result, gemini_result, total_time):
             'analysis_time': total_time
         }
     else:
-        # Fallback analysis
-        combined = generate_fallback_analysis('Unknown', 'Unknown', 'NFL', 'Fast Fallback')
-        combined['analysis_time'] = total_time
+        # No valid results - return None instead of fallback
+        return None
     
     return combined
 
-def generate_fallback_analysis(home_team, away_team, sport, source):
-    """Generate fast fallback analysis"""
-    import random
-    
-    return {
-        'pick': random.choice([home_team, away_team]),
-        'confidence': random.uniform(0.6, 0.8),
-        'edge': random.uniform(0.5, 0.7),
-        'strength': random.choice(['STRONG_BET', 'MODERATE_BET', 'LEAN']),
-        'factors': [f'{sport} analysis', 'Statistical model', 'Professional assessment'],
-        'value_rating': random.choice(['EXCELLENT', 'GOOD', 'FAIR']),
-        'risk_level': random.choice(['LOW', 'MEDIUM']),
-        'ai_consensus': source,
-        'analysis_time': 0.1
-    }
+# Removed fallback analysis function - using only real APIs
 
-def generate_instant_fallback_analysis(home_team, away_team, sport):
-    """Generate instant high-quality analysis when APIs are unavailable"""
-    import random
-    import time
-    
-    start_time = time.time()
-    
-    # Realistic team strength simulation
-    team_strengths = {
-        # NFL teams
-        'Kansas City Chiefs': 0.92, 'Buffalo Bills': 0.89, 'Baltimore Ravens': 0.87,
-        'San Francisco 49ers': 0.86, 'Dallas Cowboys': 0.83, 'Miami Dolphins': 0.82,
-        'Philadelphia Eagles': 0.85, 'Cincinnati Bengals': 0.84, 'Detroit Lions': 0.81,
-        # NBA teams  
-        'Boston Celtics': 0.91, 'Denver Nuggets': 0.88, 'Milwaukee Bucks': 0.86,
-        'Phoenix Suns': 0.84, 'Golden State Warriors': 0.83, 'Los Angeles Lakers': 0.82,
-        # Default strength for unknown teams
-        'default': 0.75
-    }
-    
-    home_strength = team_strengths.get(home_team, team_strengths['default']) + 0.05  # Home advantage
-    away_strength = team_strengths.get(away_team, team_strengths['default'])
-    
-    # Determine winner based on strength with some randomness
-    strength_diff = home_strength - away_strength
-    
-    if strength_diff > 0.1:
-        winner = home_team
-        confidence = min(0.90, 0.75 + strength_diff)  # Increased base confidence
-    elif strength_diff < -0.1:
-        winner = away_team  
-        confidence = min(0.90, 0.75 + abs(strength_diff))  # Increased base confidence
-    else:
-        # Close matchup
-        winner = random.choice([home_team, away_team])
-        confidence = random.uniform(0.60, 0.75)  # Increased range from 55-68% to 60-75%
-    
-    # Generate realistic factors based on sport
-    sport_factors = {
-        'NFL': [
-            'Quarterback matchup advantage',
-            'Rushing defense strength',  
-            'Red zone efficiency',
-            'Turnover differential',
-            'Weather conditions',
-            'Home field advantage'
-        ],
-        'NBA': [
-            'Star player availability',
-            'Three-point shooting efficiency', 
-            'Rebounding advantage',
-            'Pace of play matchup',
-            'Home court advantage',
-            'Recent form'
-        ],
-        'WNBA': [
-            'Scoring efficiency',
-            'Defensive rating',
-            'Bench depth',
-            'Home court advantage', 
-            'Key player matchups',
-            'Recent momentum'
-        ],
-        'MLB': [
-            'Starting pitcher advantage',
-            'Bullpen strength',
-            'Offensive production',
-            'Defensive efficiency',
-            'Home field advantage',
-            'Weather conditions'
-        ],
-        'default': [
-            'Team form',
-            'Head-to-head record',
-            'Home advantage',
-            'Key player availability',
-            'Tactical matchup',
-            'Recent performance'
-        ]
-    }
-    
-    factors = sport_factors.get(sport, sport_factors['default'])
-    selected_factors = random.sample(factors, 3)
-    
-    # Determine recommendation and risk based on confidence
-    if confidence >= 0.80:
-        recommendation = "STRONG_BET"
-        risk_level = "LOW"
-        edge_score = confidence * 0.9
-        value_rating = "EXCELLENT"
-    elif confidence >= 0.70:
-        recommendation = "MODERATE_BET"
-        risk_level = "MEDIUM"
-        edge_score = confidence * 0.8
-        value_rating = "GOOD"
-    elif confidence >= 0.60:
-        recommendation = "LIGHT_BET"
-        risk_level = "MEDIUM"
-        edge_score = confidence * 0.7
-        value_rating = "FAIR"
-    else:
-        recommendation = "AVOID"
-        risk_level = "HIGH"
-        edge_score = confidence * 0.6
-        value_rating = "POOR"
-    
-    analysis_time = time.time() - start_time
-    
-    return {
-        'pick': winner,  # Use 'pick' to match expected format
-        'confidence': round(confidence, 2),
-        'edge': round(edge_score, 2),  # Use 'edge' to match expected format
-        'strength': recommendation,  # Use 'strength' to match expected format
-        'factors': selected_factors,  # Use 'factors' to match expected format
-        'value_rating': value_rating,
-        'risk_level': risk_level,
-        'ai_consensus': 'Smart Fallback AI',  # Use 'ai_consensus' to match expected format
-        'analysis_time': analysis_time,
-        'reasoning': f"Based on team strength analysis and {sport} matchup factors, {winner} has the advantage.",
-        'prediction_summary': f"{winner} recommended with {confidence:.0%} confidence - {recommendation.replace('_', ' ').title()}"
-    }
+# Removed fallback analysis function - using only real APIs
 
 def store_ai_comparison(game, openai_result, gemini_result, final_analysis):
     """Store AI comparison data for admin tracking"""
@@ -7722,7 +7462,7 @@ def show_admin_settings():
             st.slider("Analysis timeout (seconds)", 5, 30, 10)
         
         with ai_col2:
-            st.selectbox("Fallback AI Model", ["Gemini-1.5-Flash", "GPT-3.5-Turbo"])
+            st.selectbox("Primary AI Model", ["OpenAI GPT-4o", "Google Gemini Pro"])
             st.slider("Max tokens per request", 200, 1000, 500)
             st.checkbox("Cache AI responses", value=True)
             st.slider("Cache TTL (minutes)", 1, 60, 5)
