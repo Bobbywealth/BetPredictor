@@ -1945,6 +1945,10 @@ def show_todays_top_predictions():
     
     today = datetime.now().date()
     
+    # Temporarily disable cache notifications to avoid spam in dashboard
+    original_cache_setting = st.session_state.get('show_cache_notifications', False)
+    st.session_state.show_cache_notifications = False
+    
     # Check for cached predictions first
     all_sports = ['NFL', 'NBA', 'MLB', 'NHL']
     cached_predictions = use_cached_predictions_if_available(today, all_sports)
@@ -2037,6 +2041,8 @@ def show_todays_top_predictions():
                 if os.path.exists(cache_file):
                     os.remove(cache_file)
                 
+                # Restore cache setting before rerun
+                st.session_state.show_cache_notifications = original_cache_setting
                 st.rerun()
     
     else:
@@ -2054,6 +2060,9 @@ def show_todays_top_predictions():
             if st.button("⚙️ Adjust Settings", use_container_width=True):
                 st.session_state.current_page = 'settings'
                 st.rerun()
+    
+    # Restore original cache notification setting
+    st.session_state.show_cache_notifications = original_cache_setting
 
 # Initialize session state
 if 'current_page' not in st.session_state:
