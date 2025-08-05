@@ -16,103 +16,433 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern design
+# Enhanced CSS with animations, dark/light mode, and professional design
 st.markdown("""
 <style>
-    /* Main styling */
-    .main > div {
-        padding-top: 2rem;
+    /* CSS Variables for Dark/Light Mode */
+    :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f8f9fa;
+        --bg-card: #ffffff;
+        --text-primary: #2d3748;
+        --text-secondary: #4a5568;
+        --text-muted: #718096;
+        --border-color: #e2e8f0;
+        --shadow-light: rgba(0, 0, 0, 0.1);
+        --shadow-medium: rgba(0, 0, 0, 0.15);
+        --accent-primary: #667eea;
+        --accent-secondary: #764ba2;
+        --success: #48bb78;
+        --warning: #ed8936;
+        --error: #f56565;
+        --info: #4299e1;
     }
     
-    /* Header styling */
+    [data-theme="dark"] {
+        --bg-primary: #1a202c;
+        --bg-secondary: #2d3748;
+        --bg-card: #2d3748;
+        --text-primary: #f7fafc;
+        --text-secondary: #e2e8f0;
+        --text-muted: #a0aec0;
+        --border-color: #4a5568;
+        --shadow-light: rgba(0, 0, 0, 0.3);
+        --shadow-medium: rgba(0, 0, 0, 0.4);
+        --accent-primary: #667eea;
+        --accent-secondary: #764ba2;
+        --success: #68d391;
+        --warning: #f6ad55;
+        --error: #fc8181;
+        --info: #63b3ed;
+    }
+    
+    /* Global Animations */
+    * {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Main Container Styling */
+    .main > div {
+        padding-top: 2rem;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+    }
+    
+    /* Animated Header with Gradient Background */
     .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        padding: 3rem 2rem;
+        border-radius: 20px;
         color: white;
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        box-shadow: 0 20px 40px var(--shadow-medium);
+        position: relative;
+        overflow: hidden;
+        animation: slideInDown 0.8s ease-out;
     }
     
-    /* Card styling */
-    .info-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 1.5rem;
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+        animation: shimmer 3s infinite;
+        pointer-events: none;
+    }
+    
+    .main-header h1 {
+        font-size: 3rem;
+        margin: 0;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        animation: fadeInUp 1s ease-out 0.3s both;
+    }
+    
+    .main-header h2 {
+        font-size: 1.5rem;
         margin: 1rem 0;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        opacity: 0.9;
+        animation: fadeInUp 1s ease-out 0.6s both;
     }
     
-    /* Pick card styling */
-    .pick-card {
-        background: linear-gradient(145deg, #f0f2f6, #ffffff);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        border-left: 5px solid #667eea;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    .main-header p {
+        font-size: 1.1rem;
+        opacity: 0.8;
+        animation: fadeInUp 1s ease-out 0.9s both;
     }
     
-    /* Sidebar styling */
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    /* Animated Cards */
+    .info-card, .pick-card, .metric-card {
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 32px var(--shadow-light);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        animation: fadeInScale 0.6s ease-out;
     }
     
-    /* Metrics styling */
-    .metric-card {
-        background: rgba(255, 255, 255, 0.9);
-        padding: 1rem;
-        border-radius: 10px;
-        text-align: center;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    .info-card:hover, .pick-card:hover, .metric-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px var(--shadow-medium);
+        border-color: var(--accent-primary);
     }
     
-    /* Button styling */
+    .info-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .info-card:hover::before {
+        left: 100%;
+    }
+    
+    /* Advanced Button Styling */
     .stButton > button {
-        border-radius: 25px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
         border: none;
-        padding: 0.5rem 2rem;
-        background: linear-gradient(45deg, #667eea, #764ba2);
+        border-radius: 12px;
+        padding: 0.75rem 2rem;
         color: white;
-        font-weight: bold;
-        transition: all 0.3s ease;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
     }
     
-    /* Hide default streamlit styling but keep sidebar */
+    .stButton > button:hover::before {
+        left: 100%;
+    }
+    
+    .stButton > button:active {
+        transform: translateY(-1px);
+    }
+    
+    /* Professional Sidebar */
+    .css-1d391kg, section[data-testid="stSidebar"] {
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
+        box-shadow: 4px 0 20px var(--shadow-light);
+    }
+    
+    .sidebar-header {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        margin: -1rem -1rem 2rem -1rem;
+        padding: 2rem 1rem;
+        border-radius: 0 0 20px 20px;
+        text-align: center;
+        color: white;
+        animation: slideInLeft 0.8s ease-out;
+    }
+    
+    .sidebar-nav-item {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--text-primary);
+        text-align: left;
+        font-size: 0.95rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .sidebar-nav-item:hover {
+        background: var(--accent-primary);
+        color: white;
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .sidebar-nav-item.active {
+        background: var(--accent-primary);
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Dark/Light Mode Toggle */
+    .theme-toggle {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        background: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: 50px;
+        padding: 8px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px var(--shadow-light);
+        transition: all 0.3s ease;
+        animation: bounceIn 1s ease-out;
+    }
+    
+    .theme-toggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px var(--shadow-medium);
+    }
+    
+    .theme-toggle-icon {
+        font-size: 1.5rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .theme-toggle:hover .theme-toggle-icon {
+        transform: rotate(180deg);
+    }
+    
+    /* Metrics Dashboard */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+    
+    .metric-item {
+        background: var(--bg-card);
+        padding: 2rem;
+        border-radius: 16px;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 32px var(--shadow-light);
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    .metric-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px var(--shadow-medium);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--accent-primary);
+        margin: 0.5rem 0;
+        animation: countUp 1.5s ease-out;
+    }
+    
+    .metric-label {
+        color: var(--text-secondary);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.9rem;
+    }
+    
+    /* Loading Animations */
+    .loading-spinner {
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--accent-primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+    
+    /* Keyframe Animations */
+    @keyframes slideInDown {
+        from { transform: translateY(-100px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes slideInLeft {
+        from { transform: translateX(-100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes fadeInUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes fadeInScale {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes bounceIn {
+        0% { transform: scale(0.3); opacity: 0; }
+        50% { transform: scale(1.05); }
+        70% { transform: scale(0.9); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes countUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Mobile Responsive Design */
+    @media (max-width: 768px) {
+        .main-header {
+            padding: 2rem 1rem;
+        }
+        
+        .main-header h1 {
+            font-size: 2rem;
+        }
+        
+        .info-card, .pick-card, .metric-card {
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .theme-toggle {
+            top: 10px;
+            right: 10px;
+            padding: 6px;
+        }
+    }
+    
+    /* Hide Streamlit Default Elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    .stDeployButton {display: none;}
     
-    /* Ensure sidebar is visible */
-    .css-1d391kg {display: block !important;}
-    .css-1lcbmhc {display: block !important;}
-    section[data-testid="stSidebar"] {display: block !important;}
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
     
-    /* Sidebar toggle button styling */
-    .sidebar-toggle {
-        position: fixed;
-        top: 1rem;
-        left: 1rem;
-        z-index: 999;
-        background: #667eea;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        font-size: 20px;
-        cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    ::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--accent-primary);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-secondary);
     }
 </style>
+
+<script>
+// Dark/Light Mode Toggle Functionality
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    // Update toggle icon
+    const icon = document.querySelector('.theme-toggle-icon');
+    if (icon) {
+        icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    }
+}
+
+// Initialize theme on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    // Add theme toggle button
+    const toggleButton = document.createElement('div');
+    toggleButton.className = 'theme-toggle';
+    toggleButton.onclick = toggleTheme;
+    toggleButton.innerHTML = '<span class="theme-toggle-icon">' + (savedTheme === 'dark' ? '☀️' : '🌙') + '</span>';
+    document.body.appendChild(toggleButton);
+});
+</script>
 """, unsafe_allow_html=True)
 
 # Initialize session state
@@ -282,15 +612,15 @@ def check_api_status():
     return status
 
 def show_professional_sidebar():
-    """Professional enterprise-level sidebar navigation"""
+    """Professional animated sidebar with dark/light mode support"""
     
     with st.sidebar:
-        # Professional branding
+        # Animated Professional branding
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 1.5rem; border-radius: 10px; text-align: center; margin-bottom: 2rem;">
-            <h2 style="color: white; margin: 0;">🎯 Spizo</h2>
-            <p style="color: rgba(255,255,255,0.8); margin: 0;">#1 AI Prediction Platform</p>
+        <div class="sidebar-header">
+            <h2 style="margin: 0; font-size: 1.8rem; font-weight: 700;">🎯 Spizo</h2>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1rem;">#1 AI Prediction Platform</p>
+            <div style="width: 50px; height: 3px; background: rgba(255,255,255,0.5); margin: 1rem auto; border-radius: 2px;"></div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -299,8 +629,14 @@ def show_professional_sidebar():
         
         st.markdown("---")
         
-        # Main navigation
-        st.markdown("### 📋 Navigation")
+        # Animated Navigation Menu
+        st.markdown("""
+        <div style="margin: 1rem 0;">
+            <h3 style="color: var(--text-primary); font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;">
+                📋 Navigation
+            </h3>
+        </div>
+        """, unsafe_allow_html=True)
         
         navigation_items = [
             ("🏠", "Dashboard", "dashboard"),
@@ -315,7 +651,12 @@ def show_professional_sidebar():
             ("⚙️", "Settings", "settings")
         ]
         
+        # Create custom styled navigation buttons
         for icon, label, key in navigation_items:
+            is_active = st.session_state.get('current_page', 'dashboard') == key
+            button_class = "sidebar-nav-item active" if is_active else "sidebar-nav-item"
+            
+            # Use HTML for better styling control
             if st.button(f"{icon} {label}", key=f"nav_{key}", use_container_width=True):
                 st.session_state.current_page = key
                 st.rerun()
@@ -460,44 +801,40 @@ def show_dashboard():
     # Key Performance Metrics
     real_metrics = get_real_dashboard_metrics()
     
-    st.markdown("### 🏆 Platform Performance Metrics")
-    col1, col2, col3, col4 = st.columns(4)
+    # Animated Metrics Dashboard
+    st.markdown("""
+    <div style="margin: 2rem 0;">
+        <h3 style="color: var(--text-primary); font-size: 1.5rem; font-weight: 600; text-align: center; margin-bottom: 2rem;">
+            🏆 Platform Performance Metrics
+        </h3>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #667eea; margin: 0;">🎯</h3>
-            <h2 style="margin: 0.5rem 0; color: #2d3748;">{real_metrics['ai_accuracy']}</h2>
-            <p style="margin: 0; color: #666; font-weight: 600;">AI Prediction Accuracy</p>
+    # Use custom metrics grid
+    st.markdown(f"""
+    <div class="metrics-grid">
+        <div class="metric-item">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎯</div>
+            <div class="metric-value">{real_metrics['ai_accuracy']}</div>
+            <div class="metric-label">AI Prediction Accuracy</div>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #28a745; margin: 0;">🏈</h3>
-            <h2 style="margin: 0.5rem 0; color: #2d3748;">{real_metrics['games_today']}</h2>
-            <p style="margin: 0; color: #666; font-weight: 600;">Games Analyzed Today</p>
+        <div class="metric-item">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🏈</div>
+            <div class="metric-value">{real_metrics['games_today']}</div>
+            <div class="metric-label">Games Analyzed Today</div>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #ffc107; margin: 0;">🔥</h3>
-            <h2 style="margin: 0.5rem 0; color: #2d3748;">{real_metrics['hot_picks']}</h2>
-            <p style="margin: 0; color: #666; font-weight: 600;">High Confidence Picks</p>
+        <div class="metric-item">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔥</div>
+            <div class="metric-value">{real_metrics['hot_picks']}</div>
+            <div class="metric-label">High Confidence Picks</div>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #dc3545; margin: 0;">💰</h3>
-            <h2 style="margin: 0.5rem 0; color: #2d3748;">{real_metrics['roi']}</h2>
-            <p style="margin: 0; color: #666; font-weight: 600;">Historical ROI</p>
+        <div class="metric-item">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💰</div>
+            <div class="metric-value">{real_metrics['roi']}</div>
+            <div class="metric-label">Historical ROI</div>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
