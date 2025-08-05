@@ -24,8 +24,8 @@ def show_ai_predictions():
     if 'ai_finder' not in st.session_state:
         st.session_state.ai_finder = AIGameFinder()
     
-    # Date selection
-    col1, col2 = st.columns([2, 1])
+    # Controls row - moved up for better UX
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
         selected_date = st.date_input(
@@ -36,16 +36,29 @@ def show_ai_predictions():
         )
     
     with col2:
-        if st.button("🔄 Refresh AI Analysis", type="primary"):
+        if st.button("🔄 Refresh Analysis", type="primary"):
             # Clear cached AI analyses
             for key in list(st.session_state.keys()):
                 if isinstance(key, str) and key.startswith('ai_analysis_'):
                     del st.session_state[key]
             st.rerun()
     
+    with col3:
+        if st.button("🚀 Load Games", type="secondary"):
+            # Force reload games without cache notifications
+            st.session_state.show_cache_notifications = False
+            st.rerun()
+    
     # Get games for selected date
     with st.spinner("Fetching games for AI analysis..."):
+        # Disable cache notifications during game loading
+        original_cache_setting = st.session_state.get('show_cache_notifications', False)
+        st.session_state.show_cache_notifications = False
+        
         games_df = st.session_state.games_manager.get_upcoming_games_all_sports(target_date=selected_date)
+        
+        # Restore original cache setting
+        st.session_state.show_cache_notifications = original_cache_setting
     
     if len(games_df) == 0:
         st.info(f"No games found for {selected_date.strftime('%B %d, %Y')}. Try selecting a different date.")
