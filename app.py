@@ -27,6 +27,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Clear any problematic cached functions on startup
+if 'cache_cleared' not in st.session_state:
+    try:
+        st.cache_data.clear()
+        st.session_state.cache_cleared = True
+    except:
+        pass
+
 # Enhanced CSS with animations, dark/light mode, and professional design
 st.markdown("""
 <style>
@@ -1728,10 +1736,10 @@ def get_optimized_odds(game, force_api=False):
                 if 'odds_cache_notifications' not in st.session_state:
                     st.session_state.odds_cache_notifications = 0
                 
-                # Only show notification every 5th time to reduce noise
+                # Only show notification every 20th time to reduce noise significantly
                 st.session_state.odds_cache_notifications += 1
-                if st.session_state.odds_cache_notifications % 5 == 1:
-                    st.success("💰 Using cached odds - API cost saved!")
+                if st.session_state.odds_cache_notifications % 20 == 1:
+                    st.info("💰 Using cached odds (saved API call)", icon="ℹ️")
             
             return cached_odds.get('odds')
     
@@ -3902,7 +3910,7 @@ def show_settings():
         # Cache notification settings
         show_cache_notifications = st.checkbox(
             "Show cache notifications", 
-            value=True,
+            value=st.session_state.get('show_cache_notifications', False),
             help="Display messages when using cached data to save API costs"
         )
         
@@ -6288,6 +6296,12 @@ def generate_smart_alerts(games, sensitivity, min_movement):
 
 # Removed get_ai_analysis_with_status to avoid caching conflicts
 # Status updates are now handled directly in calling functions
+
+# Clear Streamlit cache to remove any cached versions of removed functions
+try:
+    st.cache_data.clear()
+except:
+    pass
 
 def get_ai_analysis(game):
     """Get AI analysis ONLY from real OpenAI and Gemini APIs - no fallbacks"""
