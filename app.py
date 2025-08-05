@@ -2773,10 +2773,12 @@ def show_winning_picks():
     
     st.markdown("---")
     
-    # Generate picks based on selections
-    if generate_btn or True:  # Always show picks for demo
+    # Generate picks only when button is clicked
+    if generate_btn:
         with st.spinner("🤖 AI is analyzing games and odds..."):
             show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers)
+    else:
+        st.info("👆 Click 'Generate AI Picks' above to start analyzing games and generating predictions")
 
 def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers):
     """Unified system showing AI picks with live odds comparison"""
@@ -3934,6 +3936,7 @@ def get_espn_games_for_date(target_date, sports):
     espn_endpoints = {
         'NFL': 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
         'NBA': 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
+        'WNBA': 'https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard',
         'MLB': 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard',
         'NHL': 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard',
         'NCAAF': 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard',
