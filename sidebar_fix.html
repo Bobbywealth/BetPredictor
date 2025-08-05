@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sidebar Fix - SportsBet Pro</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f2f6; }
+        .fix-container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin-bottom: 30px;
+        }
+        .step { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #667eea;
+        }
+        .code { 
+            background: #2d3748; 
+            color: #68d391; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            margin: 10px 0;
+        }
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="fix-container">
+        <div class="header">
+            <h1>🔧 SportsBet Pro - Sidebar Recovery</h1>
+            <p>Fix the hidden sidebar from browser inspector mode</p>
+        </div>
+
+        <div class="step">
+            <h3>🎯 Quick Fix Options:</h3>
+            
+            <button onclick="clearStorage()">🗑️ Clear Browser Storage</button>
+            <button onclick="resetCSS()">🎨 Reset CSS Overrides</button>
+            <button onclick="openCleanSession()">🆕 Open Clean Session</button>
+        </div>
+
+        <div class="step">
+            <h3>📋 Manual Steps (if buttons don't work):</h3>
+            
+            <p><strong>Step 1: Clear Browser Data</strong></p>
+            <ul>
+                <li>Press <code>Ctrl+Shift+Delete</code> (or <code>Cmd+Shift+Delete</code> on Mac)</li>
+                <li>Select "Cookies and site data" and "Cached images and files"</li>
+                <li>Choose "Last hour" time range</li>
+                <li>Click "Clear data"</li>
+            </ul>
+
+            <p><strong>Step 2: Hard Refresh</strong></p>
+            <ul>
+                <li>Press <code>Ctrl+F5</code> (or <code>Cmd+Shift+R</code> on Mac)</li>
+                <li>Or press <code>Ctrl+Shift+R</code></li>
+            </ul>
+
+            <p><strong>Step 3: Reset Developer Tools</strong></p>
+            <ul>
+                <li>Press <code>F12</code> to open Developer Tools</li>
+                <li>Right-click the refresh button</li>
+                <li>Select "Empty Cache and Hard Reload"</li>
+                <li>Close Developer Tools with <code>F12</code></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>💡 What Happened:</h3>
+            <p>When you hid the sidebar in browser inspector mode, it created a persistent CSS override or browser setting. This is a common issue that happens when inspecting responsive designs.</p>
+        </div>
+
+        <div class="step">
+            <h3>🚀 After Fixing:</h3>
+            <p>Once fixed, return to your SportsBet Pro app and you should see:</p>
+            <ul>
+                <li>✅ Sidebar with login form on the left</li>
+                <li>✅ Navigation menu in the sidebar</li>
+                <li>✅ All functionality restored</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="window.close()">← Back to SportsBet Pro</button>
+        </div>
+    </div>
+
+    <script>
+        function clearStorage() {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for(let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+                alert('✅ Browser storage cleared! Now refresh your SportsBet Pro page.');
+            } catch(e) {
+                alert('❌ Please try the manual steps instead.');
+            }
+        }
+
+        function resetCSS() {
+            try {
+                // Try to reset any CSS overrides
+                const styles = document.querySelectorAll('style');
+                styles.forEach(style => {
+                    if (style.textContent.includes('sidebar') || style.textContent.includes('stSidebar')) {
+                        style.remove();
+                    }
+                });
+                alert('✅ CSS overrides cleared! Now refresh your SportsBet Pro page.');
+            } catch(e) {
+                alert('❌ Please try the manual steps instead.');
+            }
+        }
+
+        function openCleanSession() {
+            // Open the app in a new incognito/private window
+            alert('💡 Opening in private/incognito mode will bypass any cached settings. Use Ctrl+Shift+N (Chrome) or Ctrl+Shift+P (Firefox) to open a private window, then navigate to your SportsBet Pro app.');
+        }
+    </script>
+</body>
+</html>
