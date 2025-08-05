@@ -2399,8 +2399,8 @@ def show_professional_sidebar():
                     st.info("💎 Using premium API")
                     st.caption("Live odds from The Odds API")
                 else:
-                    st.warning("⚠️ Using backup estimates")
-                    st.caption("Configure API key for live data")
+                    st.info("ℹ️ Odds data not available - configure API key for live odds")
+                    st.caption("Add your odds API key in Settings for real-time data")
 
 def show_professional_auth():
     """Professional authentication interface"""
