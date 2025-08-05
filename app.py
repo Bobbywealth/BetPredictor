@@ -817,7 +817,7 @@ def show_winning_picks():
             "🎯 Min Confidence",
             min_value=0.5,
             max_value=0.95,
-            value=0.65,
+            value=0.55,  # Lowered from 0.65 to 0.55 to show more games
             step=0.05,
             help="Minimum AI confidence level"
         )
@@ -854,8 +854,6 @@ def show_winning_picks():
     # Generate picks based on selections
     if generate_btn or True:  # Always show picks for demo
         with st.spinner("🤖 AI is analyzing games and odds..."):
-            # Debug information
-            st.info(f"🔍 Debug: Looking for {'/'.join(sports)} games on {pick_date} with min confidence {min_confidence:.1%}")
             show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers)
 
 def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers):
@@ -865,9 +863,6 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         # Get real games for the date and selected sports
         games = get_games_for_date(pick_date, sports)
         
-        # Debug information
-        st.write(f"🎮 Debug: Found {len(games)} games")
-        
         if not games:
             st.info(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}. Try selecting different sports or dates.")
             show_upcoming_dates()
@@ -875,18 +870,15 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         
         # Generate AI analysis for all games
         analyzed_games = []
-        for i, game in enumerate(games):
+        for game in games:
             analysis = get_ai_analysis(game)
             
             # Filter by confidence level (use .get() for safety)
             confidence = analysis.get('confidence', 0.0) if analysis else 0.0
-            st.write(f"🤖 Debug: Game {i+1}: {game.get('away_team', 'Away')} @ {game.get('home_team', 'Home')} - Confidence: {confidence:.1%}")
             
             if confidence >= min_confidence:
                 game['ai_analysis'] = analysis
                 analyzed_games.append(game)
-        
-        st.write(f"✅ Debug: {len(analyzed_games)} games passed confidence filter")
         
         # Sort games based on selection
         if sort_by == "Confidence":
@@ -4040,14 +4032,14 @@ def generate_instant_fallback_analysis(home_team, away_team, sport):
     
     if strength_diff > 0.1:
         winner = home_team
-        confidence = min(0.85, 0.70 + strength_diff)
+        confidence = min(0.90, 0.75 + strength_diff)  # Increased base confidence
     elif strength_diff < -0.1:
         winner = away_team  
-        confidence = min(0.85, 0.70 + abs(strength_diff))
+        confidence = min(0.90, 0.75 + abs(strength_diff))  # Increased base confidence
     else:
         # Close matchup
         winner = random.choice([home_team, away_team])
-        confidence = random.uniform(0.55, 0.68)
+        confidence = random.uniform(0.60, 0.75)  # Increased range from 55-68% to 60-75%
     
     # Generate realistic factors based on sport
     sport_factors = {
