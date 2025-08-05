@@ -903,11 +903,26 @@ def show_professional_sidebar():
                 st.rerun()
             st.markdown("---")
         
-        # Quick stats and system status
-        show_sidebar_stats()
-        
-        # Live market ticker
-        show_live_ticker()
+        # Real-time system status
+        if st.session_state.authenticated:
+            st.markdown("### ⏰ System Status")
+            
+            # Current time
+            est = pytz.timezone('US/Eastern')
+            current_time = datetime.now(est)
+            st.info(f"🕐 {current_time.strftime('%I:%M %p EST')}")
+            
+            # API status check
+            apis_status = check_api_status()
+            st.markdown("**🔗 Services:**")
+            for api, status in apis_status.items():
+                if status:
+                    st.success(f"✅ {api}")
+                else:
+                    st.error(f"❌ {api}")
+                    
+            st.markdown("**👤 Session:**")
+            st.info(f"User: {st.session_state.username}")
 
 def show_professional_auth():
     """Professional authentication interface"""
