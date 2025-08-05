@@ -76,6 +76,10 @@ CREATE TABLE predictions (
     game_data JSONB,
     actual_winner VARCHAR(100),
     was_correct BOOLEAN,
+    is_daily_bet BOOLEAN DEFAULT FALSE,
+    bet_rank INTEGER,
+    bet_amount DECIMAL(8,2) DEFAULT 100.00,
+    bet_status VARCHAR(20) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT NOW()
 );
 ```

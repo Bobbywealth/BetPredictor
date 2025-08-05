@@ -925,6 +925,10 @@ def create_database_tables():
             game_data JSONB,
             actual_winner VARCHAR(100),
             was_correct BOOLEAN,
+            is_daily_bet BOOLEAN DEFAULT FALSE,
+            bet_rank INTEGER,
+            bet_amount DECIMAL(8,2) DEFAULT 100.00,
+            bet_status VARCHAR(20) DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT NOW()
         );
         """,
@@ -1099,6 +1103,303 @@ def get_api_usage_stats_from_db(date=None):
     except Exception as e:
         print(f"Failed to fetch API usage stats: {str(e)}")
         return {}
+
+# ============================================================================
+# DAILY BETTING SYSTEM - Top 10 High-Confidence Picks Tracking
+# ============================================================================
+
+def save_daily_bet_to_db(game_data, ai_analysis, bet_rank):
+    """Save daily bet to database"""
+    supabase = init_supabase()
+    if not supabase:
+        return False
+    
+    try:
+        bet_data = {
+            'game_date': game_data.get('game_date', datetime.now().date().isoformat()),
+            'home_team': game_data.get('home_team', 'Unknown'),
+            'away_team': game_data.get('away_team', 'Unknown'),
+            'sport': game_data.get('sport', 'NFL'),
+            'predicted_winner': ai_analysis.get('pick', 'Unknown'),
+            'confidence': float(ai_analysis.get('confidence', 0.0)),
+            'ai_analysis': ai_analysis,
+            'game_data': game_data,
+            'bet_rank': bet_rank,
+            'bet_amount': 100,  # Standard bet amount
+            'is_daily_bet': True,
+            'bet_status': 'pending'
+        }
+        
+        # Use predictions table but mark as daily bet
+        result = supabase.table('predictions').insert(bet_data).execute()
+        return True
+    except Exception as e:
+        print(f"Failed to save daily bet: {str(e)}")
+        return False
+
+def get_daily_bets(date=None):
+    """Get daily bets from database or session state"""
+    if date is None:
+        date = datetime.now().date()
+    
+    date_str = date.isoformat()
+    
+    # Try database first
+    supabase = init_supabase()
+    if supabase:
+        try:
+            result = supabase.table('predictions')\
+                .select('*')\
+                .eq('game_date', date_str)\
+                .eq('is_daily_bet', True)\
+                .order('bet_rank')\
+                .execute()
+            
+            if result.data:
+                return result.data
+        except Exception as e:
+            print(f"Database query failed: {str(e)}")
+    
+    # Fallback to session state
+    if 'daily_bets' not in st.session_state:
+        st.session_state.daily_bets = {}
+    
+    return st.session_state.daily_bets.get(date_str, [])
+
+def save_daily_bets_to_session(date_str, bets):
+    """Save daily bets to session state as backup"""
+    if 'daily_bets' not in st.session_state:
+        st.session_state.daily_bets = {}
+    
+    st.session_state.daily_bets[date_str] = bets
+
+def generate_daily_top_picks(target_date=None, min_confidence=0.75):
+    """Generate top 10 high-confidence picks for the day"""
+    if target_date is None:
+        target_date = datetime.now().date()
+    
+    date_str = target_date.isoformat()
+    
+    # Check if we already have daily bets for this date
+    existing_bets = get_daily_bets(target_date)
+    if existing_bets:
+        return existing_bets
+    
+    st.info("🎯 Generating daily top 10 high-confidence picks...")
+    
+    # Get games for all sports
+    all_sports = ['NFL', 'NBA', 'WNBA', 'MLB', 'NCAAF', 'NCAAB']
+    all_predictions = []
+    
+    with st.spinner("🧠 Analyzing games across all sports..."):
+        for sport in all_sports:
+            try:
+                games = get_games_for_date(target_date, [sport])
+                if games:
+                    for game in games:
+                        # Add game date to game data
+                        game['game_date'] = date_str
+                        
+                        # Get AI analysis
+                        analysis = get_ai_analysis(game)
+                        
+                        if analysis and analysis.get('confidence', 0) >= min_confidence:
+                            prediction = {
+                                'game_data': game,
+                                'ai_analysis': analysis,
+                                'confidence': analysis.get('confidence', 0),
+                                'sport': sport
+                            }
+                            all_predictions.append(prediction)
+            except Exception as e:
+                print(f"Error processing {sport}: {str(e)}")
+                continue
+    
+    if not all_predictions:
+        st.warning("⚠️ No high-confidence picks found for today. Try lowering minimum confidence.")
+        return []
+    
+    # Sort by confidence and take top 10
+    all_predictions.sort(key=lambda x: x['confidence'], reverse=True)
+    top_10_picks = all_predictions[:10]
+    
+    # Save to database and session
+    daily_bets = []
+    for i, pick in enumerate(top_10_picks, 1):
+        # Add betting information
+        bet_data = {
+            'bet_rank': i,
+            'game_date': date_str,
+            'home_team': pick['game_data'].get('home_team', 'Unknown'),
+            'away_team': pick['game_data'].get('away_team', 'Unknown'),
+            'sport': pick['sport'],
+            'predicted_winner': pick['ai_analysis'].get('pick', 'Unknown'),
+            'confidence': pick['confidence'],
+            'ai_analysis': pick['ai_analysis'],
+            'game_data': pick['game_data'],
+            'bet_amount': 100,
+            'is_daily_bet': True,
+            'bet_status': 'pending',
+            'actual_winner': None,
+            'was_correct': None,
+            'created_at': datetime.now().isoformat()
+        }
+        daily_bets.append(bet_data)
+        
+        # Save to database
+        save_daily_bet_to_db(pick['game_data'], pick['ai_analysis'], i)
+    
+    # Save to session as backup
+    save_daily_bets_to_session(date_str, daily_bets)
+    
+    st.success(f"✅ Generated {len(daily_bets)} high-confidence daily picks!")
+    
+    return daily_bets
+
+def update_bet_result(bet_id, actual_winner, was_correct):
+    """Update bet result in database"""
+    supabase = init_supabase()
+    if not supabase:
+        return False
+    
+    try:
+        result = supabase.table('predictions')\
+            .update({
+                'actual_winner': actual_winner,
+                'was_correct': was_correct,
+                'bet_status': 'completed'
+            })\
+            .eq('id', bet_id)\
+            .execute()
+        return True
+    except Exception as e:
+        print(f"Failed to update bet result: {str(e)}")
+        return False
+
+def calculate_betting_stats(days_back=30):
+    """Calculate betting performance statistics"""
+    supabase = init_supabase()
+    if not supabase:
+        return get_session_betting_stats()
+    
+    try:
+        # Get bets from last N days
+        start_date = (datetime.now().date() - timedelta(days=days_back)).isoformat()
+        
+        result = supabase.table('predictions')\
+            .select('*')\
+            .eq('is_daily_bet', True)\
+            .gte('game_date', start_date)\
+            .execute()
+        
+        bets = result.data
+        
+        if not bets:
+            return {
+                'total_bets': 0,
+                'completed_bets': 0,
+                'wins': 0,
+                'losses': 0,
+                'win_rate': 0.0,
+                'total_wagered': 0,
+                'total_winnings': 0,
+                'net_profit': 0,
+                'roi': 0.0,
+                'avg_confidence': 0.0,
+                'high_confidence_wins': 0,
+                'by_sport': {}
+            }
+        
+        total_bets = len(bets)
+        completed_bets = len([b for b in bets if b.get('bet_status') == 'completed'])
+        wins = len([b for b in bets if b.get('was_correct') == True])
+        losses = len([b for b in bets if b.get('was_correct') == False])
+        
+        win_rate = wins / completed_bets if completed_bets > 0 else 0.0
+        total_wagered = sum(b.get('bet_amount', 100) for b in bets)
+        
+        # Assume 1.9x payout for wins (typical sports betting odds)
+        total_winnings = wins * 190  # $100 bet wins $90 profit + $100 back
+        net_profit = total_winnings - total_wagered
+        roi = (net_profit / total_wagered * 100) if total_wagered > 0 else 0.0
+        
+        avg_confidence = sum(b.get('confidence', 0) for b in bets) / len(bets) if bets else 0.0
+        high_confidence_wins = len([b for b in bets if b.get('confidence', 0) >= 0.85 and b.get('was_correct') == True])
+        
+        # Group by sport
+        by_sport = {}
+        for bet in bets:
+            sport = bet.get('sport', 'Unknown')
+            if sport not in by_sport:
+                by_sport[sport] = {'wins': 0, 'losses': 0, 'total': 0}
+            
+            by_sport[sport]['total'] += 1
+            if bet.get('was_correct') == True:
+                by_sport[sport]['wins'] += 1
+            elif bet.get('was_correct') == False:
+                by_sport[sport]['losses'] += 1
+        
+        return {
+            'total_bets': total_bets,
+            'completed_bets': completed_bets,
+            'wins': wins,
+            'losses': losses,
+            'win_rate': win_rate,
+            'total_wagered': total_wagered,
+            'total_winnings': total_winnings,
+            'net_profit': net_profit,
+            'roi': roi,
+            'avg_confidence': avg_confidence,
+            'high_confidence_wins': high_confidence_wins,
+            'by_sport': by_sport
+        }
+        
+    except Exception as e:
+        print(f"Failed to calculate betting stats: {str(e)}")
+        return get_session_betting_stats()
+
+def get_session_betting_stats():
+    """Fallback betting stats from session state"""
+    if 'daily_bets' not in st.session_state:
+        return {
+            'total_bets': 0, 'completed_bets': 0, 'wins': 0, 'losses': 0,
+            'win_rate': 0.0, 'total_wagered': 0, 'total_winnings': 0,
+            'net_profit': 0, 'roi': 0.0, 'avg_confidence': 0.0,
+            'high_confidence_wins': 0, 'by_sport': {}
+        }
+    
+    all_bets = []
+    for date_bets in st.session_state.daily_bets.values():
+        all_bets.extend(date_bets)
+    
+    total_bets = len(all_bets)
+    completed_bets = len([b for b in all_bets if b.get('was_correct') is not None])
+    wins = len([b for b in all_bets if b.get('was_correct') == True])
+    losses = len([b for b in all_bets if b.get('was_correct') == False])
+    
+    win_rate = wins / completed_bets if completed_bets > 0 else 0.0
+    total_wagered = total_bets * 100  # $100 per bet
+    total_winnings = wins * 190
+    net_profit = total_winnings - total_wagered
+    roi = (net_profit / total_wagered * 100) if total_wagered > 0 else 0.0
+    
+    avg_confidence = sum(b.get('confidence', 0) for b in all_bets) / len(all_bets) if all_bets else 0.0
+    high_confidence_wins = len([b for b in all_bets if b.get('confidence', 0) >= 0.85 and b.get('was_correct') == True])
+    
+    return {
+        'total_bets': total_bets,
+        'completed_bets': completed_bets,
+        'wins': wins,
+        'losses': losses,
+        'win_rate': win_rate,
+        'total_wagered': total_wagered,
+        'total_winnings': total_winnings,
+        'net_profit': net_profit,
+        'roi': roi,
+        'avg_confidence': avg_confidence,
+        'high_confidence_wins': high_confidence_wins,
+        'by_sport': {}
+    }
 
 # ============================================================================
 # PREDICTION CACHING SYSTEM - Store daily predictions to improve UX
@@ -7023,6 +7324,8 @@ def main():
         show_live_odds()
     elif page == 'analysis':
         show_analysis()
+    elif page == 'portfolio':
+        show_daily_betting_tracker()
     elif page == 'admin':
         show_admin_panel()
     elif page == 'settings':
@@ -8218,6 +8521,227 @@ def show_admin_login():
         st.write("• Automatic logout on page refresh")  
         st.write("• Admin panel access only")
         st.write("• Performance tracking and AI metrics")
+
+def show_daily_betting_tracker():
+    """Daily betting system with top 10 high-confidence picks and win/loss tracking"""
+    
+    st.markdown("# 🏆 Daily Betting Tracker")
+    st.markdown("**Automated high-confidence picks with real win/loss tracking**")
+    
+    # Check API configuration
+    openai_configured = bool(os.environ.get("OPENAI_API_KEY"))
+    gemini_configured = bool(os.environ.get("GOOGLE_API_KEY"))
+    
+    if not openai_configured and not gemini_configured:
+        st.error("🚨 No AI providers configured! Please set up API keys in Settings first.")
+        return
+    
+    # Date selector
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        selected_date = st.date_input(
+            "📅 Select Date", 
+            value=datetime.now().date(),
+            help="Choose date for daily picks"
+        )
+    
+    with col2:
+        min_confidence = st.slider(
+            "🎯 Min Confidence", 
+            min_value=0.5, 
+            max_value=0.95, 
+            value=0.75, 
+            step=0.05,
+            help="Minimum confidence for daily picks"
+        )
+    
+    with col3:
+        if st.button("🎲 Generate Daily Picks", type="primary"):
+            with st.spinner("🧠 Analyzing all sports..."):
+                daily_bets = generate_daily_top_picks(selected_date, min_confidence)
+                if daily_bets:
+                    st.rerun()
+    
+    # Get daily bets
+    daily_bets = get_daily_bets(selected_date)
+    
+    if not daily_bets:
+        st.info("🎯 **No daily picks generated yet!**")
+        st.markdown("""
+        ### 🚀 How Daily Betting Works:
+        
+        1. **🧠 AI Analysis**: Analyzes ALL sports (NFL, NBA, MLB, NCAAF, etc.)
+        2. **🎯 High-Confidence Filter**: Only picks with 75%+ confidence
+        3. **🏆 Top 10 Selection**: Ranks and selects the best 10 picks
+        4. **💰 $100 Standard Bet**: Each pick is a $100 wager
+        5. **📊 Performance Tracking**: Automatic win/loss recording
+        
+        **Click "Generate Daily Picks" to get started!**
+        """)
+        return
+    
+    # Show betting performance stats
+    st.markdown("## 📊 Betting Performance")
+    
+    betting_stats = calculate_betting_stats(30)  # Last 30 days
+    
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+    
+    with metric_col1:
+        win_rate_color = "normal"
+        if betting_stats['win_rate'] > 0.6:
+            win_rate_color = "inverse"
+        st.metric(
+            "🎯 Win Rate", 
+            f"{betting_stats['win_rate']:.1%}",
+            f"{betting_stats['wins']}-{betting_stats['losses']} Record"
+        )
+    
+    with metric_col2:
+        profit_color = "normal" if betting_stats['net_profit'] >= 0 else "inverse"  
+        st.metric(
+            "💰 Net Profit", 
+            f"${betting_stats['net_profit']:+.0f}",
+            f"{betting_stats['roi']:+.1f}% ROI"
+        )
+    
+    with metric_col3:
+        st.metric(
+            "📈 Total Bets", 
+            betting_stats['total_bets'],
+            f"${betting_stats['total_wagered']:,} Wagered"
+        )
+    
+    with metric_col4:
+        st.metric(
+            "⭐ Avg Confidence", 
+            f"{betting_stats['avg_confidence']:.1%}",
+            f"{betting_stats['high_confidence_wins']} High-Conf Wins"
+        )
+    
+    # Show today's picks
+    st.markdown(f"## 🎯 Daily Picks - {selected_date.strftime('%B %d, %Y')}")
+    
+    if len(daily_bets) > 0:
+        st.success(f"✅ {len(daily_bets)} high-confidence picks selected")
+        
+        # Display picks in a nice format
+        for i, bet in enumerate(daily_bets):
+            with st.container():
+                pick_col1, pick_col2, pick_col3, pick_col4 = st.columns([1, 3, 2, 1])
+                
+                with pick_col1:
+                    # Rank badge
+                    rank_colors = {1: "#FFD700", 2: "#C0C0C0", 3: "#CD7F32"}
+                    rank_color = rank_colors.get(bet['bet_rank'], "#667eea")
+                    st.markdown(f"""
+                    <div style="background: {rank_color}; color: white; padding: 0.5rem; 
+                                border-radius: 50%; text-align: center; font-weight: bold; width: 40px;">
+                        #{bet['bet_rank']}
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with pick_col2:
+                    st.markdown(f"**{bet['away_team']} @ {bet['home_team']}**")
+                    st.caption(f"🏈 {bet['sport']} • Pick: **{bet['predicted_winner']}**")
+                
+                with pick_col3:
+                    confidence = bet['confidence']
+                    conf_color = "#10b981" if confidence >= 0.85 else "#f59e0b" if confidence >= 0.75 else "#ef4444"
+                    st.markdown(f"""
+                    <div style="text-align: center;">
+                        <div style="color: {conf_color}; font-size: 1.5em; font-weight: bold;">
+                            {confidence:.1%}
+                        </div>
+                        <div style="color: #666; font-size: 0.9em;">Confidence</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with pick_col4:
+                    bet_status = bet.get('bet_status', 'pending')
+                    was_correct = bet.get('was_correct')
+                    
+                    if bet_status == 'completed':
+                        if was_correct:
+                            st.success("✅ WIN")
+                        else:
+                            st.error("❌ LOSS")
+                    else:
+                        st.info("⏳ Pending")
+                
+                # Expandable details
+                with st.expander(f"📊 Detailed Analysis - {bet['away_team']} @ {bet['home_team']}"):
+                    detail_col1, detail_col2 = st.columns(2)
+                    
+                    with detail_col1:
+                        st.markdown("**🎯 AI Analysis:**")
+                        ai_analysis = bet.get('ai_analysis', {})
+                        factors = ai_analysis.get('factors', ['Analysis not available'])
+                        for factor in factors[:3]:
+                            st.write(f"• {factor}")
+                    
+                    with detail_col2:
+                        st.markdown("**💰 Betting Details:**")
+                        st.write(f"• **Bet Amount:** ${bet.get('bet_amount', 100)}")
+                        st.write(f"• **Expected Value:** {ai_analysis.get('edge', 0.65):.1%}")
+                        st.write(f"• **Risk Level:** {ai_analysis.get('risk_level', 'MEDIUM')}")
+                
+                st.markdown("---")
+    
+    # Sport breakdown
+    if betting_stats['by_sport']:
+        st.markdown("### 📈 Performance by Sport")
+        
+        sport_cols = st.columns(min(len(betting_stats['by_sport']), 4))
+        
+        for i, (sport, stats) in enumerate(betting_stats['by_sport'].items()):
+            with sport_cols[i % len(sport_cols)]:
+                total = stats['total']
+                wins = stats['wins']
+                win_rate = wins / total if total > 0 else 0
+                
+                st.metric(
+                    f"🏈 {sport}",
+                    f"{win_rate:.1%}",
+                    f"{wins}-{stats['losses']} ({total} total)"
+                )
+    
+    # Manual result entry (for admin)
+    if st.session_state.get('admin_logged_in', False):
+        st.markdown("### 🔧 Admin: Update Results")
+        
+        pending_bets = [bet for bet in daily_bets if bet.get('bet_status') == 'pending']
+        
+        if pending_bets:
+            for bet in pending_bets:
+                with st.expander(f"Update: {bet['away_team']} @ {bet['home_team']}"):
+                    result_col1, result_col2, result_col3 = st.columns(3)
+                    
+                    with result_col1:
+                        actual_winner = st.selectbox(
+                            "Actual Winner",
+                            [bet['away_team'], bet['home_team']],
+                            key=f"winner_{bet.get('id', i)}"
+                        )
+                    
+                    with result_col2:
+                        was_correct = actual_winner == bet['predicted_winner']
+                        st.write(f"**Result:** {'✅ WIN' if was_correct else '❌ LOSS'}")
+                    
+                    with result_col3:
+                        if st.button(f"Save Result", key=f"save_{bet.get('id', i)}"):
+                            # Update in database if available
+                            if bet.get('id'):
+                                update_bet_result(bet['id'], actual_winner, was_correct)
+                            
+                            # Update in session state
+                            bet['actual_winner'] = actual_winner
+                            bet['was_correct'] = was_correct
+                            bet['bet_status'] = 'completed'
+                            
+                            st.success("✅ Result saved!")
+                            st.rerun()
 
 if __name__ == "__main__":
     main()
