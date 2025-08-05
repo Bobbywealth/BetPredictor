@@ -10,8 +10,8 @@ import os
 
 # Configure page - must be first Streamlit command
 st.set_page_config(
-    page_title="AI SportsPredictor Pro - #1 AI Sports Prediction Platform",
-    page_icon="🧠",
+    page_title="Spizo - #1 AI Sports Prediction Platform",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -129,7 +129,7 @@ def show_sidebar():
         # Logo and title
         st.markdown("""
         <div style="text-align: center; padding: 1rem; margin-bottom: 2rem;">
-            <h1 style="color: #667eea; margin: 0;">🏆 SportsBet Pro</h1>
+            <h1 style="color: #667eea; margin: 0;">🎯 Spizo</h1>
             <p style="color: #666; margin: 0;">AI-Powered Analysis</p>
         </div>
         """, unsafe_allow_html=True)
@@ -185,7 +185,7 @@ def show_sidebar():
         # About section
         st.markdown("### ℹ️ About")
         st.markdown("""
-        **SportsBet Pro** is your professional sports betting analysis platform.
+        **Spizo** is your professional sports betting analysis platform.
         
         🤖 **AI-Powered**: Dual AI analysis  
         📊 **Real Data**: Live odds & games  
@@ -289,7 +289,7 @@ def show_professional_sidebar():
         st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                     padding: 1.5rem; border-radius: 10px; text-align: center; margin-bottom: 2rem;">
-            <h2 style="color: white; margin: 0;">🧠 AI SportsPredictor</h2>
+            <h2 style="color: white; margin: 0;">🎯 Spizo</h2>
             <p style="color: rgba(255,255,255,0.8); margin: 0;">#1 AI Prediction Platform</p>
         </div>
         """, unsafe_allow_html=True)
@@ -451,7 +451,7 @@ def show_dashboard():
     # Hero Section
     st.markdown("""
     <div class="main-header">
-        <h1>🧠 AI SportsPredictor Pro</h1>
+        <h1>🎯 Spizo</h1>
         <h2 style="color: #ffffff; margin: 0.5rem 0; font-size: 1.5rem;">The World's #1 AI Sports Prediction Platform</h2>
         <p style="font-size: 1.1rem; margin: 1rem 0; opacity: 0.9;">Harness the power of advanced AI to predict sports outcomes with unprecedented accuracy across all major leagues</p>
     </div>
@@ -605,7 +605,7 @@ def show_dashboard():
         """, unsafe_allow_html=True)
     
     # Why Choose Us Section
-    st.markdown("### 🌟 Why AI SportsPredictor Pro is #1")
+    st.markdown("### 🌟 Why Spizo is #1")
     
     col1, col2 = st.columns(2)
     
@@ -677,7 +677,7 @@ def show_dashboard():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; padding: 1rem;">
-        <p style="margin: 0;"><strong>AI SportsPredictor Pro</strong> - The World's #1 AI Sports Prediction Platform</p>
+        <p style="margin: 0;"><strong>Spizo</strong> - The World's #1 AI Sports Prediction Platform</p>
         <p style="margin: 0.5rem 0; font-size: 0.9rem;">Powered by ChatGPT-4o & Google Gemini Pro | Real-time data from ESPN & The Odds API</p>
     </div>
     """, unsafe_allow_html=True)
@@ -770,7 +770,7 @@ def show_live_updates():
 def show_winning_picks():
     """Professional winning picks interface with game selection"""
     
-    st.markdown("# 🏆 AI-Powered Winning Picks & Odds")
+    st.markdown("# 🎯 Spizo - AI-Powered Winning Picks & Odds")
     
     # Responsible gambling warning
     st.warning("⚠️ **RESPONSIBLE GAMBLING**: These are analytical insights for educational purposes only. Gamble responsibly.")
@@ -3409,7 +3409,7 @@ def show_landing_page():
     # Hero section
     st.markdown("""
     <div class="main-header">
-        <h1>🏆 Welcome to SportsBet Pro</h1>
+        <h1>🎯 Welcome to Spizo</h1>
         <p>Professional AI-Powered Sports Betting Analysis</p>
         <p style="font-size: 1.1em; margin-top: 1rem;">Please login to access your dashboard and start making winning picks!</p>
     </div>
@@ -3514,7 +3514,7 @@ def show_top_menu():
     # Header with logo
     st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1rem; border-radius: 15px; margin-bottom: 1rem; text-align: center;">
-        <h1 style="color: white; margin: 0;">🏆 SportsBet Pro - AI Sports Analysis</h1>
+        <h1 style="color: white; margin: 0;">🎯 Spizo - AI Sports Analysis</h1>
         <p style="color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0;">Menu temporarily moved to top for visibility</p>
     </div>
     """, unsafe_allow_html=True)
@@ -3600,8 +3600,8 @@ def main():
     
     # Set page configuration for professional look
     st.set_page_config(
-        page_title="AI SportsPredictor Pro - #1 AI Sports Prediction Platform",
-        page_icon="🧠",
+        page_title="Spizo - #1 AI Sports Prediction Platform",
+        page_icon="🎯",
         layout="wide",
         initial_sidebar_state="expanded"
     )
@@ -3842,7 +3842,7 @@ def main():
     # Professional header
     st.markdown("""
     <div class="main-header">
-        <h1 style="color: white; margin: 0; font-size: 2.5rem;">🧠 AI SportsPredictor Pro</h1>
+        <h1 style="color: white; margin: 0; font-size: 2.5rem;">🎯 Spizo</h1>
         <p style="color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0; font-size: 1.2rem;">The World's #1 AI Sports Prediction Platform</p>
         <p style="color: rgba(255,255,255,0.7); margin: 0.5rem 0 0 0;">Advanced AI Models • Real-time Analytics • Professional Predictions</p>
     </div>
