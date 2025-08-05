@@ -240,33 +240,30 @@ st.markdown("""
     }
     
     /* Dark/Light Mode Toggle */
-    .theme-toggle {
+    .theme-toggle-container {
         position: fixed;
         top: 20px;
         right: 20px;
         z-index: 1000;
-        background: var(--bg-card);
-        border: 2px solid var(--border-color);
-        border-radius: 50px;
-        padding: 8px;
-        cursor: pointer;
-        box-shadow: 0 4px 12px var(--shadow-light);
-        transition: all 0.3s ease;
         animation: bounceIn 1s ease-out;
     }
     
-    .theme-toggle:hover {
-        transform: scale(1.1);
-        box-shadow: 0 6px 20px var(--shadow-medium);
+    .stButton .theme-toggle-btn {
+        background: var(--bg-card) !important;
+        border: 2px solid var(--border-color) !important;
+        border-radius: 50px !important;
+        padding: 12px 16px !important;
+        cursor: pointer !important;
+        box-shadow: 0 4px 12px var(--shadow-light) !important;
+        transition: all 0.3s ease !important;
+        font-size: 1.5rem !important;
+        min-height: auto !important;
+        width: auto !important;
     }
     
-    .theme-toggle-icon {
-        font-size: 1.5rem;
-        transition: transform 0.3s ease;
-    }
-    
-    .theme-toggle:hover .theme-toggle-icon {
-        transform: rotate(180deg);
+    .stButton .theme-toggle-btn:hover {
+        transform: scale(1.1) !important;
+        box-shadow: 0 6px 20px var(--shadow-medium) !important;
     }
     
     /* Metrics Dashboard */
@@ -415,39 +412,66 @@ st.markdown("""
 </style>
 
 <script>
-// Dark/Light Mode Toggle Functionality
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
+// Initialize theme on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedTheme = localStorage.getItem('spizo-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+});
+
+// Function to toggle theme (called by Streamlit button)
+function toggleSpizoTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     
     document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    
-    // Update toggle icon
-    const icon = document.querySelector('.theme-toggle-icon');
-    if (icon) {
-        icon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
-    }
+    localStorage.setItem('spizo-theme', newTheme);
 }
-
-// Initialize theme on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    
-    // Add theme toggle button
-    const toggleButton = document.createElement('div');
-    toggleButton.className = 'theme-toggle';
-    toggleButton.onclick = toggleTheme;
-    toggleButton.innerHTML = '<span class="theme-toggle-icon">' + (savedTheme === 'dark' ? '☀️' : '🌙') + '</span>';
-    document.body.appendChild(toggleButton);
-});
 </script>
 """, unsafe_allow_html=True)
 
 # Initialize session state
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'dashboard'
+
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+def show_theme_toggle():
+    """Add dark/light mode toggle button to top-right of all pages"""
+    
+    # Create container for theme toggle in top-right
+    st.markdown("""
+    <div class="theme-toggle-container">
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Use columns to position the toggle button
+    col1, col2, col3 = st.columns([8, 1, 1])
+    
+    with col3:
+        # Get current theme icon
+        current_icon = "🌙" if not st.session_state.dark_mode else "☀️"
+        
+        if st.button(current_icon, key="theme_toggle", help="Toggle Dark/Light Mode"):
+            st.session_state.dark_mode = not st.session_state.dark_mode
+            
+            # Add JavaScript to toggle theme
+            if st.session_state.dark_mode:
+                st.markdown("""
+                <script>
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('spizo-theme', 'dark');
+                </script>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <script>
+                document.documentElement.setAttribute('data-theme', 'light');  
+                localStorage.setItem('spizo-theme', 'light');
+                </script>
+                """, unsafe_allow_html=True)
+            
+            st.rerun()
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'username' not in st.session_state:
@@ -4187,6 +4211,9 @@ def main():
     
     # Professional sidebar navigation
     show_professional_sidebar()
+    
+    # Add theme toggle to all pages
+    show_theme_toggle()
     
     # Show current page content
     page = st.session_state.current_page
