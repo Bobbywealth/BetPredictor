@@ -89,13 +89,58 @@ with tab2:
             return []
     
     def generate_ai_analysis(game):
-        """Generate mock AI analysis for demo"""
+        """Generate AI analysis using OpenAI if available, otherwise mock data"""
         import random
         
         home_team = game.get('home_team', 'Unknown')
         away_team = game.get('away_team', 'Unknown')
         
-        # Mock AI analysis
+        # Try real OpenAI analysis first
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if openai_key:
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=openai_key)
+                
+                prompt = f"""Analyze this NFL game: {away_team} @ {home_team}
+                
+                Provide a JSON response with:
+                - predicted_winner: team name
+                - confidence: 0.0 to 1.0
+                - key_factors: array of 3 key analysis points
+                - recommendation: STRONG_BET, MODERATE_BET, or LEAN
+                
+                Focus on team performance, injuries, weather, and matchups."""
+                
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are an expert NFL analyst. Provide concise, data-driven analysis."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    max_tokens=300
+                )
+                
+                if response.choices[0].message.content:
+                    ai_result = json.loads(response.choices[0].message.content)
+                    
+                    # Format the response
+                    analysis = {
+                        'predicted_winner': ai_result.get('predicted_winner', home_team),
+                        'confidence': float(ai_result.get('confidence', 0.7)),
+                        'key_factors': ai_result.get('key_factors', ['AI analysis completed']),
+                        'recommendation': ai_result.get('recommendation', 'MODERATE_BET'),
+                        'edge_score': float(ai_result.get('confidence', 0.7)) * 0.8,
+                        'ai_consensus': '🤖 Real ChatGPT Analysis'
+                    }
+                    
+                    return analysis
+                    
+            except Exception as e:
+                st.warning(f"OpenAI API error: {str(e)[:100]}... Using demo mode.")
+        
+        # Fallback to mock analysis
         confidence = random.uniform(0.6, 0.95)
         predicted_winner = random.choice([home_team, away_team])
         
@@ -113,7 +158,7 @@ with tab2:
             'key_factors': random.sample(factors, 3),
             'recommendation': 'STRONG_BET' if confidence > 0.8 else 'MODERATE_BET' if confidence > 0.7 else 'LEAN',
             'edge_score': confidence * 0.8,
-            'ai_consensus': 'Both ChatGPT and Gemini agree' if confidence > 0.8 else 'Single AI recommendation'
+            'ai_consensus': '🎭 Demo Mode (Add API keys for real AI)'
         }
         
         return analysis
