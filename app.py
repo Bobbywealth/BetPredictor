@@ -7654,15 +7654,80 @@ def show_admin_users():
                     st.success(f"User {user['username']} promoted to admin!")
 
 def show_admin_ai_performance():
-    """AI Performance tracking (enhanced version of original)"""
+    """AI Performance tracking with comprehensive analytics"""
     
     st.markdown("# 🤖 AI Performance Dashboard")
+    st.markdown("Monitor AI prediction accuracy, speed, and reliability across providers")
     
-    if 'ai_comparisons' not in st.session_state or not st.session_state.ai_comparisons:
-        st.info("No AI comparison data available yet. Generate some picks to see comparisons!")
+    # Get data from both session and database
+    session_comparisons = st.session_state.get('ai_comparisons', [])
+    
+    # Check API configuration status first
+    st.markdown("## 🔧 AI Configuration Status")
+    config_col1, config_col2 = st.columns(2)
+    
+    with config_col1:
+        openai_configured = bool(os.environ.get("OPENAI_API_KEY"))
+        status_openai = "✅ Configured" if openai_configured else "❌ Not Configured"
+        st.metric("🤖 OpenAI GPT-4o", status_openai)
+        
+    with config_col2:
+        gemini_configured = bool(os.environ.get("GOOGLE_API_KEY"))
+        status_gemini = "✅ Configured" if gemini_configured else "❌ Not Configured"
+        st.metric("🔮 Google Gemini Pro", status_gemini)
+    
+    if not openai_configured and not gemini_configured:
+        st.error("🚨 No AI providers configured! Set OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables.")
+        st.info("💡 **Next Steps:**\n1. Add API keys in app settings\n2. Generate some predictions\n3. Return here to see performance data")
+        return
+    
+    # Show performance data if available
+    if not session_comparisons:
+        st.markdown("## 📈 Performance Metrics")
+        st.info("🎯 **Ready to track performance!** Generate some AI predictions to see detailed analytics here.")
+        
+        # Show sample metrics with placeholder data
+        st.markdown("### 🔄 What You'll See Here:")
+        
+        sample_col1, sample_col2, sample_col3, sample_col4 = st.columns(4)
+        with sample_col1:
+            st.metric("Total AI Analyses", "0", help="Number of predictions generated")
+        with sample_col2:
+            st.metric("Avg Response Time", "—", help="Average AI analysis speed")
+        with sample_col3:
+            st.metric("ChatGPT Success Rate", "—", help="API success rate")
+        with sample_col4:
+            st.metric("Gemini Success Rate", "—", help="API success rate")
+        
+        # Show features preview
+        st.markdown("### 🛠️ Performance Features:")
+        
+        feature_col1, feature_col2 = st.columns(2)
+        
+        with feature_col1:
+            st.markdown("""
+            **📊 Real-time Analytics:**
+            - AI response time tracking
+            - Success/failure rates
+            - Confidence score analysis
+            - Provider comparison
+            """)
+        
+        with feature_col2:
+            st.markdown("""
+            **🎯 Accuracy Tracking:**
+            - Prediction vs actual results
+            - Win rate by confidence level
+            - Sport-specific performance
+            - Historical trends
+            """)
+        
         return
     
     comparisons = st.session_state.ai_comparisons
+    
+    st.markdown("## 📈 Live Performance Metrics")
+    st.success(f"🎯 Tracking {len(comparisons)} AI analyses")
     
     # AI Performance metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -7682,6 +7747,57 @@ def show_admin_ai_performance():
     with col4:
         gemini_success = sum(1 for c in comparisons if c['gemini_pick']) / len(comparisons)
         st.metric("Gemini Success Rate", f"{gemini_success:.1%}")
+    
+    # Additional insights
+    st.markdown("### 🔍 AI Performance Insights")
+    
+    insight_col1, insight_col2 = st.columns(2)
+    
+    with insight_col1:
+        # Speed comparison
+        fast_analyses = sum(1 for c in comparisons if c['analysis_time'] < 3.0)
+        speed_rate = fast_analyses / len(comparisons) if comparisons else 0
+        st.metric("⚡ Fast Analyses (<3s)", f"{speed_rate:.1%}", 
+                 help="Percentage of analyses completed in under 3 seconds")
+    
+    with insight_col2:
+        # Consensus rate
+        consensus_analyses = sum(1 for c in comparisons 
+                               if c['openai_pick'] and c['gemini_pick'] and 
+                               c['openai_pick'] == c['gemini_pick'])
+        consensus_rate = consensus_analyses / len(comparisons) if comparisons else 0
+        st.metric("🤝 AI Consensus Rate", f"{consensus_rate:.1%}",
+                 help="How often both AIs agree on the same pick")
+    
+    # Performance trends
+    if len(comparisons) >= 5:
+        st.markdown("### 📈 Recent Performance Trends")
+        
+        # Calculate recent vs older performance
+        recent_comparisons = comparisons[-10:]  # Last 10
+        older_comparisons = comparisons[-20:-10] if len(comparisons) >= 20 else []
+        
+        recent_avg_time = sum(c['analysis_time'] for c in recent_comparisons) / len(recent_comparisons)
+        
+        if older_comparisons:
+            older_avg_time = sum(c['analysis_time'] for c in older_comparisons) / len(older_comparisons)
+            time_trend = recent_avg_time - older_avg_time
+            
+            trend_col1, trend_col2 = st.columns(2)
+            
+            with trend_col1:
+                trend_indicator = "⬇️ Faster" if time_trend < 0 else "⬆️ Slower" if time_trend > 0 else "➡️ Stable"
+                st.metric("Speed Trend", trend_indicator, 
+                         f"{time_trend:+.2f}s change", 
+                         help="Recent performance vs historical average")
+            
+            with trend_col2:
+                recent_consensus = sum(1 for c in recent_comparisons 
+                                     if c['openai_pick'] and c['gemini_pick'] and 
+                                     c['openai_pick'] == c['gemini_pick'])
+                recent_consensus_rate = recent_consensus / len(recent_comparisons)
+                st.metric("Recent Consensus", f"{recent_consensus_rate:.1%}",
+                         help="AI agreement rate in last 10 analyses")
     
     # Detailed AI comparison table
     st.markdown("### 📊 AI Comparison Details")
