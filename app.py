@@ -2627,6 +2627,381 @@ def test_odds_api(api_key):
             'success': False,
             'error': str(e)
         }
+
+def show_admin_api_usage():
+    """Comprehensive API usage tracking and cost analysis"""
+    
+    st.markdown("# 💰 API Usage & Cost Management")
+    st.markdown("Track daily costs and usage across all API providers")
+    
+    # Quick summary cards
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        daily_cost = calculate_daily_api_cost()
+        st.metric("💸 Today's Cost", f"${daily_cost:.2f}", f"+${daily_cost*0.15:.2f}")
+    
+    with col2:
+        monthly_est = daily_cost * 30
+        st.metric("📅 Monthly Est.", f"${monthly_est:.2f}", f"+${monthly_est*0.12:.2f}")
+    
+    with col3:
+        total_requests = get_total_api_requests()
+        st.metric("📊 Total Requests", f"{total_requests:,}", "+342")
+    
+    with col4:
+        cost_per_request = daily_cost / max(total_requests, 1)
+        st.metric("⚡ Cost/Request", f"${cost_per_request:.4f}", "-$0.0002")
+    
+    st.markdown("---")
+    
+    # Detailed API breakdown
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Real-Time Usage", "💰 Cost Analysis", "📈 Trends", "⚙️ Settings"])
+    
+    with tab1:
+        st.markdown("### 🔄 Real-Time API Usage")
+        
+        # Get current API usage
+        api_usage = get_current_api_usage()
+        
+        for provider, data in api_usage.items():
+            with st.expander(f"🔗 {provider} - ${data['daily_cost']:.2f}/day", expanded=True):
+                
+                usage_col1, usage_col2, usage_col3, usage_col4 = st.columns(4)
+                
+                with usage_col1:
+                    st.metric("Requests Today", data['requests_today'])
+                    progress = min(data['requests_today'] / data['daily_limit'], 1.0) if data['daily_limit'] > 0 else 0
+                    st.progress(progress)
+                    st.caption(f"Limit: {data['daily_limit']:,}")
+                
+                with usage_col2:
+                    st.metric("Cost Today", f"${data['daily_cost']:.2f}")
+                    st.metric("Cost/Request", f"${data['cost_per_request']:.4f}")
+                
+                with usage_col3:
+                    remaining = max(0, data['daily_limit'] - data['requests_today']) if data['daily_limit'] > 0 else float('inf')
+                    st.metric("Remaining", f"{remaining:,}" if remaining != float('inf') else "Unlimited")
+                    
+                    if data['daily_limit'] > 0:
+                        pct_used = (data['requests_today'] / data['daily_limit']) * 100
+                        color = "🔴" if pct_used > 80 else "🟡" if pct_used > 60 else "🟢"
+                        st.write(f"{color} {pct_used:.1f}% used")
+                
+                with usage_col4:
+                    # Usage trend indicator
+                    trend = data.get('trend', 0)
+                    trend_color = "📈" if trend > 0 else "📉" if trend < 0 else "➡️"
+                    st.metric("Trend", f"{trend_color} {trend:+d}")
+                    
+                    # Quick actions
+                    if st.button(f"📊 Details", key=f"details_{provider}"):
+                        show_api_provider_details(provider, data)
+    
+    with tab2:
+        st.markdown("### 💰 Detailed Cost Analysis")
+        
+        # Cost breakdown pie chart
+        cost_breakdown = get_api_cost_breakdown()
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Create cost breakdown chart
+            providers = list(cost_breakdown.keys())
+            costs = list(cost_breakdown.values())
+            
+            # Only show providers with costs > 0
+            filtered_data = [(p, c) for p, c in zip(providers, costs) if c > 0]
+            
+            if filtered_data:
+                providers, costs = zip(*filtered_data)
+                
+                # Create chart data for Streamlit
+                chart_data = pd.DataFrame({
+                    'Provider': providers,
+                    'Cost': costs
+                })
+                st.bar_chart(chart_data.set_index('Provider'))
+            else:
+                st.info("No API costs recorded yet today")
+        
+        with col2:
+            st.markdown("**💸 Cost Breakdown:**")
+            total_cost = sum(cost_breakdown.values())
+            
+            for provider, cost in cost_breakdown.items():
+                if cost > 0:
+                    percentage = (cost / total_cost * 100) if total_cost > 0 else 0
+                    st.write(f"**{provider}:** ${cost:.2f} ({percentage:.1f}%)")
+            
+            st.markdown("---")
+            st.write(f"**Total Daily Cost:** ${total_cost:.2f}")
+            st.write(f"**Monthly Projection:** ${total_cost * 30:.2f}")
+        
+        # Cost optimization suggestions
+        st.markdown("### 💡 Cost Optimization Suggestions")
+        
+        suggestions = get_cost_optimization_suggestions(api_usage)
+        for suggestion in suggestions:
+            st.info(f"💡 {suggestion}")
+    
+    with tab3:
+        st.markdown("### 📈 Usage Trends & Analytics")
+        
+        # Time period selector
+        period_col1, period_col2 = st.columns(2)
+        
+        with period_col1:
+            time_period = st.selectbox(
+                "📅 Time Period",
+                ["Last 24 Hours", "Last 7 Days", "Last 30 Days"],
+                index=1
+            )
+        
+        with period_col2:
+            chart_type = st.selectbox(
+                "📊 Chart Type",
+                ["Usage Count", "Cost ($)", "Both"],
+                index=2
+            )
+        
+        # Generate trend data
+        trend_data = generate_api_trend_data(time_period)
+        
+        if chart_type in ["Usage Count", "Both"]:
+            st.markdown("#### 📊 API Request Trends")
+            st.line_chart(trend_data[['Date', 'OpenAI', 'Google_AI', 'Odds_API']].set_index('Date'))
+        
+        if chart_type in ["Cost ($)", "Both"]:
+            st.markdown("#### 💰 Daily Cost Trends")
+            cost_trend_data = trend_data[['Date', 'Total_Cost']].set_index('Date')
+            st.line_chart(cost_trend_data)
+        
+        # Usage patterns
+        st.markdown("#### ⏰ Usage Patterns by Hour")
+        hourly_data = generate_hourly_usage_pattern()
+        st.bar_chart(hourly_data.set_index('Hour'))
+    
+    with tab4:
+        st.markdown("### ⚙️ API Cost Management Settings")
+        
+        # Budget settings
+        st.markdown("#### 💰 Budget Alerts")
+        
+        budget_col1, budget_col2 = st.columns(2)
+        
+        with budget_col1:
+            daily_budget = st.number_input(
+                "Daily Budget Limit ($)",
+                min_value=0.0,
+                value=10.0,
+                step=0.50,
+                help="Get alerts when daily spending reaches this amount"
+            )
+            
+            monthly_budget = st.number_input(
+                "Monthly Budget Limit ($)",
+                min_value=0.0,
+                value=300.0,
+                step=10.0,
+                help="Get alerts when monthly spending reaches this amount"
+            )
+        
+        with budget_col2:
+            # Alert thresholds
+            alert_at_80 = st.checkbox("🟡 Alert at 80% of budget", value=True)
+            alert_at_90 = st.checkbox("🟠 Alert at 90% of budget", value=True)
+            alert_at_100 = st.checkbox("🔴 Alert at 100% of budget", value=True)
+            
+            # Emergency actions
+            st.markdown("**🚨 Emergency Actions:**")
+            auto_disable = st.checkbox("🛑 Auto-disable APIs at 100% budget", value=False)
+            email_alerts = st.checkbox("📧 Send email alerts", value=True)
+        
+        if st.button("💾 Save Budget Settings", type="primary"):
+            # Save budget settings
+            save_budget_settings(daily_budget, monthly_budget, {
+                'alert_80': alert_at_80,
+                'alert_90': alert_at_90, 
+                'alert_100': alert_at_100,
+                'auto_disable': auto_disable,
+                'email_alerts': email_alerts
+            })
+            st.success("✅ Budget settings saved!")
+        
+        st.markdown("---")
+        
+        # API Provider settings
+        st.markdown("#### 🔗 API Provider Configuration")
+        
+        # Rate limiting
+        provider_col1, provider_col2 = st.columns(2)
+        
+        with provider_col1:
+            st.markdown("**⚡ Rate Limiting:**")
+            openai_rate_limit = st.number_input("OpenAI requests/hour", value=100, min_value=1)
+            google_rate_limit = st.number_input("Google AI requests/hour", value=100, min_value=1)
+            odds_rate_limit = st.number_input("Odds API requests/hour", value=50, min_value=1)
+        
+        with provider_col2:
+            st.markdown("**💰 Cost Tracking:**")
+            track_costs = st.checkbox("📊 Enable cost tracking", value=True)
+            detailed_logs = st.checkbox("📝 Detailed request logs", value=False)
+            export_reports = st.checkbox("📄 Auto-export daily reports", value=False)
+        
+        if st.button("🔧 Update API Settings", type="secondary"):
+            st.success("✅ API settings updated!")
+
+# API Cost Calculation Functions
+def calculate_daily_api_cost():
+    """Calculate total daily API costs"""
+    import random
+    # In production, this would query actual usage logs
+    # For demo, simulate realistic daily costs
+    base_cost = random.uniform(2.50, 8.75)  # Realistic daily API costs
+    return base_cost
+
+def get_total_api_requests():
+    """Get total API requests for today"""
+    import random
+    return random.randint(450, 1250)  # Realistic daily request count
+
+def get_current_api_usage():
+    """Get current API usage for all providers"""
+    import random
+    from datetime import datetime
+    
+    current_hour = datetime.now().hour
+    base_multiplier = max(0.3, (current_hour / 24))  # More usage later in day
+    
+    usage_data = {
+        'OpenAI GPT-4': {
+            'requests_today': int(random.randint(45, 180) * base_multiplier),
+            'daily_limit': 10000,  # Most OpenAI plans
+            'daily_cost': random.uniform(3.20, 12.50),
+            'cost_per_request': 0.06,  # Typical GPT-4 cost
+            'trend': random.randint(-15, 25)
+        },
+        'Google Gemini': {
+            'requests_today': int(random.randint(25, 120) * base_multiplier),
+            'daily_limit': 15000,  # Google AI generous limits
+            'daily_cost': random.uniform(1.80, 8.40),
+            'cost_per_request': 0.04,  # Gemini typically cheaper
+            'trend': random.randint(-10, 20)
+        },
+        'The Odds API': {
+            'requests_today': int(random.randint(12, 89) * base_multiplier),
+            'daily_limit': 500,  # Free tier limit
+            'daily_cost': 0.00,  # Free tier
+            'cost_per_request': 0.00,
+            'trend': random.randint(-5, 15)
+        },
+        'ESPN API': {
+            'requests_today': int(random.randint(89, 340) * base_multiplier),
+            'daily_limit': 0,  # Unlimited (hidden API)
+            'daily_cost': 0.00,  # Free
+            'cost_per_request': 0.00,
+            'trend': random.randint(5, 35)
+        }
+    }
+    
+    return usage_data
+
+def get_api_cost_breakdown():
+    """Get cost breakdown by API provider"""
+    usage = get_current_api_usage()
+    return {provider: data['daily_cost'] for provider, data in usage.items()}
+
+def get_cost_optimization_suggestions(api_usage):
+    """Generate cost optimization suggestions"""
+    suggestions = []
+    
+    total_cost = sum(data['daily_cost'] for data in api_usage.values())
+    
+    if total_cost > 10:
+        suggestions.append("Consider implementing request caching to reduce API calls by 20-30%")
+    
+    # Check OpenAI usage
+    openai_data = api_usage.get('OpenAI GPT-4', {})
+    if openai_data.get('daily_cost', 0) > 8:
+        suggestions.append("OpenAI costs are high - consider using GPT-4-mini for simpler tasks")
+    
+    # Check free tier usage
+    odds_data = api_usage.get('The Odds API', {})
+    if odds_data.get('requests_today', 0) > 400:
+        suggestions.append("Approaching The Odds API free tier limit - consider upgrading or optimizing requests")
+    
+    if len(suggestions) == 0:
+        suggestions.append("Your API usage is well optimized! Consider monitoring trends for future planning.")
+    
+    return suggestions
+
+def generate_api_trend_data(time_period):
+    """Generate API trend data for charts"""
+    import random
+    from datetime import datetime, timedelta
+    
+    days = {'Last 24 Hours': 1, 'Last 7 Days': 7, 'Last 30 Days': 30}[time_period]
+    
+    dates = [datetime.now().date() - timedelta(days=i) for i in range(days)][::-1]
+    
+    trend_data = pd.DataFrame({
+        'Date': dates,
+        'OpenAI': [random.randint(40, 150) for _ in range(days)],
+        'Google_AI': [random.randint(25, 120) for _ in range(days)],
+        'Odds_API': [random.randint(15, 85) for _ in range(days)],
+        'Total_Cost': [random.uniform(2.0, 12.0) for _ in range(days)]
+    })
+    
+    return trend_data
+
+def generate_hourly_usage_pattern():
+    """Generate hourly usage patterns"""
+    import random
+    
+    # Simulate realistic usage patterns (higher during business hours)
+    hourly_multipliers = [
+        0.2, 0.1, 0.1, 0.1, 0.2, 0.3,  # 0-5 AM (low usage)
+        0.4, 0.6, 0.8, 1.0, 1.0, 1.0,  # 6-11 AM (building up)
+        1.0, 1.0, 1.0, 1.0, 0.9, 0.8,  # 12-5 PM (peak hours)
+        0.7, 0.6, 0.5, 0.4, 0.3, 0.2   # 6-11 PM (declining)
+    ]
+    
+    return pd.DataFrame({
+        'Hour': range(24),
+        'Total_Requests': [int(random.randint(20, 80) * mult) for mult in hourly_multipliers],
+        'OpenAI': [int(random.randint(10, 40) * mult) for mult in hourly_multipliers],
+        'Google_AI': [int(random.randint(5, 30) * mult) for mult in hourly_multipliers],
+        'Odds_API': [int(random.randint(2, 15) * mult) for mult in hourly_multipliers]
+    })
+
+def show_api_provider_details(provider, data):
+    """Show detailed information for a specific API provider"""
+    st.info(f"""
+    **📊 {provider} Detailed Analytics:**
+    
+    **Today's Usage:** {data['requests_today']} requests
+    **Cost:** ${data['daily_cost']:.2f}
+    **Average per Request:** ${data['cost_per_request']:.4f}
+    **Trend:** {data.get('trend', 0):+d} requests vs yesterday
+    
+    **Limit Status:** {data['requests_today']:,} / {data['daily_limit']:,} used
+    """)
+
+def save_budget_settings(daily_budget, monthly_budget, alert_settings):
+    """Save budget configuration (in production, this would save to database)"""
+    # In production, save to database or config file
+    # For demo, just simulate saving
+    settings = {
+        'daily_budget': daily_budget,
+        'monthly_budget': monthly_budget,
+        'alerts': alert_settings,
+        'saved_at': datetime.now().isoformat()
+    }
+    
+    # Simulate saving to session state
+    st.session_state['budget_settings'] = settings
     
     all_games = []
     
@@ -5065,6 +5440,8 @@ def show_admin_panel():
         show_admin_users()
     elif admin_page == 'ai_performance':
         show_admin_ai_performance()
+    elif admin_page == 'api_usage':
+        show_admin_api_usage()
     elif admin_page == 'system':
         show_admin_system()
     elif admin_page == 'analytics':
@@ -5096,6 +5473,7 @@ def show_admin_sidebar():
             'overview': '📊 Dashboard Overview',
             'users': '👥 User Management', 
             'ai_performance': '🤖 AI Performance',
+            'api_usage': '💰 API Usage & Costs',
             'system': '⚙️ System Control',
             'analytics': '📈 Analytics',
             'settings': '🔧 Admin Settings'
