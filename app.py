@@ -360,6 +360,11 @@ st.markdown("""
         to { opacity: 1; transform: translateY(0); }
     }
     
+    @keyframes logoFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
     /* Mobile Responsive Design */
     @media (max-width: 768px) {
         .main-header {
@@ -639,10 +644,14 @@ def show_professional_sidebar():
     """Professional animated sidebar with dark/light mode support"""
     
     with st.sidebar:
-        # Animated Professional branding
+        # Animated Professional branding with official logo
         st.markdown("""
         <div class="sidebar-header">
-            <h2 style="margin: 0; font-size: 1.8rem; font-weight: 700;">🎯 Spizo</h2>
+            <img src="https://i.ibb.co/2XrVbP5/Chat-GPT-Image-Aug-4-2025-11-52-35-PM.png" 
+                 alt="Spizo Logo" 
+                 style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 1rem; 
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 3px solid rgba(255,255,255,0.2);">
+            <h2 style="margin: 0; font-size: 1.8rem; font-weight: 700;">Spizo</h2>
             <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1rem;">#1 AI Prediction Platform</p>
             <div style="width: 50px; height: 3px; background: rgba(255,255,255,0.5); margin: 1rem auto; border-radius: 2px;"></div>
         </div>
@@ -813,10 +822,15 @@ def get_user_role(username):
 def show_dashboard():
     """Professional home landing page with comprehensive selling points"""
     
-    # Hero Section
+    # Hero Section with official logo
     st.markdown("""
     <div class="main-header">
-        <h1>🎯 Spizo</h1>
+        <img src="https://i.ibb.co/2XrVbP5/Chat-GPT-Image-Aug-4-2025-11-52-35-PM.png" 
+             alt="Spizo Logo" 
+             style="width: 120px; height: 120px; border-radius: 50%; margin-bottom: 1.5rem; 
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.4); border: 4px solid rgba(255,255,255,0.3);
+                    animation: logoFloat 3s ease-in-out infinite;">
+        <h1 style="margin: 0; font-size: 3rem; font-weight: 700;">Spizo</h1>
         <h2 style="color: #ffffff; margin: 0.5rem 0; font-size: 1.5rem;">The World's #1 AI Sports Prediction Platform</h2>
         <p style="font-size: 1.1rem; margin: 1rem 0; opacity: 0.9;">Harness the power of advanced AI to predict sports outcomes with unprecedented accuracy across all major leagues</p>
     </div>
@@ -1131,7 +1145,16 @@ def show_live_updates():
 def show_winning_picks():
     """Professional winning picks interface with game selection"""
     
-    st.markdown("# 🎯 Spizo - AI-Powered Winning Picks & Odds")
+    # Winning picks header with logo
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <img src="https://i.ibb.co/2XrVbP5/Chat-GPT-Image-Aug-4-2025-11-52-35-PM.png" 
+             alt="Spizo Logo" 
+             style="width: 60px; height: 60px; border-radius: 50%; margin-right: 1rem; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2); vertical-align: middle;">
+        <span style="font-size: 2.5rem; font-weight: 700; vertical-align: middle;">Spizo - AI-Powered Winning Picks & Odds</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Responsible gambling warning
     st.warning("⚠️ **RESPONSIBLE GAMBLING**: These are analytical insights for educational purposes only. Gamble responsibly.")
