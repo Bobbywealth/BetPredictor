@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 import os
 import json
+import pytz
 
 st.set_page_config(
     page_title="SportsBet Pro - AI Sports Analysis",
@@ -21,23 +22,40 @@ with tab1:
     # Test basic functionality
     st.header("📊 System Status")
     
-    # Show current time
-    st.write(f"🕐 Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    # Show current time in EST
+    est = pytz.timezone('US/Eastern')
+    current_time_est = datetime.now(est)
+    st.write(f"🕐 Current EST time: {current_time_est.strftime('%Y-%m-%d %H:%M:%S %Z')}")
     st.success("🚀 Basic app is working! Full features available in tabs above.")
 
 with tab2:
     st.title("🏆 High-Confidence Winning Picks") 
     st.markdown("**AI-powered sports predictions with real data**")
     
-    # Date selector
+    # Date selector (EST timezone)
+    est = pytz.timezone('US/Eastern')
+    current_est = datetime.now(est).date()
+    
     col1, col2 = st.columns([2, 2])
     with col1:
         pick_date = st.date_input(
-            "📅 Pick Date",
-            value=date.today(),
-            min_value=date.today() - timedelta(days=1),
-            max_value=date.today() + timedelta(days=7)
+            "📅 Pick Date (EST)",
+            value=current_est,
+            min_value=current_est - timedelta(days=1),
+            max_value=current_est + timedelta(days=7)
         )
+        
+        # Show what day this is
+        if pick_date == current_est:
+            st.info("📅 Today's games")
+        elif pick_date == current_est + timedelta(days=1):
+            st.info("📅 Tomorrow's games")
+        else:
+            days_diff = (pick_date - current_est).days
+            if days_diff > 0:
+                st.info(f"📅 Games in {days_diff} days")
+            else:
+                st.info(f"📅 Games {abs(days_diff)} days ago")
     
     with col2:
         if st.button("🚀 Generate Picks", type="primary"):
@@ -64,20 +82,26 @@ with tab2:
             if response.status_code == 200:
                 games = response.json()
                 
-                # Filter games for target date
+                # Filter games for target date (convert to EST)
                 target_games = []
                 target_str = target_date.strftime('%Y-%m-%d')
+                est = pytz.timezone('US/Eastern')
                 
                 for game in games:
                     commence_time = game.get('commence_time', '')
                     if commence_time:
                         try:
-                            game_dt = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
-                            game_date = game_dt.strftime('%Y-%m-%d')
+                            # Convert UTC to EST
+                            game_dt_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                            game_dt_est = game_dt_utc.astimezone(est)
+                            game_date_est = game_dt_est.strftime('%Y-%m-%d')
                             
-                            if game_date == target_str:
+                            if game_date_est == target_str:
+                                # Add EST time to game data
+                                game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
+                                game['est_date'] = game_date_est
                                 target_games.append(game)
-                        except:
+                        except Exception as e:
                             continue
                 
                 return target_games
@@ -238,14 +262,8 @@ with tab2:
             away_team = game.get('away_team', 'Unknown')
             commence_time = game.get('commence_time', '')
             
-            # Parse game time
-            game_time = 'TBD'
-            if commence_time:
-                try:
-                    dt = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
-                    game_time = dt.strftime('%I:%M %p ET')
-                except:
-                    pass
+            # Use EST time that was calculated during filtering
+            game_time = game.get('est_time', 'TBD')
             
             # Get AI analysis
             analysis = generate_ai_analysis(game)
@@ -298,12 +316,16 @@ with tab2:
         # Show available dates
         st.markdown("### 📅 Games Available Soon:")
         
-        # Check next few days
+        # Check next few days (EST)
+        est = pytz.timezone('US/Eastern')
+        current_est_date = datetime.now(est).date()
+        
         for days_ahead in range(1, 8):
-            check_date = date.today() + timedelta(days=days_ahead)
+            check_date = current_est_date + timedelta(days=days_ahead)
             check_games = get_games_for_date(check_date)
             if check_games:
-                st.write(f"• **{check_date.strftime('%B %d')}**: {len(check_games)} games available")
+                day_name = check_date.strftime('%A')
+                st.write(f"• **{day_name}, {check_date.strftime('%B %d')}**: {len(check_games)} games available")
 
 with tab3:
     st.title("📊 Live Sports Data")
@@ -348,12 +370,14 @@ with tab3:
                     away = game.get('away_team', 'Unknown')
                     commence_time = game.get('commence_time', '')
                     
-                    # Parse time
+                    # Parse time to EST
                     game_time = 'TBD'
                     if commence_time:
                         try:
-                            dt = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
-                            game_time = dt.strftime('%m/%d %I:%M %p ET')
+                            est = pytz.timezone('US/Eastern')
+                            dt_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                            dt_est = dt_utc.astimezone(est)
+                            game_time = dt_est.strftime('%m/%d %I:%M %p ET')
                         except:
                             pass
                     
