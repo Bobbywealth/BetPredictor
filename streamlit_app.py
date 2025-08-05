@@ -3,13 +3,18 @@ import pandas as pd
 import requests
 import os
 from datetime import datetime, date, timedelta
+import json
 
 # Simple working version for deployment
-st.set_page_config(
-    page_title="SportsBet Pro - AI Sports Analysis",
-    page_icon="🏆",
-    layout="wide"
-)
+try:
+    st.set_page_config(
+        page_title="SportsBet Pro - AI Sports Analysis", 
+        page_icon="🏆",
+        layout="wide"
+    )
+except Exception as e:
+    st.error(f"Config error: {e}")
+    # Continue anyway
 
 st.title("🏆 SportsBet Pro - AI Sports Analysis")
 st.markdown("### Real-time sports data with AI-powered predictions")
