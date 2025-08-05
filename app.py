@@ -4349,57 +4349,148 @@ def show_admin_api_usage():
             st.success("✅ API settings updated!")
 
 # API Cost Calculation Functions
+def track_api_usage(provider, tokens_used=0, cost=None):
+    """Track real API usage"""
+    today = datetime.now().date().isoformat()
+    
+    # Initialize session state for API tracking
+    if 'api_usage_tracking' not in st.session_state:
+        st.session_state.api_usage_tracking = {}
+    
+    if today not in st.session_state.api_usage_tracking:
+        st.session_state.api_usage_tracking[today] = {}
+    
+    if provider not in st.session_state.api_usage_tracking[today]:
+        st.session_state.api_usage_tracking[today][provider] = {
+            'requests': 0,
+            'tokens': 0,
+            'cost': 0.0,
+            'errors': 0
+        }
+    
+    # Calculate cost based on provider and tokens
+    if cost is None:
+        if 'OpenAI' in provider:
+            cost = (tokens_used / 1000) * 0.06  # GPT-4o pricing: $0.06/1K tokens
+        elif 'Gemini' in provider:
+            cost = (tokens_used / 1000) * 0.002  # Gemini Pro pricing: $0.002/1K tokens
+        else:
+            cost = 0.0
+    
+    # Update tracking
+    st.session_state.api_usage_tracking[today][provider]['requests'] += 1
+    st.session_state.api_usage_tracking[today][provider]['tokens'] += tokens_used
+    st.session_state.api_usage_tracking[today][provider]['cost'] += cost
+
+def track_api_error(provider, error_type='general'):
+    """Track API errors"""
+    today = datetime.now().date().isoformat()
+    
+    if 'api_usage_tracking' not in st.session_state:
+        st.session_state.api_usage_tracking = {}
+    
+    if today not in st.session_state.api_usage_tracking:
+        st.session_state.api_usage_tracking[today] = {}
+    
+    if provider not in st.session_state.api_usage_tracking[today]:
+        st.session_state.api_usage_tracking[today][provider] = {
+            'requests': 0,
+            'tokens': 0,
+            'cost': 0.0,
+            'errors': 0
+        }
+    
+    st.session_state.api_usage_tracking[today][provider]['errors'] += 1
+
 def calculate_daily_api_cost():
-    """Calculate total daily API costs"""
-    import random
-    # In production, this would query actual usage logs
-    # For demo, simulate realistic daily costs
-    base_cost = random.uniform(2.50, 8.75)  # Realistic daily API costs
-    return base_cost
+    """Calculate total daily API costs from real usage"""
+    today = datetime.now().date().isoformat()
+    
+    if 'api_usage_tracking' not in st.session_state:
+        return 0.0
+    
+    if today not in st.session_state.api_usage_tracking:
+        return 0.0
+    
+    total_cost = 0.0
+    for provider_data in st.session_state.api_usage_tracking[today].values():
+        total_cost += provider_data.get('cost', 0.0)
+    
+    return total_cost
 
 def get_total_api_requests():
-    """Get total API requests for today"""
-    import random
-    return random.randint(450, 1250)  # Realistic daily request count
+    """Get total API requests for today from real usage"""
+    today = datetime.now().date().isoformat()
+    
+    if 'api_usage_tracking' not in st.session_state:
+        return 0
+    
+    if today not in st.session_state.api_usage_tracking:
+        return 0
+    
+    total_requests = 0
+    for provider_data in st.session_state.api_usage_tracking[today].values():
+        total_requests += provider_data.get('requests', 0)
+    
+    return total_requests
 
 def get_current_api_usage():
-    """Get current API usage for all providers"""
-    import random
-    from datetime import datetime
+    """Get current API usage for all providers from real usage"""
+    today = datetime.now().date().isoformat()
     
-    current_hour = datetime.now().hour
-    base_multiplier = max(0.3, (current_hour / 24))  # More usage later in day
-    
-    usage_data = {
-        'OpenAI GPT-4': {
-            'requests_today': int(random.randint(45, 180) * base_multiplier),
-            'daily_limit': 10000,  # Most OpenAI plans
-            'daily_cost': random.uniform(3.20, 12.50),
-            'cost_per_request': 0.06,  # Typical GPT-4 cost
-            'trend': random.randint(-15, 25)
-        },
-        'Google Gemini': {
-            'requests_today': int(random.randint(25, 120) * base_multiplier),
-            'daily_limit': 15000,  # Google AI generous limits
-            'daily_cost': random.uniform(1.80, 8.40),
-            'cost_per_request': 0.04,  # Gemini typically cheaper
-            'trend': random.randint(-10, 20)
-        },
-        'The Odds API': {
-            'requests_today': int(random.randint(12, 89) * base_multiplier),
-            'daily_limit': 500,  # Free tier limit
-            'daily_cost': 0.00,  # Free tier
-            'cost_per_request': 0.00,
-            'trend': random.randint(-5, 15)
-        },
-        'ESPN API': {
-            'requests_today': int(random.randint(89, 340) * base_multiplier),
-            'daily_limit': 0,  # Unlimited (hidden API)
-            'daily_cost': 0.00,  # Free
-            'cost_per_request': 0.00,
-            'trend': random.randint(5, 35)
+    if 'api_usage_tracking' not in st.session_state or today not in st.session_state.api_usage_tracking:
+        return {
+            'OpenAI GPT-4o': {
+                'requests_today': 0,
+                'daily_limit': 10000,
+                'daily_cost': 0.0,
+                'cost_per_request': 0.06,
+                'trend': 0,
+                'tokens_used': 0,
+                'errors': 0
+            },
+            'Google Gemini Pro': {
+                'requests_today': 0,
+                'daily_limit': 15000,
+                'daily_cost': 0.0,
+                'cost_per_request': 0.002,
+                'trend': 0,
+                'tokens_used': 0,
+                'errors': 0
+            }
         }
+    
+    usage_data = {}
+    real_usage = st.session_state.api_usage_tracking[today]
+    
+    # Map real usage to display format
+    provider_mappings = {
+        'OpenAI GPT-4o': {'limit': 10000, 'base_cost': 0.06},
+        'Google Gemini Pro': {'limit': 15000, 'base_cost': 0.002}
     }
+    
+    for provider, config in provider_mappings.items():
+        if provider in real_usage:
+            data = real_usage[provider]
+            usage_data[provider] = {
+                'requests_today': data.get('requests', 0),
+                'daily_limit': config['limit'],
+                'daily_cost': data.get('cost', 0.0),
+                'cost_per_request': config['base_cost'],
+                'trend': 0,  # Could calculate from historical data
+                'tokens_used': data.get('tokens', 0),
+                'errors': data.get('errors', 0)
+            }
+        else:
+            usage_data[provider] = {
+                'requests_today': 0,
+                'daily_limit': config['limit'],
+                'daily_cost': 0.0,
+                'cost_per_request': config['base_cost'],
+                'trend': 0,
+                'tokens_used': 0,
+                'errors': 0
+            }
     
     return usage_data
 
@@ -6679,6 +6770,10 @@ def get_openai_analysis_complete(home_team, away_team, sport):
             temperature=0.2   # Balance consistency with insight
         )
         
+        # Track real API usage
+        tokens_used = response.usage.total_tokens if response.usage else 800
+        track_api_usage('OpenAI GPT-4o', tokens_used=tokens_used)
+        
         if response.choices[0].message.content:
             result = json.loads(response.choices[0].message.content)
             result['analysis_time'] = time.time() - start_time
@@ -6688,6 +6783,7 @@ def get_openai_analysis_complete(home_team, away_team, sport):
             
     except Exception as e:
         print(f"OpenAI error: {e}")
+        track_api_error('OpenAI GPT-4o', str(e))
         
     return None
 
@@ -6875,6 +6971,10 @@ JSON only: {{"predicted_winner": "{home_team}", "confidence": 0.72, "key_factors
         
         response = model.generate_content(prompt)
         
+        # Track real API usage (Gemini doesn't provide token count easily, so estimate)
+        estimated_tokens = len(prompt) + (len(response.text) if response.text else 0)
+        track_api_usage('Google Gemini Pro', tokens_used=estimated_tokens)
+        
         if response.text:
             # Clean JSON from response
             clean_json = response.text.replace('```json', '').replace('```', '').strip()
@@ -6885,6 +6985,7 @@ JSON only: {{"predicted_winner": "{home_team}", "confidence": 0.72, "key_factors
             
     except Exception as e:
         print(f"Gemini error: {e}")
+        track_api_error('Google Gemini Pro', str(e))
         
     return None
 
