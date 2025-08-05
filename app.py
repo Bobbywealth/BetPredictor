@@ -854,6 +854,8 @@ def show_winning_picks():
     # Generate picks based on selections
     if generate_btn or True:  # Always show picks for demo
         with st.spinner("🤖 AI is analyzing games and odds..."):
+            # Debug information
+            st.info(f"🔍 Debug: Looking for {'/'.join(sports)} games on {pick_date} with min confidence {min_confidence:.1%}")
             show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers)
 
 def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers):
@@ -863,6 +865,9 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         # Get real games for the date and selected sports
         games = get_games_for_date(pick_date, sports)
         
+        # Debug information
+        st.write(f"🎮 Debug: Found {len(games)} games")
+        
         if not games:
             st.info(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}. Try selecting different sports or dates.")
             show_upcoming_dates()
@@ -870,17 +875,22 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         
         # Generate AI analysis for all games
         analyzed_games = []
-        for game in games:
+        for i, game in enumerate(games):
             analysis = get_ai_analysis(game)
             
-            # Filter by confidence level
-            if analysis['confidence'] >= min_confidence:
+            # Filter by confidence level (use .get() for safety)
+            confidence = analysis.get('confidence', 0.0) if analysis else 0.0
+            st.write(f"🤖 Debug: Game {i+1}: {game.get('away_team', 'Away')} @ {game.get('home_team', 'Home')} - Confidence: {confidence:.1%}")
+            
+            if confidence >= min_confidence:
                 game['ai_analysis'] = analysis
                 analyzed_games.append(game)
         
+        st.write(f"✅ Debug: {len(analyzed_games)} games passed confidence filter")
+        
         # Sort games based on selection
         if sort_by == "Confidence":
-            analyzed_games.sort(key=lambda x: x['ai_analysis']['confidence'], reverse=True)
+            analyzed_games.sort(key=lambda x: x['ai_analysis'].get('confidence', 0.0), reverse=True)
         elif sort_by == "Game Time":
             analyzed_games.sort(key=lambda x: x.get('commence_time', ''))
         elif sort_by == "Alphabetical":
@@ -896,11 +906,11 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                avg_confidence = sum(g['ai_analysis']['confidence'] for g in final_games) / len(final_games)
+                avg_confidence = sum(g['ai_analysis'].get('confidence', 0.0) for g in final_games) / len(final_games)
                 st.metric("Avg Confidence", f"{avg_confidence:.1%}")
             
             with col2:
-                strong_picks = sum(1 for g in final_games if g['ai_analysis']['confidence'] >= 0.8)
+                strong_picks = sum(1 for g in final_games if g['ai_analysis'].get('confidence', 0.0) >= 0.8)
                 st.metric("Strong Picks", f"{strong_picks}/{len(final_games)}")
             
             with col3:
