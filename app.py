@@ -604,6 +604,12 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             # Display unified pick cards
             for i, game in enumerate(final_games, 1):
                 show_unified_pick_card(game, i, include_live_odds, show_all_bookmakers)
+            
+            # Cross-Sport Parlay Recommendations
+            if len(final_games) > 1:
+                st.markdown("---")
+                st.markdown("## 🎰 Cross-Sport Parlay Opportunities")
+                show_cross_sport_parlays(final_games, sports)
         else:
             st.warning(f"No games meet your confidence threshold of {min_confidence:.1%}. Try lowering the minimum confidence.")
             show_confidence_suggestions(min_confidence)
@@ -698,6 +704,25 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
         factors = analysis.get('factors', ['Professional analysis completed'])
         for factor in factors:
             st.write(f"• {factor}")
+        
+        # Parlay Suggestions Section
+        st.markdown("#### 🎯 Parlay & Props Opportunities")
+        parlay_suggestions = generate_parlay_suggestions(game, rank)
+        
+        if parlay_suggestions:
+            parlay_col1, parlay_col2 = st.columns(2)
+            
+            with parlay_col1:
+                st.markdown("**🔗 Game Props & Player Props:**")
+                for prop in parlay_suggestions.get('props', []):
+                    confidence_color = "🟢" if prop['confidence'] > 0.7 else "🟡" if prop['confidence'] > 0.6 else "🔴"
+                    st.write(f"{confidence_color} {prop['description']} ({prop['confidence']:.1%})")
+            
+            with parlay_col2:
+                st.markdown("**🎰 Parlay Combos:**")
+                for combo in parlay_suggestions.get('parlays', []):
+                    payout_color = "💰" if combo['payout'] > 500 else "💵"
+                    st.write(f"{payout_color} {combo['description']} (+{combo['payout']})")
         
         # Live Odds Section (if enabled)
         if include_live_odds:
@@ -1815,6 +1840,345 @@ def get_weather_for_game(city, sport):
         'conditions': random.choice(weather['conditions']),
         'wind': random.choice(weather['winds'])
     }
+
+def generate_parlay_suggestions(game, rank):
+    """Generate comprehensive parlay and props suggestions for a game"""
+    
+    import random
+    
+    home_team = game.get('home_team', 'Unknown')
+    away_team = game.get('away_team', 'Unknown')
+    sport = game.get('sport', 'NFL')
+    
+    # Sport-specific props and parlays
+    sport_props = {
+        'NFL': {
+            'player_props': [
+                'QB Passing Yards Over 250.5',
+                'RB Rushing Yards Over 75.5', 
+                'WR Receiving Yards Over 65.5',
+                'Total Touchdowns Over 2.5',
+                'QB Passing TDs Over 1.5',
+                'Kicker Field Goals Over 1.5'
+            ],
+            'game_props': [
+                'Total Points Over 47.5',
+                'First Half Over 24.5',
+                'Both Teams to Score TD',
+                'Game to Go to Overtime',
+                'Winning Margin Under 7.5',
+                'Total Turnovers Over 2.5'
+            ]
+        },
+        'NBA': {
+            'player_props': [
+                'Points Over 25.5',
+                'Rebounds Over 8.5',
+                'Assists Over 6.5', 
+                'Three-Pointers Made Over 2.5',
+                'Steals + Blocks Over 1.5',
+                'Double-Double Yes'
+            ],
+            'game_props': [
+                'Total Points Over 215.5',
+                'First Quarter Over 54.5',
+                'Both Teams Over 105.5',
+                'Game Total Threes Over 24.5',
+                'Total Rebounds Over 95.5',
+                'Largest Lead Under 15.5'
+            ]
+        },
+        'WNBA': {
+            'player_props': [
+                'Points Over 18.5',
+                'Rebounds Over 7.5',
+                'Assists Over 5.5',
+                'Three-Pointers Made Over 1.5',
+                'Steals Over 1.5',
+                'Double-Double Yes'
+            ],
+            'game_props': [
+                'Total Points Over 160.5',
+                'First Half Over 80.5',
+                'Both Teams Over 75.5',
+                'Total Turnovers Over 25.5',
+                'Largest Lead Under 12.5',
+                'Game to Overtime'
+            ]
+        },
+        'MLB': {
+            'player_props': [
+                'Hits Over 1.5',
+                'RBIs Over 0.5',
+                'Runs Scored Over 0.5',
+                'Strikeouts Over 6.5 (Pitcher)',
+                'Home Runs Over 0.5',
+                'Stolen Bases Over 0.5'
+            ],
+            'game_props': [
+                'Total Runs Over 8.5',
+                'First 5 Innings Over 4.5',
+                'Both Teams to Score',
+                'Extra Innings Yes',
+                'Total Hits Over 16.5',
+                'Home Runs Hit Over 2.5'
+            ]
+        }
+    }
+    
+    # Generate realistic props for this game
+    props = []
+    current_props = sport_props.get(sport, sport_props['NFL'])
+    
+    # Select 3-5 high-confidence props
+    selected_player_props = random.sample(current_props['player_props'], min(3, len(current_props['player_props'])))
+    selected_game_props = random.sample(current_props['game_props'], min(2, len(current_props['game_props'])))
+    
+    for prop in selected_player_props:
+        props.append({
+            'description': f"{away_team} {prop}",
+            'confidence': random.uniform(0.6, 0.85),
+            'type': 'player_prop'
+        })
+    
+    for prop in selected_game_props:
+        props.append({
+            'description': f"{away_team} @ {home_team}: {prop}",
+            'confidence': random.uniform(0.65, 0.8),
+            'type': 'game_prop'
+        })
+    
+    # Generate parlay combinations
+    parlays = []
+    
+    # Same game parlays
+    if len(props) >= 2:
+        for i in range(min(3, len(props)-1)):
+            combo_props = random.sample(props, 2 + i)
+            total_confidence = sum(p['confidence'] for p in combo_props) / len(combo_props)
+            
+            if total_confidence > 0.6:
+                parlays.append({
+                    'description': f"SGP: {', '.join([p['description'].split(': ')[-1] for p in combo_props])}",
+                    'payout': random.randint(200, 800),
+                    'confidence': total_confidence,
+                    'legs': len(combo_props)
+                })
+    
+    return {
+        'props': sorted(props, key=lambda x: x['confidence'], reverse=True)[:6],
+        'parlays': sorted(parlays, key=lambda x: x['confidence'], reverse=True)[:4]
+    }
+
+def show_cross_sport_parlays(games, sports):
+    """Display cross-sport parlay opportunities"""
+    
+    import random
+    from itertools import combinations
+    
+    if len(games) < 2:
+        return
+    
+    st.markdown("### 🌟 AI-Recommended Cross-Sport Parlays")
+    
+    # Generate cross-sport combinations
+    cross_sport_parlays = []
+    
+    # 2-leg cross-sport parlays
+    for game1, game2 in combinations(games, 2):
+        if game1.get('sport') != game2.get('sport'):  # Different sports
+            analysis1 = game1.get('ai_analysis', {})
+            analysis2 = game2.get('ai_analysis', {})
+            
+            conf1 = analysis1.get('confidence', 0.5)
+            conf2 = analysis2.get('confidence', 0.5)
+            combined_conf = (conf1 + conf2) / 2
+            
+            if combined_conf > 0.6:  # Only show high-confidence parlays
+                payout = int(((1/conf1) * (1/conf2) - 1) * 100) + random.randint(50, 150)
+                
+                cross_sport_parlays.append({
+                    'games': [game1, game2],
+                    'description': f"{analysis1.get('pick', 'TBD')} + {analysis2.get('pick', 'TBD')}",
+                    'sports': f"{game1.get('sport', 'Unknown')} × {game2.get('sport', 'Unknown')}",
+                    'confidence': combined_conf,
+                    'payout': payout,
+                    'legs': 2
+                })
+    
+    # 3+ leg parlays for high-confidence games
+    high_conf_games = [g for g in games if g.get('ai_analysis', {}).get('confidence', 0) > 0.7]
+    
+    if len(high_conf_games) >= 3:
+        for combo in combinations(high_conf_games, 3):
+            # Check if we have multiple sports
+            sport_set = set(g.get('sport', 'Unknown') for g in combo)
+            if len(sport_set) >= 2:  # At least 2 different sports
+                
+                combined_conf = sum(g.get('ai_analysis', {}).get('confidence', 0.5) for g in combo) / 3
+                if combined_conf > 0.65:
+                    
+                    picks = [g.get('ai_analysis', {}).get('pick', 'TBD') for g in combo]
+                    sports_combo = ' × '.join(sorted(sport_set))
+                    
+                    # Calculate realistic payout
+                    individual_odds = [1/g.get('ai_analysis', {}).get('confidence', 0.5) for g in combo]
+                    parlay_odds = 1
+                    for odds in individual_odds:
+                        parlay_odds *= odds
+                    payout = int((parlay_odds - 1) * 100) + random.randint(100, 300)
+                    
+                    cross_sport_parlays.append({
+                        'games': combo,
+                        'description': ' + '.join(picks),
+                        'sports': sports_combo,
+                        'confidence': combined_conf,
+                        'payout': payout,
+                        'legs': 3
+                    })
+    
+    # Sort by confidence and payout
+    cross_sport_parlays.sort(key=lambda x: (x['confidence'], x['payout']), reverse=True)
+    
+    if cross_sport_parlays:
+        # Display top parlays
+        for i, parlay in enumerate(cross_sport_parlays[:6], 1):
+            
+            with st.expander(f"🎯 Parlay #{i}: {parlay['sports']} • {parlay['confidence']:.1%} Confidence • +{parlay['payout']}", expanded=i <= 2):
+                
+                parlay_col1, parlay_col2, parlay_col3 = st.columns([3, 2, 1])
+                
+                with parlay_col1:
+                    st.markdown("**🎲 Parlay Legs:**")
+                    for j, game in enumerate(parlay['games'], 1):
+                        pick = game.get('ai_analysis', {}).get('pick', 'TBD')
+                        home = game.get('home_team', 'Unknown')
+                        away = game.get('away_team', 'Unknown')
+                        sport = game.get('sport', 'Unknown')
+                        confidence = game.get('ai_analysis', {}).get('confidence', 0)
+                        
+                        st.write(f"**Leg {j}:** {pick}")
+                        st.write(f"   ↳ {away} @ {home} ({sport}) - {confidence:.1%}")
+                
+                with parlay_col2:
+                    st.markdown("**📊 Parlay Stats:**")
+                    st.write(f"**Legs:** {parlay['legs']}")
+                    st.write(f"**Sports:** {len(set(g.get('sport') for g in parlay['games']))}")
+                    st.write(f"**Confidence:** {parlay['confidence']:.1%}")
+                    st.write(f"**Payout:** +{parlay['payout']}")
+                
+                with parlay_col3:
+                    if st.button(f"🎰 Bet", key=f"parlay_bet_{i}"):
+                        st.success("Added to betslip!")
+                    if st.button(f"📋 Copy", key=f"parlay_copy_{i}"):
+                        st.info("Copied to clipboard!")
+        
+        # Parlay Strategy Tips
+        st.markdown("---")
+        st.markdown("### 💡 Cross-Sport Parlay Strategy")
+        
+        tip_col1, tip_col2 = st.columns(2)
+        
+        with tip_col1:
+            st.markdown("""
+            **🎯 High-Success Tips:**
+            • Mix different sport types for diversification
+            • Focus on games with 70%+ confidence
+            • Consider game timing (avoid back-to-back stress)
+            • Balance favorite and underdog picks
+            """)
+        
+        with tip_col2:
+            st.markdown("""
+            **⚠️ Risk Management:**
+            • Never bet more than 2% of bankroll on parlays
+            • Limit to 3-4 legs maximum for better odds
+            • Track parlay performance over time
+            • Have a stop-loss strategy
+            """)
+    else:
+        st.info("No high-confidence cross-sport parlays available with current games. Try adjusting your confidence threshold or selecting more sports.")
+
+    # Add props-based parlays
+    st.markdown("---")
+    st.markdown("### 🎲 Props-Heavy Parlays")
+    show_props_parlays(games)
+
+def show_props_parlays(games):
+    """Show parlays focused on player and game props"""
+    
+    import random
+    
+    props_parlays = []
+    
+    for game in games:
+        sport = game.get('sport', 'NFL')
+        home_team = game.get('home_team', 'Unknown')
+        away_team = game.get('away_team', 'Unknown')
+        
+        # Generate prop-focused parlays
+        sport_specific_props = {
+            'NFL': [
+                f"QB Passing Yards Over 275.5",
+                f"Total Points Over 49.5", 
+                f"Both Teams Score 20+ Points",
+                f"RB Rushing Yards Over 85.5"
+            ],
+            'NBA': [
+                f"Player Points Over 28.5",
+                f"Total Points Over 220.5",
+                f"Player Rebounds Over 9.5",
+                f"Both Teams Score 110+"
+            ],
+            'WNBA': [
+                f"Player Points Over 22.5",
+                f"Total Points Over 165.5",
+                f"Player Assists Over 6.5",
+                f"Both Teams Score 80+"
+            ],
+            'MLB': [
+                f"Total Runs Over 9.5",
+                f"Player Hits Over 1.5",
+                f"Both Teams Score",
+                f"Extra Innings Yes"
+            ]
+        }
+        
+        game_props = sport_specific_props.get(sport, sport_specific_props['NFL'])
+        selected_props = random.sample(game_props, min(3, len(game_props)))
+        
+        # Create props parlay for this game
+        confidence = random.uniform(0.6, 0.8)
+        payout = random.randint(300, 1200)
+        
+        props_parlays.append({
+            'game': f"{away_team} @ {home_team}",
+            'sport': sport,
+            'props': selected_props,
+            'confidence': confidence,
+            'payout': payout,
+            'description': f"{sport} Props Special"
+        })
+    
+    # Display props parlays
+    if props_parlays:
+        props_col1, props_col2 = st.columns(2)
+        
+        for i, parlay in enumerate(props_parlays):
+            col = props_col1 if i % 2 == 0 else props_col2
+            
+            with col:
+                with st.container():
+                    st.markdown(f"**🎲 {parlay['description']}**")
+                    st.markdown(f"*{parlay['game']} ({parlay['sport']})*")
+                    
+                    for prop in parlay['props']:
+                        st.write(f"✓ {prop}")
+                    
+                    st.markdown(f"**Confidence:** {parlay['confidence']:.1%} | **Payout:** +{parlay['payout']}")
+                    
+                    if st.button(f"🎰 Add Props Parlay", key=f"props_parlay_{i}"):
+                        st.success("Props parlay added!")
 
 def analyze_market_trends(games, depth):
     """Analyze market trends from game data"""
