@@ -27,11 +27,21 @@ class AIGameAnalyzer:
     """AI-powered game analysis using OpenAI and Gemini"""
     
     def __init__(self):
-        # Initialize OpenAI
-        self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        # Initialize OpenAI (only if API key available)
+        self.openai_client = None
+        if os.environ.get("OPENAI_API_KEY"):
+            try:
+                self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            except Exception as e:
+                st.warning(f"OpenAI initialization failed: {e}")
         
-        # Initialize Gemini
-        self.gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        # Initialize Gemini (only if API key available)
+        self.gemini_client = None
+        if os.environ.get("GEMINI_API_KEY"):
+            try:
+                self.gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+            except Exception as e:
+                st.warning(f"Gemini initialization failed: {e}")
         
     def analyze_game_with_openai(self, game_data: Dict) -> Dict:
         """Analyze game using OpenAI GPT-4o"""
