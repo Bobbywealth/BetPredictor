@@ -484,7 +484,7 @@ def show_winning_picks():
         # Sports selection
         sports = st.multiselect(
             "🏈 Sports",
-            options=['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'],
+            options=['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'Tennis', 'NCAAF', 'NCAAB'],
             default=['NFL'],
             help="Select which sports to analyze"
         )
@@ -957,7 +957,7 @@ def show_live_odds():
         # Sport selection
         selected_sports = st.multiselect(
             "🏈 Sports",
-            options=["NFL", "NBA", "WNBA", "MLB", "NHL", "NCAAF", "NCAAB", "Soccer"],
+            options=["NFL", "NBA", "WNBA", "MLB", "NHL", "Tennis", "NCAAF", "NCAAB", "Soccer"],
             default=["NFL"],
             help="Select which sports to show"
         )
@@ -1090,7 +1090,7 @@ def show_analysis():
         analysis_date = st.date_input("📅 Analysis Date", value=datetime.now().date())
     
     with col2:
-        analysis_sports = st.multiselect("🏈 Sports", options=["NFL", "NBA", "WNBA", "MLB", "NHL"], default=["NFL"])
+        analysis_sports = st.multiselect("🏈 Sports", options=["NFL", "NBA", "WNBA", "MLB", "NHL", "Tennis"], default=["NFL"])
     
     with col3:
         analysis_depth = st.selectbox("🔍 Analysis Depth", options=["Quick", "Standard", "Deep"], index=1)
@@ -1367,7 +1367,7 @@ def show_settings():
         
         sports_prefs = st.multiselect(
             "Preferred Sports",
-            ["NFL", "NBA", "WNBA", "MLB", "NHL", "NCAAF", "NCAAB"],
+            ["NFL", "NBA", "WNBA", "MLB", "NHL", "Tennis", "NCAAF", "NCAAB"],
             default=["NFL", "NBA"]
         )
         
@@ -1401,6 +1401,7 @@ def get_games_for_date(target_date, sports=['NFL']):
         'WNBA': 'basketball_wnba',
         'MLB': 'baseball_mlb',
         'NHL': 'icehockey_nhl',
+        'Tennis': 'tennis_atp',
         'NCAAF': 'americanfootball_ncaaf',
         'NCAAB': 'basketball_ncaab'
     }
@@ -1576,6 +1577,12 @@ def generate_fallback_games(target_date, sports=['NFL']):
             'Aces', 'Storm', 'Liberty', 'Sun', 'Lynx', 'Mercury', 'Sky', 'Fever',
             'Wings', 'Dream', 'Sparks', 'Mystics'
         ],
+        'Tennis': [
+            'Novak Djokovic', 'Carlos Alcaraz', 'Daniil Medvedev', 'Jannik Sinner', 'Andrey Rublev',
+            'Stefanos Tsitsipas', 'Holger Rune', 'Casper Ruud', 'Taylor Fritz', 'Alex de Minaur',
+            'Iga Swiatek', 'Aryna Sabalenka', 'Coco Gauff', 'Elena Rybakina', 'Jessica Pegula',
+            'Ons Jabeur', 'Maria Sakkari', 'Petra Kvitova', 'Caroline Garcia', 'Marketa Vondrousova'
+        ],
         'MLB': [
             'Yankees', 'Red Sox', 'Blue Jays', 'Rays', 'Orioles', 'Astros', 'Rangers', 'Mariners',
             'Angels', 'Athletics', 'Guardians', 'Tigers', 'Royals', 'Twins', 'White Sox',
@@ -1596,7 +1603,8 @@ def generate_fallback_games(target_date, sports=['NFL']):
         'NBA': [10, 11, 12, 1, 2, 3, 4, 5, 6],  # Oct-Jun  
         'WNBA': [5, 6, 7, 8, 9, 10],  # May-Oct
         'MLB': [3, 4, 5, 6, 7, 8, 9, 10],  # Mar-Oct
-        'NHL': [10, 11, 12, 1, 2, 3, 4, 5, 6]  # Oct-Jun
+        'NHL': [10, 11, 12, 1, 2, 3, 4, 5, 6],  # Oct-Jun
+        'Tennis': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Year-round
     }
     
     # Game scheduling by sport and day
@@ -1615,6 +1623,9 @@ def generate_fallback_games(target_date, sports=['NFL']):
         },
         'NHL': {
             'any': {'games': (4, 10), 'times': ['7:00 PM ET', '7:30 PM ET', '8:00 PM ET', '10:00 PM ET']}
+        },
+        'Tennis': {
+            'any': {'games': (8, 16), 'times': ['12:00 PM ET', '2:00 PM ET', '4:00 PM ET', '6:00 PM ET', '8:00 PM ET', '10:00 PM ET']}
         }
     }
     
@@ -1685,7 +1696,8 @@ def generate_fallback_games(target_date, sports=['NFL']):
                 'NFL': 'americanfootball_nfl',
                 'NBA': 'basketball_nba', 
                 'MLB': 'baseball_mlb',
-                'NHL': 'icehockey_nhl'
+                'NHL': 'icehockey_nhl',
+                'Tennis': 'tennis_atp'
             }
             
             game = {
@@ -1761,6 +1773,15 @@ def get_comprehensive_game_data(game):
             'Sun': {'stadium': 'Mohegan Sun Arena', 'city': 'Uncasville, CT', 'surface': 'Hardwood', 'capacity': '9,323', 'venue_type': 'Indoor'},
             'Wings': {'stadium': 'College Park Center', 'city': 'Arlington, TX', 'surface': 'Hardwood', 'capacity': '7,000', 'venue_type': 'Indoor'},
         },
+        'Tennis': {
+            # Major tournaments and venues
+            'US Open': {'stadium': 'Arthur Ashe Stadium', 'city': 'New York, NY', 'surface': 'Hard Court', 'capacity': '23,771', 'venue_type': 'Outdoor'},
+            'Wimbledon': {'stadium': 'All England Club', 'city': 'London, UK', 'surface': 'Grass', 'capacity': '15,000', 'venue_type': 'Outdoor'},
+            'French Open': {'stadium': 'Court Philippe Chatrier', 'city': 'Paris, France', 'surface': 'Clay', 'capacity': '15,225', 'venue_type': 'Outdoor'},
+            'Australian Open': {'stadium': 'Rod Laver Arena', 'city': 'Melbourne, Australia', 'surface': 'Hard Court', 'capacity': '15,000', 'venue_type': 'Retractable Roof'},
+            'Indian Wells': {'stadium': 'Indian Wells Tennis Garden', 'city': 'Indian Wells, CA', 'surface': 'Hard Court', 'capacity': '16,100', 'venue_type': 'Outdoor'},
+            'Miami Open': {'stadium': 'Hard Rock Stadium', 'city': 'Miami Gardens, FL', 'surface': 'Hard Court', 'capacity': '14,061', 'venue_type': 'Outdoor'},
+        },
         'MLB': {
             'Yankees': {'stadium': 'Yankee Stadium', 'city': 'Bronx, NY', 'surface': 'Grass', 'capacity': '47,309', 'venue_type': 'Outdoor'},
             'Red Sox': {'stadium': 'Fenway Park', 'city': 'Boston, MA', 'surface': 'Grass', 'capacity': '37,755', 'venue_type': 'Outdoor'},
@@ -1816,6 +1837,27 @@ def get_weather_for_game(city, sport):
             'conditions': 'Controlled',
             'wind': 'N/A'
         }
+    
+    # Tennis special handling for different surfaces and locations
+    if sport == 'Tennis':
+        if 'Retractable Roof' in city or 'London' in city:  # Wimbledon special case
+            return {
+                'temperature': '72°F',
+                'conditions': 'Optimal (Covered)',
+                'wind': 'Minimal'
+            }
+        elif 'Australia' in city:
+            return {
+                'temperature': '82°F',
+                'conditions': 'Hot & Sunny',
+                'wind': '8 mph'
+            }
+        elif 'France' in city:
+            return {
+                'temperature': '75°F',
+                'conditions': 'Partly Cloudy',
+                'wind': '6 mph'
+            }
     
     # Realistic weather patterns by region
     weather_patterns = {
@@ -1922,6 +1964,24 @@ def generate_parlay_suggestions(game, rank):
                 'Extra Innings Yes',
                 'Total Hits Over 16.5',
                 'Home Runs Hit Over 2.5'
+            ]
+        },
+        'Tennis': {
+            'player_props': [
+                'Aces Over 8.5',
+                'Double Faults Under 5.5',
+                'Total Games Over 21.5',
+                'First Set Winner',
+                'Sets Won Over 1.5',
+                'Break Points Won Over 3.5'
+            ],
+            'game_props': [
+                'Total Sets Over 3.5',
+                'Match to Go 5 Sets',
+                'First Set Total Games Over 9.5',
+                'Both Players Win a Set',
+                'Match Duration Over 2h 30m',
+                'Tiebreak in Match Yes'
             ]
         }
     }
@@ -2141,6 +2201,12 @@ def show_props_parlays(games):
                 f"Player Hits Over 1.5",
                 f"Both Teams Score",
                 f"Extra Innings Yes"
+            ],
+            'Tennis': [
+                f"Player Aces Over 10.5",
+                f"Total Sets Over 3.5",
+                f"Match Duration Over 2h 45m",
+                f"Both Players Win a Set"
             ]
         }
         
