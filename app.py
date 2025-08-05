@@ -1402,12 +1402,13 @@ def show_todays_top_predictions():
                 for sport in all_sports:
                     games = get_games_for_date(today, [sport])
                     
-                    for game in games[:3]:  # Limit to 3 games per sport for dashboard
-                        analysis = get_ai_analysis(game)
-                        
-                        if analysis and analysis.get('confidence', 0) >= 0.7:  # High confidence only
-                            game['ai_analysis'] = analysis
-                            top_predictions.append(game)
+                    if games:  # Check if games is not None
+                        for game in games[:3]:  # Limit to 3 games per sport for dashboard
+                            analysis = get_ai_analysis(game)
+                            
+                            if analysis and analysis.get('confidence', 0) >= 0.7:  # High confidence only
+                                game['ai_analysis'] = analysis
+                                top_predictions.append(game)
     
     if top_predictions:
         # Sort by confidence and take top 6
