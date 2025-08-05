@@ -7713,6 +7713,9 @@ def show_admin_panel():
     
     if admin_page == 'overview':
         show_admin_overview()
+    elif admin_page == 'diagnostics':
+        from pages.live_diagnostics import show_live_diagnostics
+        show_live_diagnostics()
     elif admin_page == 'users':
         show_admin_users()
     elif admin_page == 'ai_performance':
@@ -7748,6 +7751,7 @@ def show_admin_sidebar():
         
         admin_nav = {
             'overview': '📊 Dashboard Overview',
+            'diagnostics': '🔧 Live Diagnostics',
             'users': '👥 User Management', 
             'ai_performance': '🤖 AI Performance',
             'api_usage': '💰 API Usage & Costs',
