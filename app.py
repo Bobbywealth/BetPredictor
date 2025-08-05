@@ -11,6 +11,14 @@ import random
 import hashlib
 import pickle
 
+# Database imports
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    st.warning("⚠️ Supabase not installed. Database features disabled. Run: pip install supabase")
+
 # Configure page - must be first Streamlit command
 st.set_page_config(
     page_title="Spizo - #1 AI Sports Prediction Platform",
@@ -858,6 +866,239 @@ function playCompletionSound() {
 }
 </style>
 """, unsafe_allow_html=True)
+
+# ============================================================================
+# DATABASE INTEGRATION - Supabase PostgreSQL for production data storage
+# ============================================================================
+
+def init_supabase():
+    """Initialize Supabase client"""
+    if not SUPABASE_AVAILABLE:
+        return None
+    
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+    
+    if not supabase_url or not supabase_key:
+        return None
+    
+    try:
+        supabase: Client = create_client(supabase_url, supabase_key)
+        return supabase
+    except Exception as e:
+        st.error(f"Database connection failed: {str(e)}")
+        return None
+
+def create_database_tables():
+    """Create database tables if they don't exist"""
+    supabase = init_supabase()
+    if not supabase:
+        return False
+    
+    # SQL for creating tables
+    sql_scripts = [
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            email VARCHAR(100) UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            is_admin BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            last_login TIMESTAMP,
+            total_predictions INTEGER DEFAULT 0,
+            correct_predictions INTEGER DEFAULT 0
+        );
+        """,
+        
+        """
+        CREATE TABLE IF NOT EXISTS predictions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            home_team VARCHAR(100) NOT NULL,
+            away_team VARCHAR(100) NOT NULL,
+            sport VARCHAR(50) DEFAULT 'NFL',
+            game_date DATE NOT NULL,
+            predicted_winner VARCHAR(100) NOT NULL,
+            confidence DECIMAL(3,2) NOT NULL,
+            ai_analysis JSONB NOT NULL,
+            game_data JSONB,
+            actual_winner VARCHAR(100),
+            was_correct BOOLEAN,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """,
+        
+        """
+        CREATE TABLE IF NOT EXISTS api_usage (
+            id SERIAL PRIMARY KEY,
+            provider VARCHAR(50) NOT NULL,
+            tokens_used INTEGER DEFAULT 0,
+            cost DECIMAL(8,4) DEFAULT 0.0,
+            request_type VARCHAR(50),
+            success BOOLEAN DEFAULT TRUE,
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """,
+        
+        """
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            session_token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """,
+        
+        """
+        CREATE INDEX IF NOT EXISTS idx_predictions_user_date ON predictions(user_id, game_date);
+        CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage(created_at);
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+        """
+    ]
+    
+    try:
+        for sql in sql_scripts:
+            if sql.strip():  # Skip empty scripts
+                supabase.rpc('exec_sql', {'sql': sql}).execute()
+        return True
+    except Exception as e:
+        st.error(f"Database table creation failed: {str(e)}")
+        return False
+
+def save_prediction_to_db(user_id, game_data, ai_analysis):
+    """Save prediction to database"""
+    supabase = init_supabase()
+    if not supabase:
+        return False
+    
+    try:
+        prediction_data = {
+            'user_id': user_id,
+            'home_team': game_data.get('home_team', 'Unknown'),
+            'away_team': game_data.get('away_team', 'Unknown'),
+            'sport': game_data.get('sport', 'NFL'),
+            'game_date': game_data.get('game_date', datetime.now().date().isoformat()),
+            'predicted_winner': ai_analysis.get('pick', 'Unknown'),
+            'confidence': float(ai_analysis.get('confidence', 0.0)),
+            'ai_analysis': ai_analysis,
+            'game_data': game_data
+        }
+        
+        result = supabase.table('predictions').insert(prediction_data).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to save prediction: {str(e)}")
+        return False
+
+def save_api_usage_to_db(provider, tokens_used, cost, success=True, error_message=None):
+    """Save API usage to database"""
+    supabase = init_supabase()
+    if not supabase:
+        return False
+    
+    try:
+        usage_data = {
+            'provider': provider,
+            'tokens_used': tokens_used,
+            'cost': float(cost),
+            'success': success,
+            'error_message': error_message
+        }
+        
+        result = supabase.table('api_usage').insert(usage_data).execute()
+        return True
+    except Exception as e:
+        print(f"Failed to save API usage: {str(e)}")
+        return False
+
+def get_user_predictions(user_id, limit=100):
+    """Get user's prediction history from database"""
+    supabase = init_supabase()
+    if not supabase:
+        return []
+    
+    try:
+        result = supabase.table('predictions')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .order('created_at', desc=True)\
+            .limit(limit)\
+            .execute()
+        
+        return result.data
+    except Exception as e:
+        st.error(f"Failed to fetch predictions: {str(e)}")
+        return []
+
+def get_daily_api_costs_from_db(date=None):
+    """Get real API costs from database"""
+    supabase = init_supabase()
+    if not supabase:
+        return 0.0
+    
+    if date is None:
+        date = datetime.now().date()
+    
+    try:
+        # Get costs for specific date
+        start_date = f"{date}T00:00:00"
+        end_date = f"{date}T23:59:59"
+        
+        result = supabase.table('api_usage')\
+            .select('cost')\
+            .gte('created_at', start_date)\
+            .lte('created_at', end_date)\
+            .execute()
+        
+        total_cost = sum(row['cost'] for row in result.data)
+        return float(total_cost)
+    except Exception as e:
+        print(f"Failed to fetch API costs: {str(e)}")
+        return 0.0
+
+def get_api_usage_stats_from_db(date=None):
+    """Get API usage statistics from database"""
+    supabase = init_supabase()
+    if not supabase:
+        return {}
+    
+    if date is None:
+        date = datetime.now().date()
+    
+    try:
+        start_date = f"{date}T00:00:00"
+        end_date = f"{date}T23:59:59"
+        
+        result = supabase.table('api_usage')\
+            .select('provider, tokens_used, cost, success')\
+            .gte('created_at', start_date)\
+            .lte('created_at', end_date)\
+            .execute()
+        
+        stats = {}
+        for row in result.data:
+            provider = row['provider']
+            if provider not in stats:
+                stats[provider] = {
+                    'requests': 0,
+                    'tokens': 0,
+                    'cost': 0.0,
+                    'errors': 0
+                }
+            
+            stats[provider]['requests'] += 1
+            stats[provider]['tokens'] += row.get('tokens_used', 0)
+            stats[provider]['cost'] += row.get('cost', 0.0)
+            if not row.get('success', True):
+                stats[provider]['errors'] += 1
+        
+        return stats
+    except Exception as e:
+        print(f"Failed to fetch API usage stats: {str(e)}")
+        return {}
 
 # ============================================================================
 # PREDICTION CACHING SYSTEM - Store daily predictions to improve UX
@@ -4381,6 +4622,9 @@ def track_api_usage(provider, tokens_used=0, cost=None):
     st.session_state.api_usage_tracking[today][provider]['requests'] += 1
     st.session_state.api_usage_tracking[today][provider]['tokens'] += tokens_used
     st.session_state.api_usage_tracking[today][provider]['cost'] += cost
+    
+    # Also save to database
+    save_api_usage_to_db(provider, tokens_used, cost, success=True)
 
 def track_api_error(provider, error_type='general'):
     """Track API errors"""
@@ -4401,9 +4645,18 @@ def track_api_error(provider, error_type='general'):
         }
     
     st.session_state.api_usage_tracking[today][provider]['errors'] += 1
+    
+    # Also save error to database
+    save_api_usage_to_db(provider, 0, 0.0, success=False, error_message=error_type)
 
 def calculate_daily_api_cost():
     """Calculate total daily API costs from real usage"""
+    # Try database first
+    db_cost = get_daily_api_costs_from_db()
+    if db_cost > 0:
+        return db_cost
+    
+    # Fallback to session data
     today = datetime.now().date().isoformat()
     
     if 'api_usage_tracking' not in st.session_state:
@@ -4436,6 +4689,42 @@ def get_total_api_requests():
 
 def get_current_api_usage():
     """Get current API usage for all providers from real usage"""
+    # Try database first
+    db_stats = get_api_usage_stats_from_db()
+    if db_stats:
+        # Convert database stats to expected format
+        usage_data = {}
+        provider_mappings = {
+            'OpenAI GPT-4o': {'limit': 10000, 'base_cost': 0.06},
+            'Google Gemini Pro': {'limit': 15000, 'base_cost': 0.002}
+        }
+        
+        for provider, config in provider_mappings.items():
+            if provider in db_stats:
+                data = db_stats[provider]
+                usage_data[provider] = {
+                    'requests_today': data.get('requests', 0),
+                    'daily_limit': config['limit'],
+                    'daily_cost': data.get('cost', 0.0),
+                    'cost_per_request': config['base_cost'],
+                    'trend': 0,
+                    'tokens_used': data.get('tokens', 0),
+                    'errors': data.get('errors', 0)
+                }
+            else:
+                usage_data[provider] = {
+                    'requests_today': 0,
+                    'daily_limit': config['limit'],
+                    'daily_cost': 0.0,
+                    'cost_per_request': config['base_cost'],
+                    'trend': 0,
+                    'tokens_used': 0,
+                    'errors': 0
+                }
+        
+        return usage_data
+    
+    # Fallback to session data
     today = datetime.now().date().isoformat()
     
     if 'api_usage_tracking' not in st.session_state or today not in st.session_state.api_usage_tracking:
@@ -6467,13 +6756,13 @@ def show_top_menu():
 def main():
     """Professional billion-dollar level sports betting application"""
     
-    # Set page configuration for professional look
-    st.set_page_config(
-        page_title="Spizo - #1 AI Sports Prediction Platform",
-        page_icon="🎯",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+    # Initialize database on app startup
+    if 'db_initialized' not in st.session_state:
+        st.session_state.db_initialized = create_database_tables()
+        if st.session_state.db_initialized:
+            st.success("🗄️ Database connected successfully!")
+        elif SUPABASE_AVAILABLE:
+            st.warning("⚠️ Database connection failed. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.")
     
     # Custom CSS for professional styling with mobile responsiveness
     st.markdown("""
