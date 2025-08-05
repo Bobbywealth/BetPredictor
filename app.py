@@ -1950,9 +1950,10 @@ def generate_fallback_games(target_date, sports=['NFL']):
         if sport not in sport_teams:
             continue
             
-        # Check if sport is in season
-        if current_month not in sport_seasons.get(sport, []):
-            continue  # Skip out-of-season sports
+        # Always generate games for demo purposes (in production, check season)
+        # Skip season check to ensure we always have games to show
+        # if current_month not in sport_seasons.get(sport, []):
+        #     continue  # Skip out-of-season sports
             
         teams = sport_teams[sport]
         schedule = sport_schedules.get(sport, {})
@@ -2041,6 +2042,29 @@ def generate_fallback_games(target_date, sports=['NFL']):
                 'bookmakers': generate_realistic_bookmakers({'home_team': home_team, 'away_team': away_team})
             }
             all_games.append(game)
+    
+    # If no games were generated, create some default games for demo
+    if not all_games and sports:
+        # Create at least 4 games for the first requested sport
+        sport = sports[0]
+        teams = sport_teams.get(sport, ['Team A', 'Team B', 'Team C', 'Team D', 'Team E', 'Team F'])
+        
+        for i in range(4):
+            if len(teams) >= 2:
+                home_team = teams[i * 2 % (len(teams) - 1)]
+                away_team = teams[(i * 2 + 1) % len(teams)]
+                
+                game = {
+                    'id': f'demo_{sport}_{i}',
+                    'home_team': home_team,
+                    'away_team': away_team,
+                    'est_time': ['1:00 PM ET', '4:00 PM ET', '7:00 PM ET', '10:00 PM ET'][i % 4],
+                    'sport': sport,
+                    'sport_key': f'{sport.lower()}_demo',
+                    'commence_time': (datetime.combine(target_date, datetime.min.time()) + timedelta(hours=13 + i*3)).isoformat() + 'Z',
+                    'bookmakers': generate_realistic_bookmakers({'home_team': home_team, 'away_team': away_team})
+                }
+                all_games.append(game)
     
     return all_games
 
@@ -4087,15 +4111,15 @@ def generate_instant_fallback_analysis(home_team, away_team, sport):
     analysis_time = time.time() - start_time
     
     return {
-        'predicted_winner': winner,
+        'pick': winner,  # Use 'pick' to match expected format
         'confidence': round(confidence, 2),
-        'key_factors': selected_factors,
-        'recommendation': recommendation,
-        'edge_score': round(edge_score, 2),
+        'edge': round(edge_score, 2),  # Use 'edge' to match expected format
+        'strength': recommendation,  # Use 'strength' to match expected format
+        'factors': selected_factors,  # Use 'factors' to match expected format
         'value_rating': value_rating,
         'risk_level': risk_level,
+        'ai_consensus': 'Smart Fallback AI',  # Use 'ai_consensus' to match expected format
         'analysis_time': analysis_time,
-        'ai_model': 'Smart Fallback AI',
         'reasoning': f"Based on team strength analysis and {sport} matchup factors, {winner} has the advantage.",
         'prediction_summary': f"{winner} recommended with {confidence:.0%} confidence - {recommendation.replace('_', ' ').title()}"
     }
