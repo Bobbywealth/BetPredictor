@@ -1729,17 +1729,17 @@ def get_optimized_odds(game, force_api=False):
     if not force_api:
         cached_odds = get_cached_odds(game_key)
         if cached_odds:
-            # Show cache status if enabled in settings
-            show_notifications = st.session_state.get('show_cache_notifications', True)
+            # Show cache status if enabled in settings (default OFF)
+            show_notifications = st.session_state.get('show_cache_notifications', False)
             
             if show_notifications:
                 if 'odds_cache_notifications' not in st.session_state:
                     st.session_state.odds_cache_notifications = 0
                 
-                # Only show notification every 20th time to reduce noise significantly
+                # Only show notification every 50th time to significantly reduce noise
                 st.session_state.odds_cache_notifications += 1
-                if st.session_state.odds_cache_notifications % 20 == 1:
-                    st.info("💰 Using cached odds (saved API call)", icon="ℹ️")
+                if st.session_state.odds_cache_notifications % 50 == 1:
+                    st.success("📦 Using cached odds (saved API call)", icon="💰")
             
             return cached_odds.get('odds')
     
@@ -1780,9 +1780,8 @@ def get_optimized_odds(game, force_api=False):
 
 def get_odds_for_game_api_call(game):
     """Actual API call to odds service (separated for tracking)"""
-    # This would be the actual API call
-    # For now, return mock data to simulate
-    return generate_mock_odds_data(game)
+    # No mock data - return None if no real API available
+    return None
 
 def show_odds_usage_dashboard():
     """Show comprehensive odds API usage dashboard"""
@@ -2291,7 +2290,7 @@ def check_api_status():
     
     # AI APIs
     status['OpenAI'] = bool(os.environ.get("OPENAI_API_KEY"))
-    status['Gemini'] = bool(os.environ.get("GEMINI_API_KEY"))
+    status['Gemini'] = bool(os.environ.get("GOOGLE_API_KEY"))
     
     return status
 
@@ -3816,80 +3815,68 @@ def show_settings():
         st.markdown("**📊 Coverage:** 50+ bookmakers, all major sports")
         st.markdown("**⚡ Updates:** Real-time odds every minute")
         
-        odds_api_key = st.text_input(
-            "The Odds API Key",
-            type="password",
-            help="Get free API key from https://the-odds-api.com/",
-            placeholder="Enter your API key here..."
-        )
+        # Show odds API status from environment variables
+        odds_api_configured = bool(os.environ.get("ODDS_API_KEY"))
+        
+        if odds_api_configured:
+            st.success("✅ Odds API: Configured")
+            if st.button("🧪 Test Odds API", key="test_odds"):
+                with st.spinner("Testing API connection..."):
+                    odds_key = os.environ.get("ODDS_API_KEY")
+                    test_result = test_odds_api(odds_key)
+                    if test_result['success']:
+                        st.success(f"✅ API working! {test_result['remaining']} requests remaining")
+                    else:
+                        st.error(f"❌ API test failed: {test_result['error']}")
+        else:
+            st.error("❌ Odds API: Not configured")
+            st.info("💡 Add ODDS_API_KEY to Streamlit Cloud secrets")
         
         if st.button("🔗 Get FREE API Key", use_container_width=True):
             st.success("**Steps to get your free API key:**")
             st.markdown("1. 🌐 Visit [the-odds-api.com](https://the-odds-api.com/)")
             st.markdown("2. 📝 Sign up for free account") 
             st.markdown("3. 🎯 Get 500 free requests per month")
-            st.markdown("4. 📋 Copy your API key and paste above")
-        
-        if odds_api_key:
-            if st.button("✅ Test Odds API", key="test_odds"):
-                with st.spinner("Testing API connection..."):
-                    test_result = test_odds_api(odds_api_key)
-                    if test_result['success']:
-                        st.success(f"✅ API working! {test_result['remaining']} requests remaining")
-                    else:
-                        st.error(f"❌ API test failed: {test_result['error']}")
+            st.markdown("4. 📋 Add to Streamlit Cloud secrets as ODDS_API_KEY")
     
     with api_col2:
-        st.markdown("### 🤖 AI Enhancement (Required)")
-        st.markdown("**Required:** ChatGPT + Gemini API keys for predictions")
-        st.markdown("**Note:** No fallback system - real APIs only")
+        st.markdown("### 🤖 AI Configuration Status")
+        st.markdown("**API keys are configured in Streamlit Cloud secrets**")
         
-        openai_key = st.text_input(
-            "OpenAI API Key (Optional)",
-            type="password",
-            help="Enhance analysis with ChatGPT",
-            placeholder="sk-..."
-        )
+        # Show current status from environment variables
+        openai_configured = bool(os.environ.get("OPENAI_API_KEY"))
+        google_configured = bool(os.environ.get("GOOGLE_API_KEY"))
         
-        google_key = st.text_input(
-            "Google AI API Key (Optional)", 
-            type="password",
-            help="Enhance analysis with Gemini",
-            placeholder="Enter Google API key..."
-        )
+        if openai_configured:
+            st.success("✅ OpenAI API: Configured")
+        else:
+            st.error("❌ OpenAI API: Not configured")
+            
+        if google_configured:
+            st.success("✅ Google Gemini API: Configured")
+        else:
+            st.error("❌ Google Gemini API: Not configured")
         
-        if st.button("💡 About AI Enhancement", use_container_width=True):
+        if not openai_configured and not google_configured:
+            st.warning("⚠️ No AI APIs configured - predictions will not work")
+            st.info("💡 Add OPENAI_API_KEY and/or GOOGLE_API_KEY to Streamlit Cloud secrets")
+        elif openai_configured or google_configured:
+            st.success("🚀 AI predictions are enabled!")
+        
+        if st.button("💡 Configuration Help", use_container_width=True):
             st.info("""
-            **✅ Current Status:** Spizo works excellently with built-in AI
+            **🔧 How to Configure API Keys:**
             
-            **🚀 With API Keys:** Real AI analysis from ChatGPT & Gemini
+            1. Go to your Streamlit Cloud app settings
+            2. Click "Secrets" 
+            3. Add:
+               OPENAI_API_KEY = "sk-your-key"
+               GOOGLE_API_KEY = "your-key"
             
-            **⚠️ Without Keys:** No predictions available - API keys required
+            **⚠️ Never enter API keys in the UI - use Streamlit Cloud secrets!**
             """)
     
-    # Save API Keys
-    if st.button("💾 Save API Configuration", type="primary", use_container_width=True):
-        keys_to_save = []
-        
-        # Save odds API key to session state
-        if odds_api_key:
-            st.session_state.odds_api_key = odds_api_key
-            keys_to_save.append("The Odds API")
-        
-        # Save AI keys to session state  
-        if openai_key:
-            st.session_state.openai_api_key = openai_key
-            keys_to_save.append("OpenAI")
-        if google_key:
-            st.session_state.google_api_key = google_key
-            keys_to_save.append("Google AI")
-            
-        if keys_to_save:
-            st.success(f"✅ Saved: {', '.join(keys_to_save)}")
-            st.info("🔄 Keys saved for this session. Set environment variables for permanent storage.")
-            st.balloons()
-        else:
-            st.warning("No API keys to save")
+    # Configuration is handled through Streamlit Cloud secrets - no manual saving needed
     
     st.markdown("---")
     
@@ -4141,140 +4128,6 @@ def get_odds_api_key():
     
     return None
 
-def generate_mock_odds_data(game):
-    """Generate realistic mock odds data when API key not available"""
-    import random
-    
-    home_team = game.get('home_team', 'Home Team')
-    away_team = game.get('away_team', 'Away Team')
-    
-    # Generate realistic odds
-    spread = random.uniform(-7.5, 7.5)
-    total = random.uniform(42.5, 58.5)
-    
-    # Determine favorite based on spread
-    if spread > 0:
-        favorite = away_team
-        underdog = home_team
-        fav_ml = random.randint(-200, -110)
-        dog_ml = random.randint(110, 250)
-    else:
-        favorite = home_team
-        underdog = away_team
-        fav_ml = random.randint(-200, -110)
-        dog_ml = random.randint(110, 250)
-        spread = abs(spread)
-    
-    # Create mock bookmaker data
-    bookmakers = [
-        {
-            'key': 'draftkings',
-            'title': 'DraftKings',
-            'last_update': '2025-01-08T12:00:00Z',
-            'markets': [
-                {
-                    'key': 'h2h',
-                    'outcomes': [
-                        {
-                            'name': home_team,
-                            'price': fav_ml if favorite == home_team else dog_ml
-                        },
-                        {
-                            'name': away_team,
-                            'price': fav_ml if favorite == away_team else dog_ml
-                        }
-                    ]
-                },
-                {
-                    'key': 'spreads',
-                    'outcomes': [
-                        {
-                            'name': home_team,
-                            'price': -110,
-                            'point': spread if favorite == away_team else -spread
-                        },
-                        {
-                            'name': away_team,
-                            'price': -110,
-                            'point': spread if favorite == home_team else -spread
-                        }
-                    ]
-                },
-                {
-                    'key': 'totals',
-                    'outcomes': [
-                        {
-                            'name': 'Over',
-                            'price': -110,
-                            'point': total
-                        },
-                        {
-                            'name': 'Under',
-                            'price': -110,
-                            'point': total
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            'key': 'fanduel',
-            'title': 'FanDuel',
-            'last_update': '2025-01-08T12:01:00Z',
-            'markets': [
-                {
-                    'key': 'h2h',
-                    'outcomes': [
-                        {
-                            'name': home_team,
-                            'price': (fav_ml + random.randint(-10, 10)) if favorite == home_team else (dog_ml + random.randint(-15, 15))
-                        },
-                        {
-                            'name': away_team,
-                            'price': (fav_ml + random.randint(-10, 10)) if favorite == away_team else (dog_ml + random.randint(-15, 15))
-                        }
-                    ]
-                },
-                {
-                    'key': 'spreads',
-                    'outcomes': [
-                        {
-                            'name': home_team,
-                            'price': random.choice([-105, -110, -115]),
-                            'point': (spread + random.uniform(-0.5, 0.5)) if favorite == away_team else -(spread + random.uniform(-0.5, 0.5))
-                        },
-                        {
-                            'name': away_team,
-                            'price': random.choice([-105, -110, -115]),
-                            'point': (spread + random.uniform(-0.5, 0.5)) if favorite == home_team else -(spread + random.uniform(-0.5, 0.5))
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            'key': 'betmgm',
-            'title': 'BetMGM',
-            'last_update': '2025-01-08T11:58:00Z',
-            'markets': [
-                {
-                    'key': 'h2h',
-                    'outcomes': [
-                        {
-                            'name': home_team,
-                            'price': (fav_ml + random.randint(-5, 15)) if favorite == home_team else (dog_ml + random.randint(-20, 10))
-                        },
-                        {
-                            'name': away_team,
-                            'price': (fav_ml + random.randint(-5, 15)) if favorite == away_team else (dog_ml + random.randint(-20, 10))
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
-    
-    return bookmakers
 
 def show_odds_api_status():
     """Show current odds API status and setup instructions"""
@@ -4292,7 +4145,7 @@ def show_odds_api_status():
             st.info("💡 Check your API key in Settings page")
             return False
     else:
-        st.warning("⚠️ **Using Mock Odds Data** - Configure real API key for live odds")
+        st.error("❌ **No Odds API Configured** - Real odds data not available")
         
         with st.expander("🔗 How to Get FREE Live Odds (500/month)"):
             st.markdown("""
@@ -4360,12 +4213,8 @@ def get_free_api_odds(sport, team1, team2):
     if rapidapi_odds:
         return rapidapi_odds
     
-    # Fallback to realistic estimates
-    return generate_backup_odds_data({
-        'sport': sport,
-        'home_team': team1,
-        'away_team': team2
-    })
+    # No fallback - return None without real API
+    return None
 
 def get_sportsapi_odds(sport, team1, team2):
     """Get odds from SportsGameOdds free API (500 req/month)"""
@@ -4438,11 +4287,8 @@ def extract_moneyline_from_rapidapi(game_data):
     """Extract moneyline odds from RapidAPI response"""
     try:
         # This would parse actual RapidAPI response structure
-        # For now, return realistic mock data since we don't have real endpoint
-        return {
-            'home': random.randint(-200, +250),
-            'away': random.randint(-200, +250)
-        }
+        # Return None without real API - no mock data
+        return None
     except:
         return None
 
@@ -4483,46 +4329,15 @@ def get_legitimate_free_odds_sources(game):
     if free_api_data:
         odds_sources.append(free_api_data)
     
-    # If no free APIs worked, generate realistic backup data
-    if not odds_sources:
-        odds_sources.append(generate_backup_odds_data(game))
+    # No backup data - return empty if no real APIs worked
+    # This will result in None being returned from consolidate_odds_sources
     
     return consolidate_odds_sources(odds_sources)
 
 def generate_backup_odds_data(game):
-    """Generate realistic backup odds when scraping fails"""
-    
-    home_team = game.get('home_team', 'Home')
-    away_team = game.get('away_team', 'Away')
-    
-    # Generate realistic odds based on typical patterns
-    home_ml = random.randint(-180, +220)
-    away_ml = -home_ml + random.randint(-50, +50)
-    
-    spread_line = random.uniform(-13.5, +13.5)
-    total_line = random.uniform(38.5, 58.5)
-    
-    return {
-        'source': 'Spizo Backup',
-        'reliability': 'estimated',
-        'moneyline': {
-            'home': home_ml,
-            'away': away_ml
-        },
-        'spread': {
-            'line': round(spread_line * 2) / 2,  # Round to nearest 0.5
-            'home_odds': random.choice([-105, -110, -115]),
-            'away_odds': random.choice([-105, -110, -115])
-        },
-        'total': {
-            'line': round(total_line * 2) / 2,
-            'over_odds': random.choice([-105, -110, -115]),
-            'under_odds': random.choice([-105, -110, -115])
-        },
-        'timestamp': datetime.now().isoformat(),
-        'game': f"{home_team} vs {away_team}",
-        'note': 'Backup odds - enable API for live data'
-    }
+    """DISABLED: No backup odds data - return None"""
+    # No mock odds data allowed
+    return None
 
 def consolidate_odds_sources(odds_sources):
     """Consolidate odds from multiple sources into best available"""
@@ -4555,29 +4370,23 @@ def consolidate_odds_sources(odds_sources):
     return consolidated
 
 def get_free_odds_with_fallback(game):
-    """Get odds using legitimate free sources with intelligent fallback"""
+    """Get odds from real API sources only - no fallbacks"""
     
-    # First try: Legitimate free APIs
-    with st.spinner("🔍 Checking free API sources..."):
-        free_odds = get_legitimate_free_odds_sources(game)
-        
-        if free_odds and free_odds.get('best_odds'):
-            st.success(f"✅ Found odds from {free_odds['source_count']} legitimate sources")
-            return free_odds
+    # Try legitimate free APIs
+    free_odds = get_legitimate_free_odds_sources(game)
     
-    # Second try: Premium API if available  
+    if free_odds and free_odds.get('best_odds'):
+        st.success(f"✅ Found odds from {free_odds['source_count']} legitimate sources")
+        return free_odds
+    
+    # Try premium API if available  
     api_key = get_odds_api_key()
     if api_key and api_key != 'demo-key':
-        with st.spinner("📡 Checking premium API..."):
-            # This would normally call the actual API
-            # For now, return realistic backup data
-            pass
+        # This would call the actual API
+        pass
     
-    # Final fallback: Generate realistic odds
-    with st.spinner("🎯 Generating backup odds..."):
-        backup_odds = generate_backup_odds_data(game)
-        st.info("ℹ️ Using estimated odds - configure API for live data")
-        return backup_odds
+    # No fallback - return None if no real APIs available
+    return None
 
 def show_free_odds_sources_status():
     """Show status of all legitimate free API sources"""
@@ -4851,19 +4660,31 @@ def show_admin_api_usage():
         # Generate trend data
         trend_data = generate_api_trend_data(time_period)
         
-        if chart_type in ["Usage Count", "Both"]:
-            st.markdown("#### 📊 API Request Trends")
-            st.line_chart(trend_data[['Date', 'OpenAI', 'Google_AI', 'Odds_API']].set_index('Date'))
-        
-        if chart_type in ["Cost ($)", "Both"]:
-            st.markdown("#### 💰 Daily Cost Trends")
-            cost_trend_data = trend_data[['Date', 'Total_Cost']].set_index('Date')
-            st.line_chart(cost_trend_data)
-        
-        # Usage patterns
-        st.markdown("#### ⏰ Usage Patterns by Hour")
-        hourly_data = generate_hourly_usage_pattern()
-        st.bar_chart(hourly_data.set_index('Hour'))
+        if trend_data.empty:
+            st.error("❌ **No Analytics Data Available**")
+            st.info("🔑 Configure database connection to enable detailed API analytics")
+            st.markdown("**Missing Features:**")
+            st.write("• API request trends")
+            st.write("• Cost analysis")
+            st.write("• Usage patterns")
+            st.write("• Performance metrics")
+        else:
+            if chart_type in ["Usage Count", "Both"]:
+                st.markdown("#### 📊 API Request Trends")
+                st.line_chart(trend_data[['Date', 'OpenAI', 'Google_AI', 'Odds_API']].set_index('Date'))
+            
+            if chart_type in ["Cost ($)", "Both"]:
+                st.markdown("#### 💰 Daily Cost Trends")
+                cost_trend_data = trend_data[['Date', 'Total_Cost']].set_index('Date')
+                st.line_chart(cost_trend_data)
+            
+            # Usage patterns
+            st.markdown("#### ⏰ Usage Patterns by Hour")
+            hourly_data = generate_hourly_usage_pattern()
+            if not hourly_data.empty:
+                st.bar_chart(hourly_data.set_index('Hour'))
+            else:
+                st.info("Enable database to see hourly usage patterns")
     
     with tab4:
         st.markdown("### ⚙️ API Cost Management Settings")
@@ -5159,43 +4980,15 @@ def get_cost_optimization_suggestions(api_usage):
     return suggestions
 
 def generate_api_trend_data(time_period):
-    """Generate API trend data for charts"""
-    import random
-    from datetime import datetime, timedelta
-    
-    days = {'Last 24 Hours': 1, 'Last 7 Days': 7, 'Last 30 Days': 30}[time_period]
-    
-    dates = [datetime.now().date() - timedelta(days=i) for i in range(days)][::-1]
-    
-    trend_data = pd.DataFrame({
-        'Date': dates,
-        'OpenAI': [random.randint(40, 150) for _ in range(days)],
-        'Google_AI': [random.randint(25, 120) for _ in range(days)],
-        'Odds_API': [random.randint(15, 85) for _ in range(days)],
-        'Total_Cost': [random.uniform(2.0, 12.0) for _ in range(days)]
-    })
-    
-    return trend_data
+    """DISABLED: No mock trend data - get from real database"""
+    # Return empty DataFrame - no mock data
+    import pandas as pd
+    return pd.DataFrame()
 
 def generate_hourly_usage_pattern():
-    """Generate hourly usage patterns"""
-    import random
-    
-    # Simulate realistic usage patterns (higher during business hours)
-    hourly_multipliers = [
-        0.2, 0.1, 0.1, 0.1, 0.2, 0.3,  # 0-5 AM (low usage)
-        0.4, 0.6, 0.8, 1.0, 1.0, 1.0,  # 6-11 AM (building up)
-        1.0, 1.0, 1.0, 1.0, 0.9, 0.8,  # 12-5 PM (peak hours)
-        0.7, 0.6, 0.5, 0.4, 0.3, 0.2   # 6-11 PM (declining)
-    ]
-    
-    return pd.DataFrame({
-        'Hour': range(24),
-        'Total_Requests': [int(random.randint(20, 80) * mult) for mult in hourly_multipliers],
-        'OpenAI': [int(random.randint(10, 40) * mult) for mult in hourly_multipliers],
-        'Google_AI': [int(random.randint(5, 30) * mult) for mult in hourly_multipliers],
-        'Odds_API': [int(random.randint(2, 15) * mult) for mult in hourly_multipliers]
-    })
+    """DISABLED: No mock hourly patterns - get from real database"""
+    import pandas as pd
+    return pd.DataFrame()
 
 def show_api_provider_details(provider, data):
     """Show detailed information for a specific API provider"""
@@ -5324,53 +5117,17 @@ def filter_upcoming_games(games):
 def get_ai_generated_games(target_date, sports=['NFL']):
     """Use AI to generate realistic games for selected sports"""
     
-    # Always return fallback games immediately for reliability
-    # In production, you could try OpenAI first, but fallback is more reliable
-    return generate_fallback_games(target_date, sports)
+    # No games found from real sources - return empty list
+    # No fallback games generated to avoid mock data
+    return []
 
 def generate_realistic_bookmakers(game):
-    """Generate realistic bookmaker odds for a game"""
-    import random
-    
-    bookmakers = []
-    bookmaker_names = ['DraftKings', 'FanDuel', 'BetMGM', 'Caesars', 'PointsBet']
-    
-    home_team = game.get('home_team', 'Home')
-    away_team = game.get('away_team', 'Away')
-    
-    # Generate realistic spread and odds
-    base_spread = random.uniform(-7.5, 7.5)
-    
-    for i, name in enumerate(bookmaker_names[:random.randint(3, 5)]):
-        # Slight variation between bookmakers
-        spread_variation = random.uniform(-0.5, 0.5)
-        home_odds = int(random.uniform(-130, -90))  # Favorites typically -110 to -120
-        away_odds = int(random.uniform(-130, -90))
-        
-        bookmaker = {
-            'key': name.lower().replace(' ', ''),
-            'title': name,
-            'last_update': datetime.now().isoformat(),
-            'markets': [{
-                'key': 'h2h',
-                'outcomes': [
-                    {
-                        'name': home_team,
-                        'price': home_odds + random.randint(-10, 10)
-                    },
-                    {
-                        'name': away_team,
-                        'price': away_odds + random.randint(-10, 10)
-                    }
-                ]
-            }]
-        }
-        
-        bookmakers.append(bookmaker)
-    
-    return bookmakers
+    """DISABLED: No mock bookmaker data allowed"""
+    # Return empty list - no mock odds data
+    return []
 
-def generate_fallback_games(target_date, sports=['NFL']):
+# REMOVED: generate_fallback_games function - no mock data allowed
+def removed_generate_fallback_games():
     """Generate fallback games for multiple sports - always returns games"""
     
     # Team databases for different sports
@@ -5572,7 +5329,8 @@ def generate_fallback_games(target_date, sports=['NFL']):
                 }
                 all_games.append(game)
     
-    return all_games
+    # Function disabled - no fallback games allowed
+    return []
 
 def get_comprehensive_game_data(game):
     """Get comprehensive data for a game including stadium, weather, and venue details"""
@@ -6329,55 +6087,114 @@ def get_ai_analysis(game):
         # No API keys available - return None instead of fallback
         return None
     
-    # Run both AI systems in parallel 
+    # SPEED OPTIMIZATION: Use fastest AI first (Gemini), fallback to OpenAI
     start_time = time.time()
     
+    # Try Gemini first (faster)
+    if google_key:
+        try:
+            result = get_gemini_analysis_fast(home_team, away_team, sport)
+            if result:
+                analysis_time = time.time() - start_time
+                track_api_usage("Gemini-Fast", 100, analysis_time * 0.001)
+                return result
+        except Exception as e:
+            print(f"Gemini fast analysis failed: {e}")
+    
+    # Fallback to OpenAI if Gemini fails or unavailable
+    if openai_key:
+        try:
+            result = get_openai_analysis_fast(home_team, away_team, sport)
+            if result:
+                analysis_time = time.time() - start_time
+                track_api_usage("OpenAI-Fast", 150, analysis_time * 0.002)
+                return result
+        except Exception as e:
+            print(f"OpenAI fast analysis failed: {e}")
+    
+    # If we get here, both AIs failed
+    return None
+
+def get_gemini_analysis_fast(home_team, away_team, sport):
+    """Ultra-fast Gemini analysis optimized for speed"""
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            # Submit both AI analysis tasks simultaneously
-            futures = {}
+        import google.generativeai as genai
+        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+        
+        # Use fastest model with minimal prompt
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""Quick sports prediction for {sport}: {away_team} @ {home_team}
+Return only JSON: {{"predicted_winner": "team_name", "confidence": 0.75, "key_factors": ["reason1", "reason2"], "recommendation": "MODERATE_BET", "edge_score": 0.70, "reasoning": "brief analysis"}}"""
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                max_output_tokens=200,  # Limit output for speed
+                temperature=0.1  # Lower temperature for faster response
+            )
+        )
+        
+        if response.text:
+            import json
+            result = json.loads(response.text.strip())
             
-            if openai_key:
-                futures['openai'] = executor.submit(get_openai_analysis_complete, home_team, away_team, sport)
-            if google_key:
-                futures['gemini'] = executor.submit(get_gemini_analysis_complete, home_team, away_team, sport)
+            # Ensure confidence is a float
+            confidence = float(result.get('confidence', 0.75))
             
-            # Get results with reasonable timeout
-            openai_result = None
-            gemini_result = None
-            
-            if 'openai' in futures:
-                try:
-                    openai_result = futures['openai'].result(timeout=15)  # Longer timeout for real API
-                except Exception as e:
-                    print(f"OpenAI API error: {e}")
-                    openai_result = None
-                    
-            if 'gemini' in futures:
-                try:
-                    gemini_result = futures['gemini'].result(timeout=15)  # Longer timeout for real API
-                except Exception as e:
-                    print(f"Gemini API error: {e}")
-                    gemini_result = None
-        
-        analysis_time = time.time() - start_time
-        
-        # If both APIs failed, return None - NO FALLBACKS
-        if openai_result is None and gemini_result is None:
-            return None
-        
-        # Combine results from successful APIs only
-        final_analysis = combine_ai_results(openai_result, gemini_result, analysis_time)
-        
-        # Store comparison data for admin panel
-        if final_analysis:
-            store_ai_comparison(game, openai_result, gemini_result, final_analysis)
-        
-        return final_analysis
-        
+            return {
+                'predicted_winner': result.get('predicted_winner', home_team),
+                'confidence': confidence,
+                'key_factors': result.get('key_factors', ['AI analysis', 'Team performance']),
+                'recommendation': result.get('recommendation', 'MODERATE_BET'),
+                'edge_score': float(result.get('edge_score', 0.70)),
+                'reasoning': result.get('reasoning', 'Fast AI analysis completed'),
+                'provider': 'Gemini-Flash',
+                'analysis_type': 'speed_optimized'
+            }
     except Exception as e:
-        print(f"AI analysis error: {e}")
-        return None  # Return None instead of fallback
+        print(f"Gemini fast analysis error: {e}")
+        return None
+
+def get_openai_analysis_fast(home_team, away_team, sport):
+    """Fast OpenAI analysis with reduced complexity"""
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        
+        prompt = f"""Sports prediction for {sport}: {away_team} @ {home_team}
+Return JSON only: {{"predicted_winner": "team_name", "confidence": 0.75, "key_factors": ["factor1", "factor2"], "recommendation": "MODERATE_BET", "edge_score": 0.70, "reasoning": "quick analysis"}}"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Faster, cheaper model
+            messages=[
+                {"role": "system", "content": "You are a fast sports analyst. Respond with JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=150,  # Limit for speed
+            temperature=0.1  # Lower temperature for speed
+        )
+        
+        if response.choices[0].message.content:
+            import json
+            result = json.loads(response.choices[0].message.content)
+            
+            confidence = float(result.get('confidence', 0.75))
+            
+            return {
+                'predicted_winner': result.get('predicted_winner', home_team),
+                'confidence': confidence,
+                'key_factors': result.get('key_factors', ['Professional analysis', 'Statistical review']),
+                'recommendation': result.get('recommendation', 'MODERATE_BET'),
+                'edge_score': float(result.get('edge_score', 0.70)),
+                'reasoning': result.get('reasoning', 'Fast OpenAI analysis'),
+                'provider': 'OpenAI-Fast',
+                'analysis_type': 'speed_optimized'
+            }
+    except Exception as e:
+        print(f"OpenAI fast analysis error: {e}")
+        return None
 
 def get_openai_analysis(home_team, away_team, sport):
     """Get ChatGPT/OpenAI analysis"""

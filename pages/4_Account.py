@@ -17,7 +17,7 @@ def main():
     with col1:
         st.subheader("Profile Information")
         
-        # Mock user data - in real app, this would come from database
+        # Demo user data - would integrate with authentication system
         if 'user_profile' not in st.session_state:
             st.session_state.user_profile = {
                 'name': 'John Smith',

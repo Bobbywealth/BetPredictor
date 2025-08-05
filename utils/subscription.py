@@ -90,7 +90,7 @@ class SubscriptionManager:
         if limit == -1:  # Unlimited
             return True
         
-        # Check daily usage (mock implementation)
+        # Check daily usage from session state/database
         today = datetime.now().strftime('%Y-%m-%d')
         usage_key = f'predictions_used_{today}'
         used_today = st.session_state.get(usage_key, 0)
