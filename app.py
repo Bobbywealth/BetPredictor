@@ -1587,7 +1587,12 @@ def use_cached_predictions_if_available(pick_date, sports):
     cached_predictions = get_cached_predictions(date_str, sports)
     
     if cached_predictions:
-        st.info(f"⚡ Using cached predictions from today ({len(cached_predictions)} games)")
+        # Show cache message if enabled in settings
+        show_notifications = st.session_state.get('show_cache_notifications', True)
+        
+        if show_notifications and 'prediction_cache_shown' not in st.session_state:
+            st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
+            st.session_state.prediction_cache_shown = True
         
         # Add cache indicator
         st.markdown("""
@@ -1716,7 +1721,18 @@ def get_optimized_odds(game, force_api=False):
     if not force_api:
         cached_odds = get_cached_odds(game_key)
         if cached_odds:
-            st.info("📦 Using cached odds (saved API call)")
+            # Show cache status if enabled in settings
+            show_notifications = st.session_state.get('show_cache_notifications', True)
+            
+            if show_notifications:
+                if 'odds_cache_notifications' not in st.session_state:
+                    st.session_state.odds_cache_notifications = 0
+                
+                # Only show notification every 5th time to reduce noise
+                st.session_state.odds_cache_notifications += 1
+                if st.session_state.odds_cache_notifications % 5 == 1:
+                    st.success("💰 Using cached odds - API cost saved!")
+            
             return cached_odds.get('odds')
     
     # Second try: Check usage limits before API call
@@ -3880,6 +3896,16 @@ def show_settings():
         st.checkbox("Injury updates", True)
         st.checkbox("Weather alerts", False)
         st.checkbox("Daily picks summary", True)
+        
+        # Cache notification settings
+        show_cache_notifications = st.checkbox(
+            "Show cache notifications", 
+            value=True,
+            help="Display messages when using cached data to save API costs"
+        )
+        
+        # Save setting to session state
+        st.session_state.show_cache_notifications = show_cache_notifications
         
         st.markdown("### 💾 Data Export")
         
@@ -6258,7 +6284,6 @@ def generate_smart_alerts(games, sensitivity, min_movement):
     except Exception:
         return []
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes for speed
 def get_ai_analysis_with_status(game, status_display):
     """Get AI analysis with detailed status updates"""
     
