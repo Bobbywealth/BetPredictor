@@ -9,7 +9,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import performance optimizers
-from utils.performance_optimizer import performance_optimizer, stream_optimizer
+from utils.performance_optimizer import performance_optimizer
 from typing import Dict, List, Any
 import plotly.express as px
 import plotly.graph_objects as go

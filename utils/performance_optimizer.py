@@ -20,9 +20,8 @@ class PerformanceOptimizer:
             yield games_list[i:i + batch_size]
     
     @staticmethod
-    @st.cache_data(ttl=300)  # Cache for 5 minutes
     def cached_api_call(api_func, *args, **kwargs):
-        """Generic cached API call wrapper"""
+        """Generic API call wrapper - caching removed to avoid hash conflicts"""
         return api_func(*args, **kwargs)
     
     @staticmethod

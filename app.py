@@ -2863,7 +2863,9 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 status_text.info(f"🔍 Analyzing {game_name} ({i+1}/{len(games)})")
                 
                 # Get AI analysis with detailed status - ONLY from real APIs
-                analysis = get_ai_analysis_with_status(game, status_text)
+                # Update status manually to avoid caching issues
+                status_text.info("🤖 Processing with advanced AI models...")
+                analysis = get_ai_analysis(game)
                 
                 # Only include games where AI analysis succeeded
                 if analysis and analysis.get('confidence', 0.0) >= min_confidence:
@@ -6284,25 +6286,8 @@ def generate_smart_alerts(games, sensitivity, min_movement):
     except Exception:
         return []
 
-def get_ai_analysis_with_status(game, status_display):
-    """Get AI analysis with detailed status updates"""
-    
-    import time
-    
-    # Step 1: Data gathering
-    status_display.info("📊 Gathering game statistics...")
-    time.sleep(0.3)  # Brief pause for visual effect
-    
-    # Step 2: AI processing  
-    status_display.info("🤖 Processing with advanced AI models...")
-    time.sleep(0.5)
-    
-    # Step 3: Final analysis
-    status_display.info("🎯 Generating predictions...")
-    time.sleep(0.2)
-    
-    # Get actual analysis
-    return get_ai_analysis(game)
+# Removed get_ai_analysis_with_status to avoid caching conflicts
+# Status updates are now handled directly in calling functions
 
 def get_ai_analysis(game):
     """Get AI analysis ONLY from real OpenAI and Gemini APIs - no fallbacks"""
