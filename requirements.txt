@@ -1,0 +1,10 @@
+streamlit==1.47.1
+pandas==2.3.1
+numpy==2.0.2
+requests==2.32.4
+plotly==6.2.0
+openai==1.98.0
+google-genai==1.28.0
+scikit-learn==1.6.1
+python-dateutil==2.9.0
+pytz==2025.2
