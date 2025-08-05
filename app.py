@@ -484,7 +484,7 @@ def show_winning_picks():
         # Sports selection
         sports = st.multiselect(
             "🏈 Sports",
-            options=['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'],
+            options=['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'],
             default=['NFL'],
             help="Select which sports to analyze"
         )
@@ -548,11 +548,11 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
     """Unified system showing AI picks with live odds comparison"""
     
     try:
-        # Get real games for the date
-        games = get_games_for_date(pick_date)
+        # Get real games for the date and selected sports
+        games = get_games_for_date(pick_date, sports)
         
         if not games:
-            st.info(f"No games found for {pick_date.strftime('%B %d, %Y')}. Try selecting a different date.")
+            st.info(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}. Try selecting different sports or dates.")
             show_upcoming_dates()
             return
         
@@ -890,7 +890,7 @@ def show_live_odds():
         # Sport selection
         selected_sports = st.multiselect(
             "🏈 Sports",
-            options=["NFL", "NBA", "MLB", "NHL", "NCAAF", "NCAAB", "Soccer"],
+            options=["NFL", "NBA", "WNBA", "MLB", "NHL", "NCAAF", "NCAAB", "Soccer"],
             default=["NFL"],
             help="Select which sports to show"
         )
@@ -1023,7 +1023,7 @@ def show_analysis():
         analysis_date = st.date_input("📅 Analysis Date", value=datetime.now().date())
     
     with col2:
-        analysis_sports = st.multiselect("🏈 Sports", options=["NFL", "NBA", "MLB"], default=["NFL"])
+        analysis_sports = st.multiselect("🏈 Sports", options=["NFL", "NBA", "WNBA", "MLB", "NHL"], default=["NFL"])
     
     with col3:
         analysis_depth = st.selectbox("🔍 Analysis Depth", options=["Quick", "Standard", "Deep"], index=1)
@@ -1300,7 +1300,7 @@ def show_settings():
         
         sports_prefs = st.multiselect(
             "Preferred Sports",
-            ["NFL", "NBA", "MLB", "NHL", "NCAAF", "NCAAB"],
+            ["NFL", "NBA", "WNBA", "MLB", "NHL", "NCAAF", "NCAAB"],
             default=["NFL", "NBA"]
         )
         
@@ -1324,68 +1324,87 @@ def show_settings():
 
 # Helper functions
 
-def get_games_for_date(target_date):
-    """Get games using AI-powered discovery (faster than ESPN API)"""
-    try:
-        # First try the odds API for real data
-        odds_url = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
-        params = {
-            'apiKey': 'ffb7d086c82de331b0191d11a3386eac',
-            'regions': 'us',
-            'markets': 'h2h',
-            'oddsFormat': 'american'
-        }
-        
-        response = requests.get(odds_url, params=params, timeout=10)
-        
-        if response.status_code == 200:
-            games = response.json()
+def get_games_for_date(target_date, sports=['NFL']):
+    """Get games using multi-sport API discovery"""
+    
+    # Map sports to API endpoints
+    sport_endpoints = {
+        'NFL': 'americanfootball_nfl',
+        'NBA': 'basketball_nba', 
+        'WNBA': 'basketball_wnba',
+        'MLB': 'baseball_mlb',
+        'NHL': 'icehockey_nhl',
+        'NCAAF': 'americanfootball_ncaaf',
+        'NCAAB': 'basketball_ncaab'
+    }
+    
+    all_games = []
+    
+    for sport in sports:
+        if sport not in sport_endpoints:
+            continue
             
-            # More flexible date filtering
-            est = pytz.timezone('US/Eastern')
-            target_str = target_date.strftime('%Y-%m-%d')
-            filtered_games = []
+        try:
+            # Try real API first
+            sport_key = sport_endpoints[sport]
+            odds_url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+            params = {
+                'apiKey': 'ffb7d086c82de331b0191d11a3386eac',
+                'regions': 'us',
+                'markets': 'h2h',
+                'oddsFormat': 'american'
+            }
             
-            for game in games:
-                commence_time = game.get('commence_time', '')
-                if commence_time:
-                    try:
-                        game_dt_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
-                        game_dt_est = game_dt_utc.astimezone(est)
-                        game_date_str = game_dt_est.strftime('%Y-%m-%d')
-                        
-                        # More flexible matching - include if within 1 day range
-                        if game_date_str == target_str:
-                            game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
-                            filtered_games.append(game)
-                        else:
-                            # Check if it's close to target date (within 24 hours)
-                            target_dt = datetime.combine(target_date, datetime.min.time())
-                            target_dt_est = est.localize(target_dt)
-                            time_diff = abs((game_dt_est - target_dt_est).total_seconds() / 3600)  # Hours
+            response = requests.get(odds_url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                games = response.json()
+                
+                # Filter by date
+                est = pytz.timezone('US/Eastern')
+                target_str = target_date.strftime('%Y-%m-%d')
+                
+                for game in games:
+                    commence_time = game.get('commence_time', '')
+                    if commence_time:
+                        try:
+                            game_dt_utc = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                            game_dt_est = game_dt_utc.astimezone(est)
+                            game_date_str = game_dt_est.strftime('%Y-%m-%d')
                             
-                            if time_diff <= 24:  # Within 24 hours
+                            # More flexible matching - include if within 24 hours
+                            if game_date_str == target_str:
                                 game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
-                                filtered_games.append(game)
-                    except:
-                        continue
-            
-            if filtered_games:
-                return filtered_games
-        
-        # If API fails or no games, use AI to generate realistic games
-        return get_ai_generated_games(target_date)
-        
-    except Exception as e:
-        # Fallback to AI-generated games
-        return get_ai_generated_games(target_date)
+                                game['sport'] = sport  # Add sport identifier
+                                all_games.append(game)
+                            else:
+                                # Check if it's close to target date (within 24 hours)
+                                target_dt = datetime.combine(target_date, datetime.min.time())
+                                target_dt_est = est.localize(target_dt)
+                                time_diff = abs((game_dt_est - target_dt_est).total_seconds() / 3600)  # Hours
+                                
+                                if time_diff <= 24:  # Within 24 hours
+                                    game['est_time'] = game_dt_est.strftime('%I:%M %p ET')
+                                    game['sport'] = sport  # Add sport identifier
+                                    all_games.append(game)
+                        except:
+                            continue
+        except Exception:
+            continue
+    
+    # If we got real games, return them
+    if all_games:
+        return all_games
+    
+    # Otherwise generate realistic games for selected sports
+    return get_ai_generated_games(target_date, sports)
 
-def get_ai_generated_games(target_date):
-    """Use AI to generate realistic NFL games for the date"""
+def get_ai_generated_games(target_date, sports=['NFL']):
+    """Use AI to generate realistic games for selected sports"""
     
     # Always return fallback games immediately for reliability
     # In production, you could try OpenAI first, but fallback is more reliable
-    return generate_fallback_games(target_date)
+    return generate_fallback_games(target_date, sports)
 
 def generate_realistic_bookmakers(game):
     """Generate realistic bookmaker odds for a game"""
@@ -1429,81 +1448,165 @@ def generate_realistic_bookmakers(game):
     
     return bookmakers
 
-def generate_fallback_games(target_date):
-    """Generate fallback games - always returns games for any date"""
+def generate_fallback_games(target_date, sports=['NFL']):
+    """Generate fallback games for multiple sports - always returns games"""
     
-    nfl_teams = [
-        'Buffalo Bills', 'Miami Dolphins', 'New England Patriots', 'New York Jets',
-        'Baltimore Ravens', 'Cincinnati Bengals', 'Cleveland Browns', 'Pittsburgh Steelers',
-        'Houston Texans', 'Indianapolis Colts', 'Jacksonville Jaguars', 'Tennessee Titans',
-        'Denver Broncos', 'Kansas City Chiefs', 'Las Vegas Raiders', 'Los Angeles Chargers',
-        'Dallas Cowboys', 'New York Giants', 'Philadelphia Eagles', 'Washington Commanders',
-        'Chicago Bears', 'Detroit Lions', 'Green Bay Packers', 'Minnesota Vikings',
-        'Atlanta Falcons', 'Carolina Panthers', 'New Orleans Saints', 'Tampa Bay Buccaneers',
-        'Arizona Cardinals', 'Los Angeles Rams', 'San Francisco 49ers', 'Seattle Seahawks'
-    ]
+    # Team databases for different sports
+    sport_teams = {
+        'NFL': [
+            'Buffalo Bills', 'Miami Dolphins', 'New England Patriots', 'New York Jets',
+            'Baltimore Ravens', 'Cincinnati Bengals', 'Cleveland Browns', 'Pittsburgh Steelers',
+            'Houston Texans', 'Indianapolis Colts', 'Jacksonville Jaguars', 'Tennessee Titans',
+            'Denver Broncos', 'Kansas City Chiefs', 'Las Vegas Raiders', 'Los Angeles Chargers',
+            'Dallas Cowboys', 'New York Giants', 'Philadelphia Eagles', 'Washington Commanders',
+            'Chicago Bears', 'Detroit Lions', 'Green Bay Packers', 'Minnesota Vikings',
+            'Atlanta Falcons', 'Carolina Panthers', 'New Orleans Saints', 'Tampa Bay Buccaneers',
+            'Arizona Cardinals', 'Los Angeles Rams', 'San Francisco 49ers', 'Seattle Seahawks'
+        ],
+        'NBA': [
+            'Lakers', 'Warriors', 'Celtics', 'Heat', 'Knicks', 'Nets', 'Bulls', 'Sixers',
+            'Bucks', 'Raptors', 'Hawks', 'Hornets', 'Magic', 'Wizards', 'Pistons', 'Cavaliers',
+            'Pacers', 'Nuggets', 'Timberwolves', 'Thunder', 'Blazers', 'Jazz', 'Suns', 'Kings',
+            'Clippers', 'Mavericks', 'Rockets', 'Grizzlies', 'Pelicans', 'Spurs'
+        ],
+        'WNBA': [
+            'Aces', 'Storm', 'Liberty', 'Sun', 'Lynx', 'Mercury', 'Sky', 'Fever',
+            'Wings', 'Dream', 'Sparks', 'Mystics'
+        ],
+        'MLB': [
+            'Yankees', 'Red Sox', 'Blue Jays', 'Rays', 'Orioles', 'Astros', 'Rangers', 'Mariners',
+            'Angels', 'Athletics', 'Guardians', 'Tigers', 'Royals', 'Twins', 'White Sox',
+            'Braves', 'Phillies', 'Mets', 'Marlins', 'Nationals', 'Cardinals', 'Cubs', 'Brewers',
+            'Reds', 'Pirates', 'Dodgers', 'Padres', 'Giants', 'Rockies', 'Diamondbacks'
+        ],
+        'NHL': [
+            'Rangers', 'Islanders', 'Devils', 'Flyers', 'Penguins', 'Capitals', 'Hurricanes',
+            'Panthers', 'Lightning', 'Bruins', 'Sabres', 'Senators', 'Canadiens', 'Maple Leafs',
+            'Red Wings', 'Blue Jackets', 'Blackhawks', 'Wild', 'Blues', 'Predators', 'Stars',
+            'Avalanche', 'Jets', 'Flames', 'Oilers', 'Canucks', 'Kings', 'Ducks', 'Sharks', 'Knights'
+        ]
+    }
+    
+    # Season schedules (months when each sport is active)
+    sport_seasons = {
+        'NFL': [9, 10, 11, 12, 1, 2],  # Sep-Feb
+        'NBA': [10, 11, 12, 1, 2, 3, 4, 5, 6],  # Oct-Jun  
+        'WNBA': [5, 6, 7, 8, 9, 10],  # May-Oct
+        'MLB': [3, 4, 5, 6, 7, 8, 9, 10],  # Mar-Oct
+        'NHL': [10, 11, 12, 1, 2, 3, 4, 5, 6]  # Oct-Jun
+    }
+    
+    # Game scheduling by sport and day
+    sport_schedules = {
+        'NFL': {
+            6: {'games': (8, 14), 'times': ['1:00 PM ET', '4:05 PM ET', '4:25 PM ET', '8:20 PM ET']},  # Sunday
+            0: {'games': (1, 2), 'times': ['8:15 PM ET']},  # Monday
+            3: {'games': (1, 2), 'times': ['8:15 PM ET']},  # Thursday
+            'other': {'games': (0, 1), 'times': ['8:15 PM ET']}
+        },
+        'NBA': {
+            'any': {'games': (4, 12), 'times': ['7:00 PM ET', '7:30 PM ET', '8:00 PM ET', '10:00 PM ET', '10:30 PM ET']}
+        },
+        'MLB': {
+            'any': {'games': (6, 15), 'times': ['1:05 PM ET', '7:05 PM ET', '7:10 PM ET', '8:05 PM ET', '10:05 PM ET']}
+        },
+        'NHL': {
+            'any': {'games': (4, 10), 'times': ['7:00 PM ET', '7:30 PM ET', '8:00 PM ET', '10:00 PM ET']}
+        }
+    }
     
     import random
-    games = []
+    all_games = []
+    current_month = target_date.month
+    day_of_week = target_date.weekday()
     
-    # Determine number of games based on day of week
-    day_of_week = target_date.weekday()  # Monday=0, Sunday=6
+    for sport in sports:
+        if sport not in sport_teams:
+            continue
+            
+        # Check if sport is in season
+        if current_month not in sport_seasons.get(sport, []):
+            continue  # Skip out-of-season sports
+            
+        teams = sport_teams[sport]
+        schedule = sport_schedules.get(sport, {})
+        
+        # Get game count and times
+        if sport == 'NFL':
+            day_schedule = schedule.get(day_of_week, schedule.get('other', {'games': (2, 4), 'times': ['8:00 PM ET']}))
+        else:
+            day_schedule = schedule.get('any', {'games': (4, 8), 'times': ['7:30 PM ET']})
+        
+        min_games, max_games = day_schedule['games']
+        game_times = day_schedule['times']
+        
+        # Always ensure at least 2 games for demo
+        num_games = max(random.randint(min_games, max_games), 2)
+        
+        # Generate games for this sport
+        for i in range(num_games):
+            away_team = random.choice(teams)
+            home_team = random.choice([t for t in teams if t != away_team])
+            
+            game_time = random.choice(game_times)
+            
+            # Create realistic commence_time
+            est = pytz.timezone('US/Eastern')
+            
+            # Parse game time
+            time_parts = game_time.replace(' ET', '').split(':')
+            hour = int(time_parts[0])
+            minute = int(time_parts[1].split()[0])
+            
+            # Convert PM times
+            if 'PM' in game_time and hour != 12:
+                hour += 12
+            elif 'AM' in game_time and hour == 12:
+                hour = 0
+                
+            game_dt = datetime.combine(target_date, datetime.min.time().replace(hour=hour, minute=minute))
+            game_dt_est = est.localize(game_dt)
+            game_dt_utc = game_dt_est.astimezone(pytz.UTC)
+            
+            # Sport-specific formatting
+            sport_keys = {
+                'NFL': 'americanfootball_nfl',
+                'NBA': 'basketball_nba', 
+                'MLB': 'baseball_mlb',
+                'NHL': 'icehockey_nhl'
+            }
+            
+            game = {
+                'home_team': home_team,
+                'away_team': away_team,
+                'est_time': game_time,
+                'sport': sport,
+                'sport_key': sport_keys.get(sport, 'americanfootball_nfl'),
+                'commence_time': game_dt_utc.isoformat().replace('+00:00', 'Z'),
+                'bookmakers': generate_realistic_bookmakers({'home_team': home_team, 'away_team': away_team})
+            }
+            
+            all_games.append(game)
     
-    if day_of_week == 6:  # Sunday
-        num_games = random.randint(8, 14)  # More games on Sunday
-        game_times = ['1:00 PM ET', '1:00 PM ET', '4:05 PM ET', '4:25 PM ET', '8:20 PM ET']
-    elif day_of_week == 0:  # Monday
-        num_games = random.randint(1, 2)  # Monday Night Football
-        game_times = ['8:15 PM ET']
-    elif day_of_week == 3:  # Thursday
-        num_games = random.randint(1, 2)  # Thursday Night Football
-        game_times = ['8:15 PM ET']
-    else:
-        num_games = random.randint(0, 2)  # Few games on other days
-        game_times = ['8:15 PM ET']
+    # If no games (all sports out of season), generate some NBA games as fallback
+    if not all_games:
+        teams = sport_teams['NBA']
+        for i in range(4):
+            away_team = random.choice(teams)
+            home_team = random.choice([t for t in teams if t != away_team])
+            
+            game = {
+                'home_team': home_team,
+                'away_team': away_team,
+                'est_time': '8:00 PM ET',
+                'sport': 'NBA',
+                'sport_key': 'basketball_nba',
+                'commence_time': target_date.isoformat() + 'T01:00:00Z',
+                'bookmakers': generate_realistic_bookmakers({'home_team': home_team, 'away_team': away_team})
+            }
+            all_games.append(game)
     
-    # Always ensure at least 4 games for demonstration
-    num_games = max(num_games, 4)
-    
-    # Generate games without worrying about team duplicates for demo
-    for i in range(num_games):
-        away_team = random.choice(nfl_teams)
-        home_team = random.choice([t for t in nfl_teams if t != away_team])
-        
-        # Pick appropriate game time
-        game_time = random.choice(game_times)
-        
-        # Create realistic commence_time
-        est = pytz.timezone('US/Eastern')
-        
-        # Parse game time to create proper datetime
-        hour_map = {
-            '1:00 PM ET': 13,
-            '4:05 PM ET': 16,
-            '4:25 PM ET': 16,
-            '8:15 PM ET': 20,
-            '8:20 PM ET': 20
-        }
-        
-        hour = hour_map.get(game_time, 13)
-        minute = 5 if '4:05' in game_time else 25 if '4:25' in game_time else 15 if '8:15' in game_time else 20 if '8:20' in game_time else 0
-        
-        game_dt = datetime.combine(target_date, datetime.min.time().replace(hour=hour, minute=minute))
-        game_dt_est = est.localize(game_dt)
-        game_dt_utc = game_dt_est.astimezone(pytz.UTC)
-        
-        game = {
-            'home_team': home_team,
-            'away_team': away_team,
-            'est_time': game_time,
-            'sport_key': 'americanfootball_nfl',
-            'commence_time': game_dt_utc.isoformat().replace('+00:00', 'Z'),
-            'bookmakers': generate_realistic_bookmakers({'home_team': home_team, 'away_team': away_team})
-        }
-        
-        games.append(game)
-    
-    return games
+    return all_games
 
 def analyze_market_trends(games, depth):
     """Analyze market trends from game data"""
