@@ -374,6 +374,14 @@ def show_dashboard():
         if st.button("⚙️ Settings", use_container_width=True):
             st.session_state.current_page = 'settings'
             st.rerun()
+    
+    # Admin login button (separate row for security)
+    st.markdown("---")
+    col1, col2, col3 = st.columns([2, 1, 2])
+    with col2:
+        if st.button("🔐 Admin Login", use_container_width=True, type="secondary"):
+            st.session_state.current_page = 'admin'
+            st.rerun()
 
 def show_dashboard_picks():
     """Show quick preview of top picks"""
@@ -2513,10 +2521,10 @@ def get_openai_analysis(home_team, away_team, sport):
         return None
         
     try:
-            from openai import OpenAI
-            client = OpenAI(api_key=openai_key)
-            
-            prompt = f"""Analyze this NFL game: {away_team} @ {home_team}
+        from openai import OpenAI
+        client = OpenAI(api_key=openai_key)
+        
+        prompt = f"""Analyze this NFL game: {away_team} @ {home_team}
 
 Return JSON with:
 - predicted_winner: team name
@@ -2530,21 +2538,21 @@ Return JSON with:
 - betting_insight: strategy text
 - injury_impact: injury analysis
 - weather_factor: weather impact"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a professional sports betting analyst."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=500
+        )
+        
+        if response.choices[0].message.content:
+            result = json.loads(response.choices[0].message.content)
             
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a professional sports betting analyst."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=500
-            )
-            
-            if response.choices[0].message.content:
-                result = json.loads(response.choices[0].message.content)
-                
-                return {
+            return {
                     'pick': result.get('predicted_winner', home_team),
                     'confidence': float(result.get('confidence', 0.75)),
                     'edge': float(result.get('edge_score', 0.65)),
@@ -2558,8 +2566,8 @@ Return JSON with:
                     'weather_factor': result.get('weather_factor', 'Favorable conditions'),
                     'ai_source': 'Real ChatGPT Analysis'
                 }
-        except Exception as e:
-            pass
+    except Exception as e:
+        pass
     
     # Fallback analysis
     confidence = random.uniform(0.65, 0.92)
@@ -3494,9 +3502,19 @@ def store_ai_comparison(game, openai_result, gemini_result, final_analysis):
         st.session_state.ai_comparisons = st.session_state.ai_comparisons[-100:]
 
 def show_admin_panel():
-    """Admin panel for AI performance tracking"""
+    """Admin panel for AI performance tracking with authentication"""
+    
+    # Check if admin is logged in
+    if not st.session_state.get('admin_logged_in', False):
+        show_admin_login()
+        return
     
     st.markdown("# 🔧 Admin Panel - AI Performance Tracking")
+    
+    # Admin logout button
+    if st.button("🚪 Logout Admin"):
+        st.session_state.admin_logged_in = False
+        st.rerun()
     
     if 'ai_comparisons' not in st.session_state or not st.session_state.ai_comparisons:
         st.info("No AI comparison data available yet. Generate some picks to see comparisons!")
@@ -3568,6 +3586,47 @@ def show_admin_panel():
         both_available = sum(1 for c in comparisons if c['openai_pick'] and c['gemini_pick'])
         if both_available > 0:
             st.write(f"• AI Agreement: {agreement}/{both_available} ({agreement/both_available:.1%})")
+
+def show_admin_login():
+    """Admin login interface"""
+    
+    st.markdown("# 🔐 Admin Login")
+    st.markdown("Enter admin credentials to access the AI performance tracking panel.")
+    
+    # Create centered login form
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        with st.form("admin_login"):
+            st.markdown("### 🔑 Admin Access")
+            
+            username = st.text_input("Username", placeholder="Enter admin username")
+            password = st.text_input("Password", type="password", placeholder="Enter admin password")
+            
+            login_button = st.form_submit_button("🚪 Login to Admin Panel", use_container_width=True)
+            
+            if login_button:
+                # Admin credentials (secure with environment variables)
+                ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+                ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "sportsbet2024")
+                
+                if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                    st.session_state.admin_logged_in = True
+                    st.success("✅ Admin login successful!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid credentials. Please try again.")
+        
+        # Login hint
+        st.markdown("---")
+        st.info("💡 **Demo Credentials:**\n- Username: `admin`\n- Password: `sportsbet2024`")
+        
+        # Additional security info
+        st.markdown("### 🛡️ Security Features")
+        st.write("• Session-based authentication")
+        st.write("• Automatic logout on page refresh")  
+        st.write("• Admin panel access only")
+        st.write("• Performance tracking and AI metrics")
 
 if __name__ == "__main__":
     main()
