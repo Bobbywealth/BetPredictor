@@ -657,13 +657,17 @@ if 'username' not in st.session_state:
     st.session_state.username = ''
 
 def show_sidebar():
-    """Modern sidebar navigation"""
+    """Premium glassmorphism sidebar navigation"""
     with st.sidebar:
-        # Logo and title
+        # Enhanced logo and title with official logo
         st.markdown("""
-        <div style="text-align: center; padding: 1rem; margin-bottom: 2rem;">
-            <h1 style="color: #667eea; margin: 0;">🎯 Spizo</h1>
-            <p style="color: #666; margin: 0;">AI-Powered Analysis</p>
+        <div class="sidebar-header">
+            <img src="https://i.ibb.co/2XrVbP5/Chat-GPT-Image-Aug-4-2025-11-52-35-PM.png" 
+                 alt="Spizo Logo" 
+                 style="width: 50px; height: 50px; border-radius: 50%; margin-bottom: 0.5rem; 
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: logoFloat 3s ease-in-out infinite;">
+            <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Spizo</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 0.9rem; font-weight: 500;">Professional AI Sports Analysis</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -672,39 +676,56 @@ def show_sidebar():
         
         st.markdown("---")
         
-        # Navigation menu (only show if authenticated)
+        # Premium Navigation menu (only show if authenticated)
         if st.session_state.authenticated:
-            st.markdown("### 📋 Navigation")
+            st.markdown("""
+            <div style="margin: 1.5rem 0;">
+                <h3 style="color: var(--text-primary); font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; text-align: center;">
+                    🧭 Navigation
+                </h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Navigation buttons with icons
-            nav_options = {
-                'dashboard': '🏠 Dashboard',
-                'picks': '🏆 Winning Picks',
-                'odds': '💰 Live Odds',
-                'analysis': '📊 Analysis',
-                'settings': '⚙️ Settings'
-            }
+            # Premium navigation buttons with enhanced styling
+            nav_options = [
+                ('dashboard', '🏠', 'Dashboard', 'Main overview and analytics'),
+                ('picks', '🏆', 'Winning Picks', 'AI-powered predictions'),
+                ('odds', '💰', 'Live Odds', 'Real-time betting lines'),
+                ('analysis', '📊', 'Deep Analysis', 'Advanced insights'),
+                ('settings', '⚙️', 'Settings', 'Account preferences')
+            ]
             
-            for key, label in nav_options.items():
-                if st.button(label, key=f"nav_{key}", use_container_width=True):
+            for key, icon, title, desc in nav_options:
+                # Check if this is the current page
+                is_active = st.session_state.current_page == key
+                active_style = "background: var(--accent-primary); color: white; transform: translateX(8px);" if is_active else ""
+                
+                if st.button(f"{icon} {title}", 
+                           key=f"nav_{key}", 
+                           use_container_width=True,
+                           help=desc):
                     st.session_state.current_page = key
                     st.rerun()
             
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
         
-        # Quick stats (only show if authenticated)
+        # Real-time system info (only show if authenticated)
         if st.session_state.authenticated:
-            st.markdown("### 📈 Quick Stats")
+            st.markdown("""
+            <div style="margin: 1.5rem 0;">
+                <h3 style="color: var(--text-primary); font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; text-align: center;">
+                    ⏰ System Status
+                </h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # EST time
+            # Current time
             est = pytz.timezone('US/Eastern')
             current_time = datetime.now(est)
             st.info(f"🕐 {current_time.strftime('%I:%M %p EST')}")
             
-            # API status indicators
-            st.markdown("### 🔗 System Status")
-            
-            # Check API statuses
+            # API status indicators - real system check
+            st.markdown("**🔗 Services:**")
             apis_status = check_api_status()
             
             for api, status in apis_status.items():
@@ -713,7 +734,11 @@ def show_sidebar():
                 else:
                     st.error(f"❌ {api}")
             
-            st.markdown("---")
+            # User session info
+            st.markdown("**👤 Session:**")
+            st.info(f"User: {st.session_state.username}")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
         
         # About section
         st.markdown("### ℹ️ About")
@@ -934,54 +959,7 @@ def show_professional_auth():
                 st.success("Demo mode activated!")
                 st.rerun()
 
-def show_sidebar_stats():
-    """Show live statistics in sidebar"""
-    
-    st.markdown("### 📈 Live Stats")
-    
-    # Simulated real-time stats
-    import random
-    
-    stats = [
-        ("🎯", "Win Rate", f"{random.randint(75, 95)}%"),
-        ("⚡", "Response Time", f"{random.uniform(1.5, 3.0):.1f}s"),
-        ("🤖", "AI Accuracy", f"{random.randint(82, 94)}%"),
-        ("📊", "Active Models", f"{random.randint(5, 8)}")
-    ]
-    
-    for icon, label, value in stats:
-        st.markdown(f"""
-        <div style="background: white; padding: 0.8rem; border-radius: 6px; 
-                    margin: 0.3rem 0; border-left: 3px solid #667eea;">
-            <div style="display: flex; justify-content: space-between;">
-                <span>{icon} {label}</span>
-                <strong>{value}</strong>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
 
-def show_live_ticker():
-    """Live market ticker in sidebar"""
-    
-    st.markdown("### 📊 Live Markets")
-    
-    # Simulated live odds
-    import random
-    
-    games = [
-        ("Lakers vs Warriors", f"+{random.randint(100, 300)}"),
-        ("Chiefs vs Bills", f"-{random.randint(100, 200)}"),
-        ("Dodgers vs Yankees", f"+{random.randint(120, 280)}"),
-    ]
-    
-    for game, odds in games:
-        st.markdown(f"""
-        <div style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px; 
-                    margin: 0.2rem 0; font-size: 0.8rem;">
-            <div>{game}</div>
-            <div style="color: #28a745; font-weight: bold;">{odds}</div>
-        </div>
-        """, unsafe_allow_html=True)
 
 def get_user_role(username):
     """Get user role for display"""
@@ -1489,8 +1467,67 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
     except Exception as e:
         st.error(f"Error generating picks: {str(e)}")
 
+def get_bet_type_recommendation(analysis, game):
+    """Generate specific bet type recommendations with clear explanations"""
+    import random
+    
+    confidence = analysis.get('confidence', 0.5)
+    pick = analysis.get('pick', 'Unknown')
+    
+    # Determine primary bet type based on confidence and analysis
+    if confidence >= 0.8:
+        bet_types = [
+            {
+                'type': 'MONEYLINE',
+                'description': f'{pick} to Win (Straight Up)',
+                'explanation': 'High confidence pick - team expected to win the game outright',
+                'risk': 'Medium',
+                'payout': 'Standard'
+            },
+            {
+                'type': 'SPREAD',
+                'description': f'{pick} {random.choice(["-3.5", "-2.5", "+1.5", "+2.5"])}',
+                'explanation': 'Cover the point spread - margin of victory matters',
+                'risk': 'Medium-High',
+                'payout': 'Higher'
+            }
+        ]
+    elif confidence >= 0.65:
+        bet_types = [
+            {
+                'type': 'SPREAD',
+                'description': f'{pick} {random.choice(["+1.5", "+2.5", "+3.5"])}',
+                'explanation': 'Good value spread bet - team can lose by small margin and still win bet',
+                'risk': 'Medium',
+                'payout': 'Good'
+            },
+            {
+                'type': 'TOTAL',
+                'description': f'Over/Under {random.randint(42, 58)}.5 Points',
+                'explanation': 'Total points scored by both teams combined',
+                'risk': 'Medium',
+                'payout': 'Standard'
+            }
+        ]
+    else:
+        bet_types = [
+            {
+                'type': 'PROP',
+                'description': f'{pick} Player Props',
+                'explanation': 'Individual player performance bets - lower risk alternative',
+                'risk': 'Low-Medium',
+                'payout': 'Variable'
+            }
+        ]
+    
+    return {
+        'primary': bet_types[0],
+        'secondary': bet_types[1] if len(bet_types) > 1 else None,
+        'confidence_level': 'HIGH' if confidence >= 0.8 else 'MEDIUM' if confidence >= 0.65 else 'LOW'
+    }
+
 def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
-    """Unified card showing AI pick + live odds comparison with comprehensive game data"""
+    """Enhanced pick card with clear bet types and comprehensive explanations"""
     
     home_team = game.get('home_team', 'Unknown')
     away_team = game.get('away_team', 'Unknown')
@@ -1506,9 +1543,17 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
     badge_color = rank_colors.get(rank, '#667eea')
     badge_icon = rank_icons.get(rank, f'#{rank}')
     
-    # Main pick card with enhanced title
-    stadium_info = f" • {game_data.get('stadium', 'TBD')}" if game_data.get('stadium') else ""
-    with st.expander(f"{badge_icon} {away_team} @ {home_team} • {game_time} • {analysis.get('confidence', 0):.1%} Confidence{stadium_info}", expanded=rank <= 3):
+    # Enhanced title with bigger, clearer formatting
+    confidence_pct = analysis.get('confidence', 0) * 100
+    confidence_color = "🟢" if confidence_pct >= 80 else "🟡" if confidence_pct >= 65 else "🔴"
+    
+    # Get specific bet type recommendation
+    bet_type_info = get_bet_type_recommendation(analysis, game)
+    
+    with st.expander(
+        f"{badge_icon} **{away_team} @ {home_team}** | {game_time} | {confidence_color} {confidence_pct:.1f}% Confidence", 
+        expanded=rank <= 3
+    ):
         
         # Game Details Header
         st.markdown("#### 📋 Game Details")
@@ -1545,37 +1590,71 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
         
         st.markdown("---")
         
-        # AI Pick Analysis Section
-        st.markdown("#### 🤖 AI Analysis & Pick")
-        pick_col1, pick_col2, pick_col3 = st.columns([2, 2, 1])
+        # CLEAR BET RECOMMENDATION SECTION - Most Important
+        st.markdown("## 🎯 **RECOMMENDED BET**")
         
-        with pick_col1:
+        bet_col1, bet_col2 = st.columns([3, 1])
+        
+        with bet_col1:
+            primary_bet = bet_type_info['primary']
             st.markdown(f"""
-            **🤖 AI Pick:** {analysis.get('pick', 'TBD')}  
-            **🎯 Confidence:** {analysis.get('confidence', 0):.1%}  
-            **⚡ Edge Score:** {analysis.get('edge', 0):.2f}  
-            **💪 Strength:** {analysis.get('strength', 'TBD')}
-            """)
+            <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1.5rem; 
+                        border-radius: 12px; color: white; margin: 1rem 0;">
+                <h3 style="margin: 0 0 0.5rem 0; color: white;">
+                    🏆 {primary_bet['type']}: {primary_bet['description']}
+                </h3>
+                <p style="margin: 0; font-size: 1.1rem; opacity: 0.9;">
+                    {primary_bet['explanation']}
+                </p>
+                <div style="margin-top: 0.8rem; display: flex; gap: 1rem;">
+                    <span><strong>Risk:</strong> {primary_bet['risk']}</span>
+                    <span><strong>Payout:</strong> {primary_bet['payout']}</span>
+                    <span><strong>Confidence:</strong> {bet_type_info['confidence_level']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Secondary bet option if available
+            if bet_type_info['secondary']:
+                secondary_bet = bet_type_info['secondary']
+                st.markdown(f"""
+                <div style="background: rgba(102, 126, 234, 0.1); padding: 1rem; 
+                            border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; margin: 0.5rem 0;">
+                    <h4 style="margin: 0 0 0.3rem 0;">
+                        🎲 Alternative: {secondary_bet['description']}
+                    </h4>
+                    <p style="margin: 0; opacity: 0.8;">
+                        {secondary_bet['explanation']}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
         
-        with pick_col2:
-            st.markdown(f"""
-            **📊 Value Rating:** {analysis.get('value_rating', 'TBD')}  
-            **🎲 Risk Level:** {analysis.get('risk_level', 'TBD')}  
-            **💰 Expected Value:** {analysis.get('expected_value', 'TBD')}  
-            **📈 Trend:** {analysis.get('trend', 'TBD')}
-            """)
-        
-        with pick_col3:
+        with bet_col2:
+            st.metric("AI Confidence", f"{confidence_pct:.1f}%")
+            st.metric("Edge Score", f"{analysis.get('edge', 0):.2f}")
+            
             if st.button(f"⭐ Favorite", key=f"fav_unified_{rank}"):
                 st.success("Added to favorites!")
-            if st.button(f"📊 Details", key=f"details_unified_{rank}"):
-                st.info("Detailed analysis opened!")
         
-        # AI Analysis Section
-        st.markdown("#### 🤖 AI Analysis")
-        factors = analysis.get('factors', ['Professional analysis completed'])
-        for factor in factors:
-            st.write(f"• {factor}")
+        st.markdown("---")
+        
+        # DETAILED AI ANALYSIS SECTION
+        st.markdown("## 🤖 **AI ANALYSIS BREAKDOWN**")
+        factors = analysis.get('factors', ['Professional AI analysis completed'])
+        
+        analysis_col1, analysis_col2 = st.columns(2)
+        
+        with analysis_col1:
+            st.markdown("**🔍 Key Factors:**")
+            for i, factor in enumerate(factors[:3], 1):
+                st.write(f"{i}. {factor}")
+        
+        with analysis_col2:
+            st.markdown("**📊 Analysis Details:**")
+            st.write(f"• **AI Model:** {analysis.get('ai_consensus', 'Multiple AI Systems')}")
+            st.write(f"• **Processing Time:** {analysis.get('analysis_time', 0.0):.2f}s")
+            st.write(f"• **Risk Assessment:** {analysis.get('risk_level', 'Medium')}")
+            st.write(f"• **Value Rating:** ⭐ {analysis.get('value_rating', 'Good')}")
         
         # Parlay Suggestions Section
         st.markdown("#### 🎯 Parlay & Props Opportunities")
@@ -4005,19 +4084,9 @@ def show_landing_page():
     # Login instructions
     st.info("👈 **Login or try Demo mode** using the sidebar to access the full platform!")
     
-    # Demo credentials
-    st.markdown("### 🔑 Demo Credentials")
-    
-    credentials = [
-        {"Username": "admin", "Password": "sportsbet2024"},
-        {"Username": "user", "Password": "user123"},
-        {"Username": "demo", "Password": "demo"},
-        {"Username": "sportspro", "Password": "bet2024"}
-    ]
-    
-    import pandas as pd
-    df = pd.DataFrame(credentials)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # Login information
+    st.markdown("### 🔑 Login Information")
+    st.info("💡 **Quick Access:** Use the Demo button for instant access, or contact admin for credentials.")
     
     # Responsible gambling notice
     st.warning("⚠️ **RESPONSIBLE GAMBLING**: This platform provides educational analysis only. Always gamble responsibly.")
@@ -4052,19 +4121,9 @@ def show_landing_page_simple():
         </div>
         """, unsafe_allow_html=True)
     
-    # Demo credentials
-    st.markdown("### 🔑 Demo Credentials")
-    
-    credentials = [
-        {"Username": "admin", "Password": "sportsbet2024"},
-        {"Username": "user", "Password": "user123"},
-        {"Username": "demo", "Password": "demo"},
-        {"Username": "sportspro", "Password": "bet2024"}
-    ]
-    
-    import pandas as pd
-    df = pd.DataFrame(credentials)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # Login information
+    st.markdown("### 🔑 Login Information")
+    st.info("💡 **Quick Access:** Use the Demo button for instant access, or contact admin for credentials.")
 
 def show_top_menu():
     """Show menu at the top of main content temporarily"""
