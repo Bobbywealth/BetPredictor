@@ -246,7 +246,7 @@ def authenticate_user(username, password):
     """Simple authentication - replace with real auth system"""
     # Demo credentials
     valid_users = {
-        "admin": "password123",
+        "admin": "sportsbet2024",  # Synced with admin panel
         "user": "user123",
         "demo": "demo",
         "sportspro": "bet2024"
@@ -3098,7 +3098,7 @@ def show_landing_page():
     st.markdown("### 🔑 Demo Credentials")
     
     credentials = [
-        {"Username": "admin", "Password": "password123"},
+        {"Username": "admin", "Password": "sportsbet2024"},
         {"Username": "user", "Password": "user123"},
         {"Username": "demo", "Password": "demo"},
         {"Username": "sportspro", "Password": "bet2024"}
@@ -3145,7 +3145,7 @@ def show_landing_page_simple():
     st.markdown("### 🔑 Demo Credentials")
     
     credentials = [
-        {"Username": "admin", "Password": "password123"},
+        {"Username": "admin", "Password": "sportsbet2024"},
         {"Username": "user", "Password": "user123"},
         {"Username": "demo", "Password": "demo"},
         {"Username": "sportspro", "Password": "bet2024"}
