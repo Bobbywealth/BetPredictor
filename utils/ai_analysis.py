@@ -10,7 +10,12 @@ import streamlit as st
 from openai import OpenAI
 
 # Gemini integration
-import google.generativeai as genai
+try:
+    import google.generativeai as genai  # type: ignore
+    GENAI_AVAILABLE = True
+except Exception:
+    genai = None  # type: ignore
+    GENAI_AVAILABLE = False
 from pydantic import BaseModel
 
 class GamePrediction(BaseModel):
@@ -36,12 +41,14 @@ class AIGameAnalyzer:
         
         # Initialize Gemini (only if API key available)
         self.gemini_client = None
-        if os.environ.get("GEMINI_API_KEY"):
+        if os.environ.get("GEMINI_API_KEY") and GENAI_AVAILABLE:
             try:
                 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
                 self.gemini_client = True
             except Exception as e:
                 st.warning(f"Gemini initialization failed: {e}")
+        elif os.environ.get("GEMINI_API_KEY") and not GENAI_AVAILABLE:
+            st.info("Gemini SDK not available in this environment; continuing with OpenAI only.")
         
     def analyze_game_with_openai(self, game_data: Dict) -> Dict:
         """Analyze game using OpenAI GPT-4o"""
@@ -131,6 +138,8 @@ class AIGameAnalyzer:
             }}
             """
             
+            if not GENAI_AVAILABLE:
+                return {"error": "Gemini SDK not available"}
             model = genai.GenerativeModel(model_name="gemini-2.5-pro", system_instruction="You are an expert sports analyst specializing in game predictions and team analysis.")
             response = model.generate_content(prompt)
             
@@ -236,6 +245,8 @@ class AIGameAnalyzer:
             }}
             """
             
+            if not GENAI_AVAILABLE:
+                return {"error": "Gemini SDK not available"}
             model = genai.GenerativeModel(model_name="gemini-2.5-flash")
             response = model.generate_content(prompt)
             

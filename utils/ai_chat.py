@@ -1,7 +1,12 @@
 import streamlit as st
 import openai
 import os
-import google.generativeai as genai
+try:
+    import google.generativeai as genai  # type: ignore
+    GENAI_AVAILABLE = True
+except Exception:
+    genai = None  # type: ignore
+    GENAI_AVAILABLE = False
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
@@ -42,12 +47,14 @@ class DualAIChat:
     @property  
     def genai_client(self):
         """Lazy load Gemini client"""
-        if self._genai_client is None:
+        if self._genai_client is None and GENAI_AVAILABLE:
             api_key = os.environ.get("GEMINI_API_KEY")
             if api_key:
-                # Configure the google-generativeai SDK once
-                genai.configure(api_key=api_key)
-                self._genai_client = True
+                try:
+                    genai.configure(api_key=api_key)
+                    self._genai_client = True
+                except Exception:
+                    self._genai_client = None
         return self._genai_client
 
     def get_chat_response(self, user_message: str, ai_provider: str = "both") -> Dict[str, Any]:
@@ -152,9 +159,11 @@ USER QUESTION: {message}
 Provide expert-level analysis with specific recommendations, statistical backing, risk assessment, and always include responsible gambling warnings. Respond as a professional handicapper who has consistently beaten the market long-term.
 """
 
+            if not GENAI_AVAILABLE:
+                return "Gemini not available"
             model = genai.GenerativeModel(model_name="gemini-2.5-flash")
             response = model.generate_content(prompt)
-            return response.text if response.text else "No response generated"
+            return response.text if getattr(response, 'text', None) else "No response generated"
 
         except Exception as e:
             return f"Gemini error: {str(e)}"

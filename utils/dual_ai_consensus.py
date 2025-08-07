@@ -37,7 +37,10 @@ class DualAIConsensusEngine:
             openai_analysis = self.ai_analyzer.analyze_game_with_openai(game_data)
         
         with st.spinner("Getting Gemini analysis..."):
-            gemini_analysis = self.ai_analyzer.analyze_game_with_gemini(game_data)
+            try:
+                gemini_analysis = self.ai_analyzer.analyze_game_with_gemini(game_data)
+            except Exception:
+                gemini_analysis = {"error": "Gemini unavailable"}
         
         # Generate consensus analysis
         consensus_result = self._generate_consensus(
