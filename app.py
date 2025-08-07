@@ -3022,6 +3022,11 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 return
             
             # Process each game with enhanced progress tracking
+            # Use Dual AI Consensus Engine (OpenAI + Gemini)
+            from utils.dual_ai_consensus import DualAIConsensusEngine
+            if 'dual_ai_engine' not in st.session_state:
+                st.session_state.dual_ai_engine = DualAIConsensusEngine()
+            dual_engine = st.session_state.dual_ai_engine
             for i, game in enumerate(games):
                 progress = (i + 1) / len(games)
                 progress_bar.progress(progress)
@@ -3029,15 +3034,24 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 game_name = f"{game.get('away_team', 'Team A')} @ {game.get('home_team', 'Team B')}"
                 status_text.info(f"🔍 Analyzing {game_name} ({i+1}/{len(games)})")
                 
-                # Get AI analysis with detailed status - ONLY from real APIs
-                # Update status manually to avoid caching issues
-                status_text.info("🤖 Processing with advanced AI models...")
-                analysis = get_ai_analysis(game)
-                
-                # Only include games where AI analysis succeeded
-                if analysis and analysis.get('confidence', 0.0) >= min_confidence:
-                    game['ai_analysis'] = analysis
-                    analyzed_games.append(game)
+                # Get consensus analysis from both AIs (OpenAI + Gemini)
+                status_text.info("🤖 Processing with ChatGPT + Gemini (consensus)...")
+                consensus = dual_engine.analyze_game_dual_ai(game)
+
+                # Normalize for downstream logic (keep full consensus too)
+                if consensus and 'error' not in consensus:
+                    normalized = {
+                        'pick': consensus.get('consensus_pick', 'NO_PICK'),
+                        'confidence': consensus.get('consensus_confidence', 0.0),
+                        'edge': consensus.get('success_metrics', {}).get('edge_score', 0.0),
+                        'reasoning': consensus.get('pick_reasoning', []),
+                        'provider': 'DualAIConsensus'
+                    }
+                    game['ai_analysis'] = normalized
+                    game['full_consensus'] = consensus
+
+                    if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
+                        analyzed_games.append(game)
             
             # Clear loading elements
             loading_container.empty()
