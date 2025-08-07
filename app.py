@@ -2255,18 +2255,46 @@ def show_mobile_sidebar_hamburger():
         unsafe_allow_html=True,
     )
 
+def show_mobile_top_nav():
+    """Show a mobile-only top navigation bar as a fallback when sidebar is hidden."""
+    st.markdown(
+        """
+        <style>
+        .spizo-topnav { display: none; }
+        @media (max-width: 900px) {
+            .spizo-topnav { display: flex; gap: 8px; position: sticky; top: 0; z-index: 9999; background: var(--bg-primary); padding: 8px; border-bottom: 1px solid var(--border-color); }
+        }
+        </style>
+        <div class="spizo-topnav"></div>
+        """,
+        unsafe_allow_html=True,
+    )
+    nav_cols = st.columns(5)
+    items = [("dashboard", "🏠"), ("picks", "🏆"), ("scores", "📺"), ("analysis", "📈"), ("settings", "⚙️")]
+    for (col, (key, icon)) in zip(nav_cols, items):
+        with col:
+            if st.button(icon, key=f"topnav_{key}"):
+                st.session_state.current_page = key
+                st.rerun()
+
 def ensure_sidebar_visible():
     """Force the Streamlit sidebar to be visible on render (safety net)."""
     st.markdown(
         """
         <script>
         (function(){
-          setTimeout(function(){
+          function expandOnce(){
             try {
               const sb = parent.document.querySelector('[data-testid="stSidebar"]');
-              if (sb) { sb.style.display = 'block'; sb.style.visibility = 'visible'; }
+              if (!sb) return;
+              sb.style.display = 'block'; sb.style.visibility = 'visible';
+              const isCollapsed = sb.getBoundingClientRect().width < 50;
+              const btn = parent.document.querySelector('[data-testid="stSidebarCollapseButton"]');
+              if (isCollapsed && btn) { btn.click(); }
             } catch(e) {}
-          }, 50);
+          }
+          setTimeout(expandOnce, 100);
+          setTimeout(expandOnce, 600);
         })();
         </script>
         """,
@@ -7400,6 +7428,8 @@ def main():
     show_mobile_sidebar_hamburger()
     # Safety: ensure sidebar is visible on load
     ensure_sidebar_visible()
+    # Mobile: top navigation as fallback if sidebar remains hidden
+    show_mobile_top_nav()
     
     # Add theme toggle to all pages
     show_theme_toggle()
