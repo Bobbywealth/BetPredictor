@@ -2254,6 +2254,24 @@ def show_mobile_sidebar_hamburger():
         """,
         unsafe_allow_html=True,
     )
+
+def ensure_sidebar_visible():
+    """Force the Streamlit sidebar to be visible on render (safety net)."""
+    st.markdown(
+        """
+        <script>
+        (function(){
+          setTimeout(function(){
+            try {
+              const sb = parent.document.querySelector('[data-testid="stSidebar"]');
+              if (sb) { sb.style.display = 'block'; sb.style.visibility = 'visible'; }
+            } catch(e) {}
+          }, 50);
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'username' not in st.session_state:
@@ -7380,6 +7398,8 @@ def main():
     show_professional_sidebar()
     # Mobile hamburger to toggle sidebar
     show_mobile_sidebar_hamburger()
+    # Safety: ensure sidebar is visible on load
+    ensure_sidebar_visible()
     
     # Add theme toggle to all pages
     show_theme_toggle()
