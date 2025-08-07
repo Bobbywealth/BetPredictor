@@ -1024,6 +1024,9 @@ def save_api_usage_to_db(provider, tokens_used, cost, success=True, error_messag
         
         result = supabase.table('api_usage').insert(usage_data).execute()
         return True
+    except Exception as e:
+        print(f"Failed to save API usage: {str(e)}")
+        return False
 
 def delete_old_track_records(days_to_keep: int = 3) -> bool:
     """Delete old daily picks from the predictions table older than N days.
@@ -1100,9 +1103,6 @@ def save_generated_picks_to_track_record(pick_date: date, games: list) -> int:
     st.success(f"💾 Saved {saved} picks to track record for {date_str}")
     st.session_state[session_flag] = True
     return saved
-    except Exception as e:
-        print(f"Failed to save API usage: {str(e)}")
-        return False
 
 def get_user_predictions(user_id, limit=100):
     """Get user's prediction history from database"""
