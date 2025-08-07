@@ -10,8 +10,7 @@ import streamlit as st
 from openai import OpenAI
 
 # Gemini integration
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from pydantic import BaseModel
 
 class GamePrediction(BaseModel):
@@ -39,7 +38,8 @@ class AIGameAnalyzer:
         self.gemini_client = None
         if os.environ.get("GEMINI_API_KEY"):
             try:
-                self.gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+                genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+                self.gemini_client = True
             except Exception as e:
                 st.warning(f"Gemini initialization failed: {e}")
         
@@ -131,17 +131,8 @@ class AIGameAnalyzer:
             }}
             """
             
-            response = self.gemini_client.models.generate_content(
-                model="gemini-2.5-pro",
-                contents=[
-                    types.Content(role="user", parts=[types.Part(text=prompt)])
-                ],
-                config=types.GenerateContentConfig(
-                    system_instruction="You are an expert sports analyst specializing in game predictions and team analysis.",
-                    response_mime_type="application/json",
-                    max_output_tokens=800
-                ),
-            )
+            model = genai.GenerativeModel(model_name="gemini-2.5-pro", system_instruction="You are an expert sports analyst specializing in game predictions and team analysis.")
+            response = model.generate_content(prompt)
             
             response_text = response.text if response.text else ""
             if response_text:
@@ -245,10 +236,8 @@ class AIGameAnalyzer:
             }}
             """
             
-            response = self.gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
+            model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+            response = model.generate_content(prompt)
             
             response_text = response.text if response.text else ""
             if response_text:

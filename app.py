@@ -6066,6 +6066,17 @@ def generate_smart_alerts(games, sensitivity, min_movement):
 
 # Removed get_ai_analysis_with_status to avoid caching conflicts
 # Status updates are now handled directly in calling functions
+#
+# Backward-compatible shim to prevent runtime errors from older calls that
+# might still pass a Streamlit placeholder/status object. This wrapper avoids
+# caching and ignores the UI arg so Streamlit doesn't try to hash it.
+def get_ai_analysis_with_status(_status_display=None, game=None, *args, **kwargs):
+    try:
+        if game is None and args:
+            game = args[0]
+        return get_ai_analysis(game) if game is not None else None
+    except Exception as e:
+        return None
 
 # Clear Streamlit cache to remove any cached versions of removed functions
 try:

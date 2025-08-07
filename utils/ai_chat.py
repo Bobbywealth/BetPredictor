@@ -1,8 +1,7 @@
 import streamlit as st
 import openai
 import os
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
@@ -46,7 +45,9 @@ class DualAIChat:
         if self._genai_client is None:
             api_key = os.environ.get("GEMINI_API_KEY")
             if api_key:
-                self._genai_client = genai.Client(api_key=api_key)
+                # Configure the google-generativeai SDK once
+                genai.configure(api_key=api_key)
+                self._genai_client = True
         return self._genai_client
 
     def get_chat_response(self, user_message: str, ai_provider: str = "both") -> Dict[str, Any]:
@@ -151,10 +152,8 @@ USER QUESTION: {message}
 Provide expert-level analysis with specific recommendations, statistical backing, risk assessment, and always include responsible gambling warnings. Respond as a professional handicapper who has consistently beaten the market long-term.
 """
 
-            response = self.genai_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
+            model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+            response = model.generate_content(prompt)
             return response.text if response.text else "No response generated"
 
         except Exception as e:
