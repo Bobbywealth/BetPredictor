@@ -4168,7 +4168,18 @@ def show_odds_api_status():
         # Test the API key
         test_result = test_odds_api(api_key)
         if test_result['success']:
-            st.success(f"✅ **Live Odds Active!** {test_result['remaining']} requests remaining today")
+            remaining = str(test_result.get('remaining', '0'))
+            st.success(f"✅ **Live Odds Active!** {remaining} requests remaining today")
+            # If quota is depleted, automatically switch to free-odds mode
+            try:
+                remaining_int = int(remaining)
+            except Exception:
+                remaining_int = 0 if remaining.lower() in ['unknown', 'none', ''] else 0
+            if remaining_int <= 0:
+                st.info("🆓 Live odds quota is 0. Switching to free sources for now.")
+                st.session_state['use_free_odds'] = True
+            else:
+                st.session_state['use_free_odds'] = False
             return True
         else:
             st.error(f"❌ **Odds API Error:** {test_result['error']}")
