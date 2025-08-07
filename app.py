@@ -2116,21 +2116,12 @@ def show_theme_toggle():
         if st.button(current_icon, key="theme_toggle", help="Toggle Dark/Light Mode"):
             st.session_state.dark_mode = not st.session_state.dark_mode
             
-            # Add JavaScript to toggle theme
-            if st.session_state.dark_mode:
-                st.markdown("""
-                <script>
-                document.documentElement.setAttribute('data-theme', 'dark');
-                localStorage.setItem('spizo-theme', 'dark');
-                </script>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <script>
-                document.documentElement.setAttribute('data-theme', 'light');  
-                localStorage.setItem('spizo-theme', 'light');
-                </script>
-                """, unsafe_allow_html=True)
+            # Trigger the inlined JS toggler for reliable theme switch
+            st.markdown("""
+            <script>
+            if (typeof toggleSpizoTheme === 'function') { toggleSpizoTheme(); }
+            </script>
+            """, unsafe_allow_html=True)
             
             st.rerun()
 if 'authenticated' not in st.session_state:
@@ -2355,7 +2346,7 @@ def show_professional_sidebar():
         navigation_items = [
             ("🏠", "Dashboard", "dashboard"),
             ("🧠", "AI Predictions", "picks"),
-            ("📊", "Live Analytics", "odds"),
+            ("📺", "Live Scores", "scores"),
             ("📈", "Trend Analysis", "analysis"),
             ("🤖", "AI Models", "ai_performance"),
             ("🏆", "Win Tracker", "portfolio"),
@@ -2742,22 +2733,23 @@ def show_winning_picks():
         )
     
     with col2:
-        # Sports selection
+        # Sports selection - default to ALL sports checked
+        sport_options = ['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'Tennis', 'NCAAF', 'NCAAB']
         sports = st.multiselect(
             "🏈 Sports",
-            options=['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'Tennis', 'NCAAF', 'NCAAB'],
-            default=['NFL'],
+            options=sport_options,
+            default=sport_options,
             help="Select which sports to analyze"
         )
     
     with col3:
-        # Number of picks
+        # Number of picks - cap at 10 by default
         max_picks = st.number_input(
             "📊 Max Picks", 
             min_value=1, 
-            max_value=20, 
-            value=8,
-            help="Maximum number of games to analyze"
+            max_value=10, 
+            value=10,
+            help="Maximum number of games to analyze (capped at 10)"
         )
     
     with col4:
@@ -3477,6 +3469,46 @@ def show_live_odds():
             st.success("Favorites saved!")
     
     st.markdown("---")
+
+def show_live_scores():
+    """Show live scores across selected sports using ESPN scoreboard endpoints"""
+    st.markdown("# 📺 Live Scores")
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        est = pytz.timezone('US/Eastern')
+        today_est = datetime.now(est).date()
+        target_date = st.date_input("Date", value=today_est)
+    with col2:
+        sports = st.multiselect(
+            "Sports",
+            options=['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'],
+            default=['NFL', 'MLB']
+        )
+
+    games = get_espn_games_for_date(target_date, sports)
+    if not games:
+        st.info("No games found for the selected filters.")
+        return
+
+    from collections import defaultdict
+    by_sport = defaultdict(list)
+    for g in games:
+        by_sport[str(g.get('sport', 'Unknown')).upper()].append(g)
+
+    for sport, items in by_sport.items():
+        st.markdown(f"### {sport}")
+        for g in items:
+            away = g.get('away_team', 'Away')
+            home = g.get('home_team', 'Home')
+            when = g.get('est_time', 'TBD')
+            status = g.get('status', 'Scheduled')
+            cols = st.columns([3, 1, 3, 2])
+            cols[0].markdown(f"**{away}**")
+            cols[1].markdown("@")
+            cols[2].markdown(f"**{home}**")
+            cols[3].markdown(f"{when} • {status}")
+
     
     # Load and filter odds data
     try:
@@ -7224,8 +7256,8 @@ def main():
         show_dashboard()
     elif page == 'picks':
         show_winning_picks()
-    elif page == 'odds':
-        show_live_odds()
+    elif page == 'scores':
+        show_live_scores()
     elif page == 'analysis':
         show_analysis()
     elif page == 'portfolio':
