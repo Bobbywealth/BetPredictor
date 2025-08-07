@@ -2168,8 +2168,8 @@ def show_todays_top_predictions():
 
 # Initialize session state
 if 'current_page' not in st.session_state:
-    # Single-page app: default to picks
-    st.session_state.current_page = 'picks'
+    # Restore full app navigation: default to dashboard
+    st.session_state.current_page = 'dashboard'
 
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
@@ -3112,7 +3112,22 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 
                 # Get consensus analysis from both AIs (OpenAI + Gemini)
                 status_text.info("🤖 Processing with ChatGPT + Gemini (consensus)...")
-                consensus = dual_engine.analyze_game_dual_ai(game)
+                try:
+                    consensus = dual_engine.analyze_game_dual_ai(game)
+                except Exception as e:
+                    # If Gemini path fails due to SDK missing, continue with OpenAI-only analysis
+                    consensus = {}
+                    try:
+                        openai_only = get_openai_analysis_fast(game.get('home_team',''), game.get('away_team',''), game.get('sport',''))
+                        if openai_only:
+                            consensus = {
+                                'consensus_pick': openai_only.get('predicted_winner',''),
+                                'consensus_confidence': openai_only.get('confidence',0.0),
+                                'success_metrics': {'edge_score': openai_only.get('edge_score',0.0)},
+                                'pick_reasoning': [openai_only.get('reasoning','OpenAI analysis')]
+                            }
+                    except Exception:
+                        pass
 
                 # Normalize for downstream logic (keep full consensus too)
                 if consensus and 'error' not in consensus:
@@ -7448,16 +7463,32 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Single-page app: minimize/remove sidebar nav to focus on Picks
-    # Keep hamburger in case user needs it on mobile
+    # Restore full sidebar with text + icons
+    show_professional_sidebar()
     show_mobile_sidebar_hamburger()
-    show_mobile_top_nav()
+    ensure_sidebar_visible()
     
     # Add theme toggle to all pages
     show_theme_toggle()
     
-    # Single-page app: always show Picks
-    show_winning_picks()
+    # Restore page routing
+    page = st.session_state.current_page
+    if page == 'dashboard':
+        show_dashboard()
+    elif page == 'picks':
+        show_winning_picks()
+    elif page == 'scores':
+        show_live_scores()
+    elif page == 'analysis':
+        show_analysis()
+    elif page == 'portfolio':
+        show_daily_betting_tracker()
+    elif page == 'admin':
+        show_admin_panel()
+    elif page == 'settings':
+        show_settings()
+    else:
+        show_dashboard()
 
 def get_openai_analysis_complete(home_team, away_team, sport):
     """Advanced multi-factor ChatGPT analysis with comprehensive data integration"""
