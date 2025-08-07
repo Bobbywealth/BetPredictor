@@ -1024,6 +1024,82 @@ def save_api_usage_to_db(provider, tokens_used, cost, success=True, error_messag
         
         result = supabase.table('api_usage').insert(usage_data).execute()
         return True
+
+def delete_old_track_records(days_to_keep: int = 3) -> bool:
+    """Delete old daily picks from the predictions table older than N days.
+
+    Returns True if operation attempted. No-op if Supabase is not configured.
+    """
+    supabase = init_supabase()
+    if not supabase:
+        return False
+
+    try:
+        cutoff_date = (datetime.now().date() - timedelta(days=days_to_keep)).isoformat()
+        supabase.table('predictions') \
+            .delete() \
+            .lt('game_date', cutoff_date) \
+            .eq('is_daily_bet', True) \
+            .execute()
+        return True
+    except Exception as e:
+        print(f"Cleanup failed: {e}")
+        return False
+
+def save_generated_picks_to_track_record(pick_date: date, games: list) -> int:
+    """Persist generated picks to track record (predictions table) as daily bets.
+
+    - Saves only if Supabase is configured; silently skips otherwise
+    - Avoids duplicate save in the same session via session flag
+    Returns the number of records saved.
+    """
+    if not games:
+        return 0
+
+    # Prevent duplicate saves per date in this session
+    date_str = pick_date.strftime('%Y-%m-%d')
+    session_flag = f"track_saved_{date_str}"
+    if st.session_state.get(session_flag):
+        return 0
+
+    supabase = init_supabase()
+    if not supabase:
+        st.info("ℹ️ Track record storage skipped (no database configured)")
+        st.session_state[session_flag] = True
+        return 0
+
+    # Run lightweight cleanup before saving
+    delete_old_track_records(3)
+
+    saved = 0
+    for rank, game in enumerate(games, 1):
+        analysis = game.get('ai_analysis', {})
+        bet_data = {
+            'bet_rank': rank,
+            'game_date': date_str,
+            'home_team': game.get('home_team', 'Unknown'),
+            'away_team': game.get('away_team', 'Unknown'),
+            'sport': game.get('sport', 'Unknown'),
+            'predicted_winner': analysis.get('pick') or analysis.get('predicted_winner', 'Unknown'),
+            'confidence': analysis.get('confidence', 0.0),
+            'ai_analysis': analysis,
+            'game_data': game,
+            'bet_amount': 100,
+            'is_daily_bet': True,  # use same flag so it appears in Win Tracker
+            'bet_status': 'pending',
+            'actual_winner': None,
+            'was_correct': None,
+            'created_at': datetime.now().isoformat()
+        }
+        try:
+            supabase.table('predictions').insert(bet_data).execute()
+            saved += 1
+        except Exception as e:
+            print(f"Failed to save pick: {e}")
+
+    st.success(f"💾 Saved {saved} picks to track record for {date_str}")
+    st.session_state[session_flag] = True
+    return saved
     except Exception as e:
         print(f"Failed to save API usage: {str(e)}")
         return False
@@ -2926,10 +3002,13 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 </script>
                 """, unsafe_allow_html=True)
             
-            # Save fresh predictions to cache for future use
+            # Save fresh predictions to cache and track record
             if analyzed_games:
                 date_str = pick_date.strftime('%Y-%m-%d')
                 save_predictions_to_cache(date_str, sports, analyzed_games)
+                # Persist top 3-6 high-probability picks to track record
+                top_picks = analyzed_games[:min(len(analyzed_games), max(3, min(6, max_picks)))]
+                save_generated_picks_to_track_record(pick_date, top_picks)
             
             # Sort games based on selection
             if sort_by == "Confidence":
@@ -6774,46 +6853,29 @@ def get_real_market_alerts():
         }
 
 def show_sidebar_toggle():
-    """Show sidebar toggle button in main area"""
-    
-    # Always show sidebar help at the top
-    st.markdown("""
-    <div style="background: linear-gradient(45deg, #667eea, #764ba2); color: white; padding: 0.5rem 1rem; border-radius: 10px; margin-bottom: 1rem; text-align: center;">
-        <strong>📋 SIDEBAR MENU:</strong> Look for the <strong>></strong> arrow at the very top-left corner to open the sidebar with login & navigation!
-    </div>
-    """, unsafe_allow_html=True)
-    
+    """Show a toggle button to hide/show the sidebar programmatically"""
+
     col1, col2, col3 = st.columns([1, 1, 8])
-    
+
     with col1:
-        if st.button("📋 Show Sidebar Help", help="Instructions to find sidebar", key="sidebar_toggle"):
-            st.balloons()
-            st.success("👈 Look for the **>** arrow button at the very top-left corner of your browser window!")
-    
+        if st.button("📁 Toggle Sidebar", key="toggle_sidebar_btn", help="Show/Hide the sidebar"):
+            st.markdown(
+                """
+                <script>
+                (function(){
+                  const sb = parent.document.querySelector('[data-testid="stSidebar"]');
+                  if (!sb) return;
+                  const current = sb.style.display || getComputedStyle(sb).display;
+                  sb.style.display = (current === 'none') ? 'block' : 'none';
+                })();
+                </script>
+                """,
+                unsafe_allow_html=True,
+            )
+
     with col2:
-        if st.button("🔄 Refresh Page", help="Refresh to reset sidebar", key="refresh_page"):
-            st.rerun()
-    
-    # JavaScript to try to show sidebar
-    st.markdown("""
-    <script>
-    // Try to ensure sidebar is visible
-    setTimeout(function() {
-        var sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
-        if (sidebar) {
-            sidebar.style.display = 'block';
-            sidebar.style.visibility = 'visible';
-        }
-        
-        // Also try other selectors
-        var sidebarElements = parent.document.querySelectorAll('.css-1d391kg, .css-1lcbmhc, section[data-testid="stSidebar"]');
-        sidebarElements.forEach(function(element) {
-            element.style.display = 'block';
-            element.style.visibility = 'visible';
-        });
-    }, 100);
-    </script>
-    """, unsafe_allow_html=True)
+        if st.button("📋 Sidebar Help", help="Where is the sidebar?"):
+            st.success("👈 Use the new Toggle Sidebar button or the small '>' handle at top-left")
 
 def show_landing_page():
     """Landing page for unauthenticated users"""
