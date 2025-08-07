@@ -2200,6 +2200,60 @@ def show_theme_toggle():
             """, unsafe_allow_html=True)
             
             st.rerun()
+
+def show_mobile_sidebar_hamburger():
+    """Render a floating hamburger button on mobile to toggle the sidebar."""
+    st.markdown(
+        """
+        <style>
+        .spizo-hamburger {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 10000;
+            display: none; /* shown only on mobile */
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 6px 18px var(--shadow-light);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .spizo-hamburger span {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: var(--text-primary);
+            margin: 3px 0;
+            border-radius: 2px;
+        }
+        @media (max-width: 900px) {
+            .spizo-hamburger { display: flex; }
+        }
+        </style>
+        <div class="spizo-hamburger" id="spizo-hamburger">
+            <span></span><span></span><span></span>
+        </div>
+        <script>
+        (function(){
+          const btn = document.getElementById('spizo-hamburger');
+          if (!btn) return;
+          btn.addEventListener('click', function(){
+            try {
+              const sb = parent.document.querySelector('[data-testid="stSidebar"]');
+              if (!sb) return;
+              const current = sb.style.display || getComputedStyle(sb).display;
+              sb.style.display = (current === 'none') ? 'block' : 'none';
+            } catch(e) {}
+          });
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'username' not in st.session_state:
@@ -7307,6 +7361,8 @@ def main():
     
     # Professional sidebar navigation
     show_professional_sidebar()
+    # Mobile hamburger to toggle sidebar
+    show_mobile_sidebar_hamburger()
     
     # Add theme toggle to all pages
     show_theme_toggle()
