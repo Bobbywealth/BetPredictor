@@ -17,7 +17,9 @@ try:
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    st.warning("⚠️ Supabase not installed. Database features disabled. Run: pip install supabase")
+    # Only warn if env vars are present (i.e., user intends to use the DB)
+    if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_ANON_KEY"):
+        st.warning("⚠️ Supabase not installed. Database features disabled. Run: pip install supabase")
 
 # Configure page - must be first Streamlit command
 st.set_page_config(
@@ -1905,6 +1907,31 @@ def show_odds_usage_dashboard():
         - Pre-generate predictions to reduce calls
         - Focus API calls on highest confidence bets
         """)
+# --- Secrets helper ---------------------------------------------------------
+def get_secret_or_env(*keys):
+    """Return the first available value from st.secrets or environment for provided keys.
+
+    Example: get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
+    """
+    try:
+        # Prefer Streamlit secrets if available
+        if hasattr(st, "secrets"):
+            for key in keys:
+                try:
+                    val = st.secrets.get(key)
+                    if val:
+                        return str(val)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    # Fallback to environment variables
+    for key in keys:
+        val = os.environ.get(key)
+        if val:
+            return val
+    return None
+
     
     with strategy_col2:
         # Calculate projected costs
@@ -4114,7 +4141,7 @@ def get_odds_api_key():
     import os
     
     # Try environment variable first
-    api_key = os.environ.get('ODDS_API_KEY')
+    api_key = get_secret_or_env('ODDS_API_KEY')
     if api_key:
         return api_key
     
@@ -4125,7 +4152,7 @@ def get_odds_api_key():
     # Try common environment variable names
     alt_names = ['THE_ODDS_API_KEY', 'ODDS_API_TOKEN', 'SPORTSBOOK_API_KEY']
     for name in alt_names:
-        key = os.environ.get(name)
+        key = get_secret_or_env(name)
         if key:
             return key
     
@@ -6094,8 +6121,9 @@ def get_ai_analysis(game):
     sport = game.get('sport', 'NFL')
     
     # Check for API keys - REQUIRED for analysis
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    google_key = os.environ.get("GOOGLE_API_KEY")
+    openai_key = get_secret_or_env("OPENAI_API_KEY")
+    # Support both legacy GOOGLE_API_KEY and GEMINI_API_KEY secret/env names
+    google_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
     
     if not openai_key and not google_key:
         # No API keys available - return None instead of fallback
@@ -6133,7 +6161,8 @@ def get_gemini_analysis_fast(home_team, away_team, sport):
     """Ultra-fast Gemini analysis optimized for speed"""
     try:
         import google.generativeai as genai
-        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+        api_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        genai.configure(api_key=api_key)
         
         # Use fastest model with minimal prompt
         model = genai.GenerativeModel('gemini-1.5-flash')
