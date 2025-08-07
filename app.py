@@ -2168,7 +2168,8 @@ def show_todays_top_predictions():
 
 # Initialize session state
 if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'dashboard'
+    # Single-page app: default to picks
+    st.session_state.current_page = 'picks'
 
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
@@ -7416,43 +7417,21 @@ def main():
     # Professional header
     st.markdown("""
     <div class="main-header">
-        <h1 style="color: white; margin: 0; font-size: 2.5rem;">🎯 Spizo</h1>
-        <p style="color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0; font-size: 1.2rem;">The World's #1 AI Sports Prediction Platform</p>
-        <p style="color: rgba(255,255,255,0.7); margin: 0.5rem 0 0 0;">Advanced AI Models • Real-time Analytics • Professional Predictions</p>
+        <h1 style="color: white; margin: 0; font-size: 2.5rem;">Spizo - AI-Powered Winning Picks &amp; Odds</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0; font-size: 1.2rem;">Daily consensus picks powered by ChatGPT + Gemini</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Professional sidebar navigation
-    show_professional_sidebar()
-    # Mobile hamburger to toggle sidebar
+    # Single-page app: minimize/remove sidebar nav to focus on Picks
+    # Keep hamburger in case user needs it on mobile
     show_mobile_sidebar_hamburger()
-    # Safety: ensure sidebar is visible on load
-    ensure_sidebar_visible()
-    # Mobile: top navigation as fallback if sidebar remains hidden
     show_mobile_top_nav()
     
     # Add theme toggle to all pages
     show_theme_toggle()
     
-    # Show current page content
-    page = st.session_state.current_page
-    
-    if page == 'dashboard':
-        show_dashboard()
-    elif page == 'picks':
-        show_winning_picks()
-    elif page == 'scores':
-        show_live_scores()
-    elif page == 'analysis':
-        show_analysis()
-    elif page == 'portfolio':
-        show_daily_betting_tracker()
-    elif page == 'admin':
-        show_admin_panel()
-    elif page == 'settings':
-        show_settings()
-    else:
-        show_dashboard()
+    # Single-page app: always show Picks
+    show_winning_picks()
 
 def get_openai_analysis_complete(home_team, away_team, sport):
     """Advanced multi-factor ChatGPT analysis with comprehensive data integration"""
