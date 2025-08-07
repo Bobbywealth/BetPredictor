@@ -2935,10 +2935,12 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
     try:
         # First check if we have cached predictions for this date/sports combo
         cached_games = use_cached_predictions_if_available(pick_date, sports)
+        total_games = 0
         
         if cached_games:
             # Use cached predictions - skip AI generation
             analyzed_games = cached_games
+            total_games = len(cached_games)
             
             # Filter by confidence level 
             analyzed_games = [g for g in analyzed_games if g.get('ai_analysis', {}).get('confidence', 0) >= min_confidence]
@@ -2955,6 +2957,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         else:
             # No cache - generate fresh predictions
             games = get_games_for_date(pick_date, sports)
+            total_games = len(games)
             
             if not games:
                 st.info(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}. Try selecting different sports or dates.")
@@ -3090,7 +3093,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             final_games = analyzed_games[:max_picks]
         
         if final_games:
-            st.success(f"🎯 Found {len(final_games)} high-confidence picks from {len(games)} total games")
+            st.success(f"🎯 Found {len(final_games)} high-confidence picks from {total_games} total games")
             
             # Summary stats
             col1, col2, col3, col4 = st.columns(4)
