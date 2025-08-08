@@ -1795,6 +1795,12 @@ def get_game_cache_key(game):
     """Generate unique cache key for a game"""
     home = game.get('home_team', 'home')
     away = game.get('away_team', 'away')
+    
+    # Handle team names that might be dicts
+    if isinstance(home, dict):
+        home = home.get('name', 'home')
+    if isinstance(away, dict):
+        away = away.get('name', 'away')
     date = game.get('commence_time', datetime.now().isoformat())[:10]
     return hashlib.md5(f"{home}_{away}_{date}".encode()).hexdigest()
 
@@ -2829,9 +2835,18 @@ def show_dashboard_picks():
             top_picks = []
             for game in real_games[:3]:
                 analysis = get_ai_analysis(game)
+                
+                # Handle team names that might be dicts
+                home_team = game.get('home_team', 'Home')
+                away_team = game.get('away_team', 'Away')
+                if isinstance(home_team, dict):
+                    home_team = home_team.get('name', 'Home')
+                if isinstance(away_team, dict):
+                    away_team = away_team.get('name', 'Away')
+                
                 top_picks.append({
-                    'away': game.get('away_team', 'Away'),
-                    'home': game.get('home_team', 'Home'),
+                    'away': away_team,
+                    'home': home_team,
                     'pick': analysis['pick'],
                     'confidence': analysis['confidence'],
                     'game_time': game.get('est_time', 'TBD')
@@ -5821,7 +5836,11 @@ def removed_generate_fallback_games():
 def get_comprehensive_game_data(game):
     """Get comprehensive data for a game including stadium, weather, and venue details"""
     
+    # Handle team names that might be dicts or strings
     home_team = game.get('home_team', '')
+    if isinstance(home_team, dict):
+        home_team = home_team.get('name', '')
+    
     sport = game.get('sport', 'NFL')
     commence_time = game.get('commence_time', '')
     
