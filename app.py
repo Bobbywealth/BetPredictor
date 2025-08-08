@@ -17,9 +17,7 @@ try:
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    # Only warn if env vars are present (i.e., user intends to use the DB)
-    if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_ANON_KEY"):
-        st.warning("⚠️ Supabase not installed. Database features disabled. Run: pip install supabase")
+    # Supabase not available - database features will be disabled silently
 
 # Configure page - must be first Streamlit command
 st.set_page_config(
