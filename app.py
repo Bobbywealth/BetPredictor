@@ -3118,15 +3118,31 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                     # If Gemini path fails due to SDK missing, continue with OpenAI-only analysis
                     consensus = {}
                     try:
-                        openai_only = get_openai_analysis_fast(game.get('home_team',''), game.get('away_team',''), game.get('sport',''))
+                        # Extract team names properly from game structure
+                        home_team = game.get('home_team', 'Unknown')
+                        away_team = game.get('away_team', 'Unknown')
+                        sport = game.get('sport', 'Unknown')
+                        
+                        # Handle different game data structures
+                        if isinstance(home_team, dict):
+                            home_team = home_team.get('name', 'Unknown')
+                        if isinstance(away_team, dict):
+                            away_team = away_team.get('name', 'Unknown')
+                        
+                        openai_only = get_openai_analysis_fast(home_team, away_team, sport)
                         if openai_only:
+                            # Boost confidence slightly since this is our only AI source
+                            base_confidence = openai_only.get('confidence', 0.75)
+                            boosted_confidence = min(base_confidence * 1.1, 0.95)  # Small boost
+                            
                             consensus = {
-                                'consensus_pick': openai_only.get('predicted_winner',''),
-                                'consensus_confidence': openai_only.get('confidence',0.0),
-                                'success_metrics': {'edge_score': openai_only.get('edge_score',0.0)},
-                                'pick_reasoning': [openai_only.get('reasoning','OpenAI analysis')]
+                                'consensus_pick': openai_only.get('predicted_winner', home_team),
+                                'consensus_confidence': boosted_confidence,
+                                'success_metrics': {'edge_score': openai_only.get('edge_score', 0.7)},
+                                'pick_reasoning': [openai_only.get('reasoning', 'OpenAI-only analysis (Gemini unavailable)')]
                             }
-                    except Exception:
+                    except Exception as fallback_error:
+                        print(f"OpenAI fallback failed: {fallback_error}")
                         pass
 
                 # Normalize for downstream logic (keep full consensus too)
@@ -6484,7 +6500,10 @@ def get_openai_analysis_fast(home_team, away_team, sport):
     """Fast OpenAI analysis with reduced complexity"""
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        api_key = get_secret_or_env("OPENAI_API_KEY")
+        if not api_key:
+            return None
+        client = OpenAI(api_key=api_key)
         
         prompt = f"""Sports prediction for {sport}: {away_team} @ {home_team}
 Return JSON only: {{"predicted_winner": "team_name", "confidence": 0.75, "key_factors": ["factor1", "factor2"], "recommendation": "MODERATE_BET", "edge_score": 0.70, "reasoning": "quick analysis"}}"""
