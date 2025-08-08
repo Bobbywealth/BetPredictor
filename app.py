@@ -1,3 +1,7 @@
+# DEPLOYMENT REFRESH: Force line number changes to clear cached errors
+# This comment ensures the deployment picks up the corrected code
+# All line numbers have been shifted to avoid cached indentation errors
+
 import streamlit as st
 import pandas as pd  
 import requests
