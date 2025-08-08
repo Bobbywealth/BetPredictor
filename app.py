@@ -2773,6 +2773,31 @@ def get_user_role(username):
     }
     return roles.get(username.lower(), 'Guest User')
 
+def get_real_dashboard_metrics():
+    """Get real dashboard metrics from database or fallback to defaults"""
+    try:
+        # Try to get real metrics from database
+        betting_stats = calculate_betting_stats(7)  # Last 7 days
+        
+        return {
+            'total_predictions': betting_stats.get('total_bets', 0),
+            'win_rate': betting_stats.get('win_rate', 0.0),
+            'net_profit': betting_stats.get('net_profit', 0),
+            'active_users': 1,  # For now, single user
+            'avg_confidence': betting_stats.get('avg_confidence', 0.0),
+            'high_confidence_wins': betting_stats.get('high_confidence_wins', 0)
+        }
+    except Exception as e:
+        # Fallback to default metrics if database fails
+        return {
+            'total_predictions': 0,
+            'win_rate': 0.0,
+            'net_profit': 0,
+            'active_users': 1,
+            'avg_confidence': 0.0,
+            'high_confidence_wins': 0
+        }
+
 def show_dashboard():
     """User dashboard with today's data and quick actions"""
     
