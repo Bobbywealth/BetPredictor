@@ -3197,8 +3197,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         # Force continue with the sample games
                         # The analysis will proceed below
                     else:
-                show_upcoming_dates()
-                return
+                        show_upcoming_dates()
+                        return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
@@ -3342,11 +3342,9 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 for future in concurrent.futures.as_completed(future_to_game, timeout=60):
                     completed += 1
                     progress = completed / min(len(games), max_picks)
-                progress_bar.progress(progress)
-                
+                    progress_bar.progress(progress)
                     try:
                         game, consensus = future.result()
-                        
                         # Process results
                         if consensus and 'error' not in consensus:
                             normalized = {
@@ -3358,10 +3356,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             }
                             game['ai_analysis'] = normalized
                             game['full_consensus'] = consensus
-
                             if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
-                    analyzed_games.append(game)
-                                
+                                analyzed_games.append(game)
                     except Exception as e:
                         if st.session_state.get('debug_mode', False):
                             st.write(f"❌ Analysis failed: {e}")
@@ -3911,44 +3907,37 @@ def show_dedicated_parlay_section(final_games):
                     parlay_count += 1
                     
                     with st.expander(f"🎲 **Parlay #{parlay_count}** - {combined_conf:.1%} Combined Confidence", expanded=parlay_count == 1):
-                        
                         parlay_col1, parlay_col2 = st.columns([2, 1])
-            
-            with parlay_col1:
+                        with parlay_col1:
                             st.markdown("**Parlay Legs:**")
-                            
                             # Game 1
                             home1 = game1.get('home_team', 'Unknown')
                             away1 = game1.get('away_team', 'Unknown')
-                            if isinstance(home1, dict): home1 = home1.get('name', 'Unknown')
-                            if isinstance(away1, dict): away1 = away1.get('name', 'Unknown')
-                            
+                            if isinstance(home1, dict):
+                                home1 = home1.get('name', 'Unknown')
+                            if isinstance(away1, dict):
+                                away1 = away1.get('name', 'Unknown')
                             pred1 = game1.get('ai_analysis', {}).get('predicted_winner', home1)
                             sport1 = game1.get('sport', 'Unknown')
-                            
                             st.markdown(f"**1.** {pred1} ({away1} @ {home1}) - {sport1}")
                             st.markdown(f"   *Confidence: {conf1:.1%}*")
-                            
                             # Game 2
                             home2 = game2.get('home_team', 'Unknown')
                             away2 = game2.get('away_team', 'Unknown')
-                            if isinstance(home2, dict): home2 = home2.get('name', 'Unknown')
-                            if isinstance(away2, dict): away2 = away2.get('name', 'Unknown')
-                            
+                            if isinstance(home2, dict):
+                                home2 = home2.get('name', 'Unknown')
+                            if isinstance(away2, dict):
+                                away2 = away2.get('name', 'Unknown')
                             pred2 = game2.get('ai_analysis', {}).get('predicted_winner', home2)
                             sport2 = game2.get('sport', 'Unknown')
-                            
                             st.markdown(f"**2.** {pred2} ({away2} @ {home2}) - {sport2}")
                             st.markdown(f"   *Confidence: {conf2:.1%}*")
-                        
                         with parlay_col2:
                             # Parlay metrics
                             st.metric("Combined Odds", f"{combined_conf:.1%}")
-                            
                             # Estimate payout (conservative)
                             payout_multiplier = (1/conf1) * (1/conf2) * 0.85  # 85% of true odds
                             st.metric("Est. Payout", f"{payout_multiplier:.1f}x")
-                            
                             # Risk assessment
                             if combined_conf >= 0.60:
                                 st.success("✅ Good Value")
@@ -3956,16 +3945,14 @@ def show_dedicated_parlay_section(final_games):
                                 st.warning("⚠️ Moderate Risk")
                             else:
                                 st.error("🔴 High Risk")
-                        
                         # Parlay strategy
                         st.markdown("**💡 Parlay Strategy:**")
                         if combined_conf >= 0.60:
                             st.markdown("• Consider 0.5-1 unit stake")
                             st.markdown("• Both picks have strong individual merit")
-                else:
+                        else:
                             st.markdown("• Use minimal stake (0.25-0.5 units)")
                             st.markdown("• Entertainment value rather than investment")
-                        
                         st.markdown("• **Remember:** Each leg must win for parlay to pay")
             
             if parlay_count >= max_parlays:
@@ -4004,17 +3991,13 @@ def show_dedicated_parlay_section(final_games):
                     
                     # 3-game metrics
                     col1, col2, col3 = st.columns(3)
-        
-        with col1:
+                    with col1:
                         st.metric("Combined Odds", f"{combined_3game:.1%}")
-        
-        with col2:
+                    with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-        
-        with col3:
+                    with col3:
                         st.metric("Risk Level", "🔴 Very High")
-                    
                     st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
             else:
                 st.info("💡 **No Quality 3-Game Parlays** - Combined confidence too low for recommendation.")
@@ -4802,12 +4785,11 @@ def get_espn_games_for_date(target_date, sports):
         
         try:
             response = requests.get(url, timeout=8)  # Reduced timeout
-                if response.status_code == 200:
-                    data = response.json()
-                    
+            if response.status_code == 200:
+                data = response.json()
                 if 'events' in data and len(data['events']) > 0:
-                        for event in data['events']:
-                            try:
+                    for event in data['events']:
+                        try:
                                 competitions = event.get('competitions', [])
                                 if competitions:
                                     competition = competitions[0]
@@ -4840,22 +4822,22 @@ def get_espn_games_for_date(target_date, sports):
                                                     pass
                                             
                                             game = {
-                                            'game_id': event.get('id', ''),
+                                                'game_id': event.get('id', ''),
                                                 'sport': sport,
-                                            'league': sport,
-                                            'home_team': {'name': home_team},
-                                            'away_team': {'name': away_team},
+                                                'league': sport,
+                                                'home_team': {'name': home_team},
+                                                'away_team': {'name': away_team},
                                                 'commence_time': game_time,
                                                 'est_time': est_time,
-                                            'date': target_date.strftime('%Y-%m-%d'),
-                                            'time': est_time,
+                                                'date': target_date.strftime('%Y-%m-%d'),
+                                                'time': est_time,
                                                 'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
                                                 'venue': competition.get('venue', {}).get('fullName', 'TBD'),
-                                            'bookmakers': []
+                                                'bookmakers': []
                                             }
-                                        sport_games.append(game)
+                                            sport_games.append(game)
                         except Exception:
-                                continue
+                            continue
         except Exception:
             pass
         
