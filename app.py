@@ -4886,16 +4886,17 @@ def get_espn_games_for_date(target_date, sports):
         future_to_sport = {executor.submit(fetch_sport_games, sport): sport for sport in sports}
         
         for future in concurrent.futures.as_completed(future_to_sport, timeout=10):
-            sport = future_to_sport[future]
             try:
+                sport = future_to_sport[future]
                 sport_games = future.result()
                 if sport_games:
                     games.extend(sport_games)
                     if st.session_state.get('debug_mode', False):
                         st.write(f"✅ Found {len(sport_games)} {sport} games")
             except Exception as e:
+                sport_name = future_to_sport.get(future, 'Unknown')
                 if st.session_state.get('debug_mode', False):
-                    st.write(f"❌ {sport} failed: {e}")
+                    st.write(f"❌ {sport_name} failed: {e}")
     
     fetch_time = time.time() - start_time
     if st.session_state.get('debug_mode', False):
