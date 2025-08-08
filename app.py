@@ -3640,6 +3640,8 @@ def show_enhanced_pick_card_v2(game, rank):
     # Extract team names safely
     home_team = game.get('home_team', 'Unknown')
     away_team = game.get('away_team', 'Unknown')
+    # Sport should be available function-wide before any column blocks use it
+    sport = game.get('sport', 'Unknown')
     
     if isinstance(home_team, dict):
         home_team = home_team.get('name', 'Unknown')
@@ -3854,7 +3856,6 @@ def show_enhanced_pick_card_v2(game, rank):
             st.metric("Risk Level", risk_level)
             
             # Game sport
-            sport = game.get('sport', 'Unknown')
             st.metric("Sport", sport)
     
     # Betting Strategy Section
