@@ -2956,16 +2956,16 @@ def show_winning_picks():
         # Confidence filter
         min_confidence = st.slider(
             "🎯 Min Confidence",
-            min_value=0.5,
+            min_value=0.4,  # Lowered minimum to 40%
             max_value=0.95,
-            value=0.55,  # Lowered from 0.65 to 0.55 to show more games
+            value=0.5,  # Set to 50% default
             step=0.05,
             help="Minimum AI confidence level"
         )
     
     # Advanced options in expander
     with st.expander("⚙️ Advanced Options"):
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             sort_by = st.selectbox(
@@ -2979,6 +2979,10 @@ def show_winning_picks():
         
         with col3:
             show_all_bookmakers = st.checkbox("📊 Show All Bookmakers", value=False)
+            
+        with col4:
+            debug_mode = st.checkbox("🔍 Debug Mode", value=False, help="Show detailed debugging info")
+            st.session_state.debug_mode = debug_mode
     
     # Action buttons
     col1, col2, col3 = st.columns([2, 2, 4])
@@ -3026,13 +3030,68 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             
         else:
             # No cache - generate fresh predictions
+            st.info(f"🔍 Searching for {'/'.join(sports)} games on {pick_date.strftime('%B %d, %Y')}...")
             games = get_games_for_date(pick_date, sports)
             total_games = len(games)
             
+            # Debug info
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Found {len(games)} games for {pick_date} in sports {sports}")
+                if games:
+                    st.write("Sample game:", games[0])
+            
             if not games:
-                st.info(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}. Try selecting different sports or dates.")
-                show_upcoming_dates()
-                return
+                st.warning(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}.")
+                
+                # Show helpful suggestions
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.info("**Try these options:**")
+                    st.write("• Select different sports")
+                    st.write("• Choose a different date")
+                    st.write("• Check if it's off-season")
+                
+                with col2:
+                    # Quick test with sample data
+                    if st.button("🧪 Test with Sample Games"):
+                        st.info("Generating test predictions with sample data...")
+                        # Create sample games for testing
+                        sample_games = [
+                            {
+                                'game_id': 'test_1',
+                                'home_team': 'Los Angeles Lakers',
+                                'away_team': 'Boston Celtics',
+                                'sport': 'NBA',
+                                'league': 'NBA',
+                                'date': pick_date.strftime('%Y-%m-%d'),
+                                'time': '8:00 PM ET',
+                                'est_time': '8:00 PM ET',
+                                'commence_time': datetime.now().isoformat(),
+                                'status': 'Scheduled',
+                                'venue': 'Crypto.com Arena',
+                                'bookmakers': []
+                            },
+                            {
+                                'game_id': 'test_2', 
+                                'home_team': 'Golden State Warriors',
+                                'away_team': 'Miami Heat',
+                                'sport': 'NBA',
+                                'league': 'NBA', 
+                                'date': pick_date.strftime('%Y-%m-%d'),
+                                'time': '10:30 PM ET',
+                                'est_time': '10:30 PM ET',
+                                'commence_time': datetime.now().isoformat(),
+                                'status': 'Scheduled',
+                                'venue': 'Chase Center',
+                                'bookmakers': []
+                            }
+                        ]
+                        games = sample_games
+                        total_games = len(games)
+                        st.success(f"✅ Created {len(games)} sample games for testing")
+                    else:
+                        show_upcoming_dates()
+                        return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
