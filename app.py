@@ -3178,33 +3178,28 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             # Safety: try Gemini SDK, but continue even if unavailable
             gem_ok = ensure_gemini_sdk()
 
-            # Process each game with enhanced progress tracking
-            # Use Dual AI Consensus Engine (OpenAI + Gemini)
+            # PARALLEL AI ANALYSIS - Process multiple games simultaneously
+            status_text.info("🤖 Running parallel AI analysis...")
+            
             from utils.dual_ai_consensus import DualAIConsensusEngine
+            import concurrent.futures
+            
             if 'dual_ai_engine' not in st.session_state:
                 st.session_state.dual_ai_engine = DualAIConsensusEngine()
             dual_engine = st.session_state.dual_ai_engine
-            for i, game in enumerate(games):
-                progress = (i + 1) / len(games)
-                progress_bar.progress(progress)
-                
-                game_name = f"{game.get('away_team', 'Team A')} @ {game.get('home_team', 'Team B')}"
-                status_text.info(f"🔍 Analyzing {game_name} ({i+1}/{len(games)})")
-                
-                # Get consensus analysis from both AIs (OpenAI + Gemini if available)
-                status_text.info("🤖 Processing with ChatGPT analysis" + (" + Gemini" if gem_ok else "") + "...")
+            
+            def analyze_single_game(game):
+                """Analyze a single game - for parallel execution"""
                 try:
                     consensus = dual_engine.analyze_game_dual_ai(game)
+                    return game, consensus
                 except Exception as e:
-                    # If Gemini path fails due to SDK missing, continue with OpenAI-only analysis
-                    consensus = {}
+                    # Fallback to OpenAI-only
                     try:
-                        # Extract team names properly from game structure
                         home_team = game.get('home_team', 'Unknown')
                         away_team = game.get('away_team', 'Unknown')
                         sport = game.get('sport', 'Unknown')
                         
-                        # Handle different game data structures
                         if isinstance(home_team, dict):
                             home_team = home_team.get('name', 'Unknown')
                         if isinstance(away_team, dict):
@@ -3212,34 +3207,52 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         
                         openai_only = get_openai_analysis_fast(home_team, away_team, sport)
                         if openai_only:
-                            # Boost confidence slightly since this is our only AI source
                             base_confidence = openai_only.get('confidence', 0.75)
-                            boosted_confidence = min(base_confidence * 1.1, 0.95)  # Small boost
+                            boosted_confidence = min(base_confidence * 1.1, 0.95)
                             
                             consensus = {
                                 'consensus_pick': openai_only.get('predicted_winner', home_team),
                                 'consensus_confidence': boosted_confidence,
                                 'success_metrics': {'edge_score': openai_only.get('edge_score', 0.7)},
-                                'pick_reasoning': [openai_only.get('reasoning', 'OpenAI-only analysis (Gemini unavailable)')]
+                                'pick_reasoning': [openai_only.get('reasoning', 'OpenAI-only analysis')]
                             }
-                    except Exception as fallback_error:
-                        print(f"OpenAI fallback failed: {fallback_error}")
+                            return game, consensus
+                    except Exception:
                         pass
+                    return game, None
+            
+            # Run AI analysis in parallel (max 3 concurrent to avoid API limits)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                future_to_game = {executor.submit(analyze_single_game, game): game for game in games[:max_picks]}
+                
+                completed = 0
+                for future in concurrent.futures.as_completed(future_to_game, timeout=60):
+                    completed += 1
+                    progress = completed / min(len(games), max_picks)
+                    progress_bar.progress(progress)
+                    
+                    try:
+                        game, consensus = future.result()
+                        
+                        # Process results
+                        if consensus and 'error' not in consensus:
+                            normalized = {
+                                'pick': consensus.get('consensus_pick', 'NO_PICK'),
+                                'confidence': consensus.get('consensus_confidence', 0.0),
+                                'edge': consensus.get('success_metrics', {}).get('edge_score', 0.0),
+                                'reasoning': consensus.get('pick_reasoning', []),
+                                'provider': 'DualAIConsensus'
+                            }
+                            game['ai_analysis'] = normalized
+                            game['full_consensus'] = consensus
 
-                # Normalize for downstream logic (keep full consensus too)
-                if consensus and 'error' not in consensus:
-                    normalized = {
-                        'pick': consensus.get('consensus_pick', 'NO_PICK'),
-                        'confidence': consensus.get('consensus_confidence', 0.0),
-                        'edge': consensus.get('success_metrics', {}).get('edge_score', 0.0),
-                        'reasoning': consensus.get('pick_reasoning', []),
-                        'provider': 'DualAIConsensus'
-                    }
-                    game['ai_analysis'] = normalized
-                    game['full_consensus'] = consensus
-
-                    if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
-                        analyzed_games.append(game)
+                            if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
+                                analyzed_games.append(game)
+                                
+                    except Exception as e:
+                        if st.session_state.get('debug_mode', False):
+                            st.write(f"❌ Analysis failed: {e}")
+                        continue
             
             # Clear loading elements
             loading_container.empty()
@@ -4319,12 +4332,16 @@ def show_settings():
 
 # Helper functions
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_espn_games_for_date(target_date, sports):
-    """Get real games from ESPN API for specific date and sports"""
+    """Get real games from ESPN API for specific date and sports - OPTIMIZED"""
     import requests
     from datetime import datetime, timedelta
+    import concurrent.futures
+    import time
     
     games = []
+    start_time = time.time()
     
     # ESPN API endpoints for different sports
     espn_endpoints = {
@@ -4337,106 +4354,95 @@ def get_espn_games_for_date(target_date, sports):
         'NCAAB': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard'
     }
     
-    # Try multiple date formats and approaches
-    date_attempts = [
-        target_date.strftime('%Y%m%d'),  # YYYYMMDD
-        target_date.strftime('%Y-%m-%d'), # YYYY-MM-DD
-        None  # Current/default games
-    ]
-    
-    for sport in sports:
-        if sport in espn_endpoints:
-            sport_games = []
-            
-            # Try different date formats and approaches
-            for date_attempt in date_attempts:
-                try:
-                    if date_attempt:
-                        url = f"{espn_endpoints[sport]}?dates={date_attempt}"
-                    else:
-                        # Get current/upcoming games without date filter
-                        url = espn_endpoints[sport]
-                    
-                    if st.session_state.get('debug_mode', False):
-                        st.write(f"🔍 Trying {sport} API: {url}")
-                    
-                    response = requests.get(url, timeout=15)
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        if st.session_state.get('debug_mode', False):
-                            st.write(f"✅ {sport} API response: {len(data.get('events', []))} events")
-                        
-                        # Parse ESPN response
-                        if 'events' in data and len(data['events']) > 0:
-                            for event in data['events']:
-                                try:
-                                    competitions = event.get('competitions', [])
-                                    if competitions:
-                                        competition = competitions[0]
-                                        competitors = competition.get('competitors', [])
+    def fetch_sport_games(sport):
+        """Fetch games for a single sport - for parallel execution"""
+        if sport not in espn_endpoints:
+            return []
+        
+        sport_games = []
+        # Only try current games first (fastest)
+        url = espn_endpoints[sport]
+        
+        try:
+            response = requests.get(url, timeout=8)  # Reduced timeout
+            if response.status_code == 200:
+                data = response.json()
+                
+                if 'events' in data and len(data['events']) > 0:
+                    for event in data['events']:
+                        try:
+                            competitions = event.get('competitions', [])
+                            if competitions:
+                                competition = competitions[0]
+                                competitors = competition.get('competitors', [])
+                                
+                                if len(competitors) >= 2:
+                                    # Find home and away teams
+                                    home_team = None
+                                    away_team = None
+                                    
+                                    for competitor in competitors:
+                                        if competitor.get('homeAway') == 'home':
+                                            home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                        elif competitor.get('homeAway') == 'away':
+                                            away_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                    
+                                    if home_team and away_team:
+                                        # Parse game time
+                                        game_time = event.get('date', '')
+                                        est_time = 'TBD'
                                         
-                                        if len(competitors) >= 2:
-                                            # Find home and away teams
-                                            home_team = None
-                                            away_team = None
-                                            
-                                            for competitor in competitors:
-                                                if competitor.get('homeAway') == 'home':
-                                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                                elif competitor.get('homeAway') == 'away':
-                                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                            
-                                            if home_team and away_team:
-                                                # Parse game time
-                                                game_time = event.get('date', '')
-                                                est_time = 'TBD'
-                                                
-                                                if game_time:
-                                                    try:
-                                                        dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                                        import pytz
-                                                        est = pytz.timezone('US/Eastern')
-                                                        dt_est = dt.astimezone(est)
-                                                        est_time = dt_est.strftime('%I:%M %p EST')
-                                                    except:
-                                                        pass
-                                                
-                                                game = {
-                                                    'game_id': event.get('id', ''),
-                                                    'sport': sport,
-                                                    'league': sport,
-                                                    'home_team': {'name': home_team},
-                                                    'away_team': {'name': away_team},
-                                                    'commence_time': game_time,
-                                                    'est_time': est_time,
-                                                    'date': target_date.strftime('%Y-%m-%d'),
-                                                    'time': est_time,
-                                                    'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                                    'venue': competition.get('venue', {}).get('fullName', 'TBD'),
-                                                    'bookmakers': []
-                                                }
-                                                sport_games.append(game)
-                                except Exception as e:
-                                    if st.session_state.get('debug_mode', False):
-                                        st.write(f"❌ Error parsing event: {e}")
-                                    continue
-                            
-                            # If we found games for this sport, add them and break
-                            if sport_games:
-                                games.extend(sport_games)
-                                if st.session_state.get('debug_mode', False):
-                                    st.write(f"✅ Found {len(sport_games)} {sport} games")
-                                break
-                        
-                    else:
-                        if st.session_state.get('debug_mode', False):
-                            st.write(f"❌ {sport} API error: {response.status_code}")
-                            
-                except Exception as e:
+                                        if game_time:
+                                            try:
+                                                dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                                import pytz
+                                                est = pytz.timezone('US/Eastern')
+                                                dt_est = dt.astimezone(est)
+                                                est_time = dt_est.strftime('%I:%M %p EST')
+                                            except:
+                                                pass
+                                        
+                                        game = {
+                                            'game_id': event.get('id', ''),
+                                            'sport': sport,
+                                            'league': sport,
+                                            'home_team': {'name': home_team},
+                                            'away_team': {'name': away_team},
+                                            'commence_time': game_time,
+                                            'est_time': est_time,
+                                            'date': target_date.strftime('%Y-%m-%d'),
+                                            'time': est_time,
+                                            'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                            'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                            'bookmakers': []
+                                        }
+                                        sport_games.append(game)
+                        except Exception:
+                            continue
+        except Exception:
+            pass
+        
+        return sport_games
+    
+    # PARALLEL EXECUTION - Fetch all sports simultaneously
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(sports)) as executor:
+        future_to_sport = {executor.submit(fetch_sport_games, sport): sport for sport in sports}
+        
+        for future in concurrent.futures.as_completed(future_to_sport, timeout=10):
+            sport = future_to_sport[future]
+            try:
+                sport_games = future.result()
+                if sport_games:
+                    games.extend(sport_games)
                     if st.session_state.get('debug_mode', False):
-                        st.write(f"❌ Error fetching {sport} data: {e}")
-                    continue
+                        st.write(f"✅ Found {len(sport_games)} {sport} games")
+            except Exception as e:
+                if st.session_state.get('debug_mode', False):
+                    st.write(f"❌ {sport} failed: {e}")
+    
+    fetch_time = time.time() - start_time
+    if st.session_state.get('debug_mode', False):
+        st.write(f"⚡ Parallel fetch completed in {fetch_time:.2f} seconds")
                 
     return games
 
