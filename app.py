@@ -3034,11 +3034,14 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             games = get_games_for_date(pick_date, sports)
             total_games = len(games)
             
-            # Debug info
+            # Debug info - always show game count
+            st.info(f"🔍 Found {len(games)} games for {pick_date.strftime('%B %d, %Y')} in {'/'.join(sports)}")
             if st.session_state.get('debug_mode', False):
-                st.write(f"Debug: Found {len(games)} games for {pick_date} in sports {sports}")
+                st.write(f"Debug: Full search details - Date: {pick_date}, Sports: {sports}")
                 if games:
                     st.write("Sample game:", games[0])
+                else:
+                    st.write("No games returned from get_games_for_date()")
             
             if not games:
                 st.warning(f"No {'/'.join(sports)} games found for {pick_date.strftime('%B %d, %Y')}.")
@@ -3053,14 +3056,15 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 
                 with col2:
                     # Quick test with sample data
-                    if st.button("🧪 Test with Sample Games"):
-                        st.info("Generating test predictions with sample data...")
-                        # Create sample games for testing
+                    if st.button("🧪 Test with Sample Games", type="primary"):
+                        st.success("🎮 Testing AI Analysis with Sample Games...")
+                        
+                        # Create realistic sample games for testing
                         sample_games = [
                             {
-                                'game_id': 'test_1',
-                                'home_team': 'Los Angeles Lakers',
-                                'away_team': 'Boston Celtics',
+                                'game_id': 'test_lakers_celtics',
+                                'home_team': {'name': 'Los Angeles Lakers'},
+                                'away_team': {'name': 'Boston Celtics'},
                                 'sport': 'NBA',
                                 'league': 'NBA',
                                 'date': pick_date.strftime('%Y-%m-%d'),
@@ -3072,9 +3076,9 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 'bookmakers': []
                             },
                             {
-                                'game_id': 'test_2', 
-                                'home_team': 'Golden State Warriors',
-                                'away_team': 'Miami Heat',
+                                'game_id': 'test_warriors_heat',
+                                'home_team': {'name': 'Golden State Warriors'},
+                                'away_team': {'name': 'Miami Heat'},
                                 'sport': 'NBA',
                                 'league': 'NBA', 
                                 'date': pick_date.strftime('%Y-%m-%d'),
@@ -3084,11 +3088,29 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 'status': 'Scheduled',
                                 'venue': 'Chase Center',
                                 'bookmakers': []
+                            },
+                            {
+                                'game_id': 'test_cowboys_patriots',
+                                'home_team': {'name': 'Dallas Cowboys'},
+                                'away_team': {'name': 'New England Patriots'},
+                                'sport': 'NFL',
+                                'league': 'NFL', 
+                                'date': pick_date.strftime('%Y-%m-%d'),
+                                'time': '4:25 PM ET',
+                                'est_time': '4:25 PM ET',
+                                'commence_time': datetime.now().isoformat(),
+                                'status': 'Scheduled',
+                                'venue': 'AT&T Stadium',
+                                'bookmakers': []
                             }
                         ]
+                        
                         games = sample_games
                         total_games = len(games)
-                        st.success(f"✅ Created {len(games)} sample games for testing")
+                        st.info(f"🎯 Created {len(games)} sample games - proceeding with AI analysis...")
+                        
+                        # Force continue with the sample games
+                        # The analysis will proceed below
                     else:
                         show_upcoming_dates()
                         return
@@ -4298,9 +4320,9 @@ def show_settings():
 # Helper functions
 
 def get_espn_games_for_date(target_date, sports):
-    """Get real games from ESPN hidden API for specific date and sports"""
+    """Get real games from ESPN API for specific date and sports"""
     import requests
-    from datetime import datetime
+    from datetime import datetime, timedelta
     
     games = []
     
@@ -4315,78 +4337,138 @@ def get_espn_games_for_date(target_date, sports):
         'NCAAB': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard'
     }
     
+    # Try multiple date formats and approaches
+    date_attempts = [
+        target_date.strftime('%Y%m%d'),  # YYYYMMDD
+        target_date.strftime('%Y-%m-%d'), # YYYY-MM-DD
+        None  # Current/default games
+    ]
+    
     for sport in sports:
         if sport in espn_endpoints:
-            try:
-                # Format date for ESPN API
-                date_str = target_date.strftime('%Y%m%d')
-                url = f"{espn_endpoints[sport]}?dates={date_str}"
-                
-                response = requests.get(url, timeout=10)
-                if response.status_code == 200:
-                    data = response.json()
+            sport_games = []
+            
+            # Try different date formats and approaches
+            for date_attempt in date_attempts:
+                try:
+                    if date_attempt:
+                        url = f"{espn_endpoints[sport]}?dates={date_attempt}"
+                    else:
+                        # Get current/upcoming games without date filter
+                        url = espn_endpoints[sport]
                     
-                    # Parse ESPN response
-                    if 'events' in data:
-                        for event in data['events']:
-                            try:
-                                competitions = event.get('competitions', [])
-                                if competitions:
-                                    competition = competitions[0]
-                                    competitors = competition.get('competitors', [])
-                                    
-                                    if len(competitors) >= 2:
-                                        # Find home and away teams
-                                        home_team = None
-                                        away_team = None
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"🔍 Trying {sport} API: {url}")
+                    
+                    response = requests.get(url, timeout=15)
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        if st.session_state.get('debug_mode', False):
+                            st.write(f"✅ {sport} API response: {len(data.get('events', []))} events")
+                        
+                        # Parse ESPN response
+                        if 'events' in data and len(data['events']) > 0:
+                            for event in data['events']:
+                                try:
+                                    competitions = event.get('competitions', [])
+                                    if competitions:
+                                        competition = competitions[0]
+                                        competitors = competition.get('competitors', [])
                                         
-                                        for competitor in competitors:
-                                            if competitor.get('homeAway') == 'home':
-                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                            elif competitor.get('homeAway') == 'away':
-                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                        
-                                        if home_team and away_team:
-                                            # Parse game time
-                                            game_time = event.get('date', '')
-                                            est_time = 'TBD'
+                                        if len(competitors) >= 2:
+                                            # Find home and away teams
+                                            home_team = None
+                                            away_team = None
                                             
-                                            if game_time:
-                                                try:
-                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                                    import pytz
-                                                    est = pytz.timezone('US/Eastern')
-                                                    dt_est = dt.astimezone(est)
-                                                    est_time = dt_est.strftime('%I:%M %p EST')
-                                                except:
-                                                    pass
+                                            for competitor in competitors:
+                                                if competitor.get('homeAway') == 'home':
+                                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                                elif competitor.get('homeAway') == 'away':
+                                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
                                             
-                                            game = {
-                                                'id': event.get('id', ''),
-                                                'sport': sport,
-                                                'home_team': home_team,
-                                                'away_team': away_team,
-                                                'commence_time': game_time,
-                                                'est_time': est_time,
-                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
-                                                'bookmakers': []  # Will be populated by odds API
-                                            }
-                                            games.append(game)
-                            except Exception as e:
-                                print(f"Error parsing ESPN event: {e}")
-                                continue
-                                
-            except Exception as e:
-                print(f"Error fetching ESPN data for {sport}: {e}")
+                                            if home_team and away_team:
+                                                # Parse game time
+                                                game_time = event.get('date', '')
+                                                est_time = 'TBD'
+                                                
+                                                if game_time:
+                                                    try:
+                                                        dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                                        import pytz
+                                                        est = pytz.timezone('US/Eastern')
+                                                        dt_est = dt.astimezone(est)
+                                                        est_time = dt_est.strftime('%I:%M %p EST')
+                                                    except:
+                                                        pass
+                                                
+                                                game = {
+                                                    'game_id': event.get('id', ''),
+                                                    'sport': sport,
+                                                    'league': sport,
+                                                    'home_team': {'name': home_team},
+                                                    'away_team': {'name': away_team},
+                                                    'commence_time': game_time,
+                                                    'est_time': est_time,
+                                                    'date': target_date.strftime('%Y-%m-%d'),
+                                                    'time': est_time,
+                                                    'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                                    'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                                    'bookmakers': []
+                                                }
+                                                sport_games.append(game)
+                                except Exception as e:
+                                    if st.session_state.get('debug_mode', False):
+                                        st.write(f"❌ Error parsing event: {e}")
+                                    continue
+                            
+                            # If we found games for this sport, add them and break
+                            if sport_games:
+                                games.extend(sport_games)
+                                if st.session_state.get('debug_mode', False):
+                                    st.write(f"✅ Found {len(sport_games)} {sport} games")
+                                break
+                        
+                    else:
+                        if st.session_state.get('debug_mode', False):
+                            st.write(f"❌ {sport} API error: {response.status_code}")
+                            
+                except Exception as e:
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"❌ Error fetching {sport} data: {e}")
+                    continue
                 
     return games
 
 def get_games_for_date(target_date, sports=['NFL']):
     """Enhanced game discovery - ESPN API + Odds API integration"""
+    from datetime import datetime, timedelta
     
-    # First try to get real games from ESPN
+    # First try to get real games from ESPN for target date
     espn_games = get_espn_games_for_date(target_date, sports)
+    
+    # If no games found for target date, try nearby dates (for live/upcoming games)
+    if not espn_games:
+        if st.session_state.get('debug_mode', False):
+            st.write(f"🔍 No games found for {target_date}, trying nearby dates...")
+        
+        # Try yesterday, today, and tomorrow
+        today = datetime.now().date()
+        nearby_dates = [
+            today - timedelta(days=1),  # Yesterday 
+            today,                      # Today
+            today + timedelta(days=1),  # Tomorrow
+            today + timedelta(days=2),  # Day after tomorrow
+        ]
+        
+        for try_date in nearby_dates:
+            if try_date != target_date:  # Don't retry the same date
+                nearby_games = get_espn_games_for_date(try_date, sports)
+                if nearby_games:
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"✅ Found {len(nearby_games)} games on {try_date}")
+                    espn_games = nearby_games
+                    break
     
     if espn_games:
         # If we have ESPN games, try to add odds data
