@@ -3184,19 +3184,47 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             status_text.info("🤖 Running parallel AI analysis...")
             
             from utils.dual_ai_consensus import DualAIConsensusEngine
+            from utils.enhanced_ai_analyzer import EnhancedAIAnalyzer
             import concurrent.futures
             
+            # Initialize AI engines
             if 'dual_ai_engine' not in st.session_state:
                 st.session_state.dual_ai_engine = DualAIConsensusEngine()
+            if 'enhanced_ai_analyzer' not in st.session_state:
+                st.session_state.enhanced_ai_analyzer = EnhancedAIAnalyzer()
+            
             dual_engine = st.session_state.dual_ai_engine
+            enhanced_analyzer = st.session_state.enhanced_ai_analyzer
             
             def analyze_single_game(game):
-                """Analyze a single game - for parallel execution"""
+                """Analyze a single game with enhanced AI strategy"""
                 try:
+                    # Try enhanced analysis first (most sophisticated)
+                    enhanced_analysis = enhanced_analyzer.analyze_game_enhanced(game)
+                    
+                    if enhanced_analysis and 'error' not in enhanced_analysis:
+                        # Convert enhanced analysis to consensus format
+                        consensus = {
+                            'consensus_pick': enhanced_analysis.get('predicted_winner', ''),
+                            'consensus_confidence': enhanced_analysis.get('confidence', 0.0),
+                            'success_metrics': {
+                                'edge_score': enhanced_analysis.get('expected_value', 0.0),
+                                'risk_score': enhanced_analysis.get('risk_score', 0.5),
+                                'recommendation_tier': enhanced_analysis.get('recommendation_tier', 'NO_PLAY')
+                            },
+                            'pick_reasoning': enhanced_analysis.get('key_factors', ['Enhanced AI analysis']),
+                            'betting_recommendation': enhanced_analysis.get('betting_recommendation', {}),
+                            'kelly_criterion': enhanced_analysis.get('kelly_criterion', {}),
+                            'ai_source': 'Enhanced AI Strategy'
+                        }
+                        return game, consensus
+                    
+                    # Fallback to dual AI consensus
                     consensus = dual_engine.analyze_game_dual_ai(game)
                     return game, consensus
+                    
                 except Exception as e:
-                    # Fallback to OpenAI-only
+                    # Final fallback to simple OpenAI
                     try:
                         home_team = game.get('home_team', 'Unknown')
                         away_team = game.get('away_team', 'Unknown')
@@ -3216,7 +3244,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 'consensus_pick': openai_only.get('predicted_winner', home_team),
                                 'consensus_confidence': boosted_confidence,
                                 'success_metrics': {'edge_score': openai_only.get('edge_score', 0.7)},
-                                'pick_reasoning': [openai_only.get('reasoning', 'OpenAI-only analysis')]
+                                'pick_reasoning': [openai_only.get('reasoning', 'OpenAI fallback analysis')]
                             }
                             return game, consensus
                     except Exception:
@@ -3299,8 +3327,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
         if final_games:
             st.success(f"🎯 Found {len(final_games)} high-confidence picks from {total_games} total games")
             
-            # Summary stats
-            col1, col2, col3, col4 = st.columns(4)
+            # Enhanced Summary stats with AI strategy performance
+            col1, col2, col3, col4, col5 = st.columns(5)
             
             with col1:
                 avg_confidence = sum(g['ai_analysis'].get('confidence', 0.0) for g in final_games) / len(final_games)
@@ -3311,12 +3339,44 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 st.metric("Strong Picks", f"{strong_picks}/{len(final_games)}")
             
             with col3:
-                bookmaker_count = sum(len(g.get('bookmakers', [])) for g in final_games) // len(final_games) if final_games else 0
-                st.metric("Avg Bookmakers", bookmaker_count)
+                # Show AI strategy performance
+                premium_plays = sum(1 for g in final_games 
+                                  if g.get('full_consensus', {}).get('success_metrics', {}).get('recommendation_tier') == 'PREMIUM_PLAY')
+                st.metric("Premium Plays", premium_plays)
             
             with col4:
+                # Expected value metric
+                total_ev = sum(g.get('full_consensus', {}).get('success_metrics', {}).get('edge_score', 0) for g in final_games)
+                avg_ev = total_ev / len(final_games) if final_games else 0
+                st.metric("Avg Edge Score", f"{avg_ev:.2f}")
+            
+            with col5:
                 if st.button("📥 Export Picks"):
                     st.success("Picks exported!")
+            
+            # AI Strategy Performance Panel
+            with st.expander("🧠 AI Strategy Performance", expanded=False):
+                try:
+                    performance = enhanced_analyzer.get_strategy_performance()
+                    
+                    perf_col1, perf_col2, perf_col3, perf_col4 = st.columns(4)
+                    
+                    with perf_col1:
+                        st.metric("30-Day Accuracy", f"{performance['accuracy_last_30_days']:.1%}")
+                        
+                    with perf_col2:
+                        st.metric("30-Day ROI", f"{performance['roi_last_30_days']:.1f}%")
+                        
+                    with perf_col3:
+                        st.metric("High-Conf Accuracy", f"{performance['high_confidence_accuracy']:.1%}")
+                        
+                    with perf_col4:
+                        st.metric("Total Predictions", performance['total_predictions'])
+                    
+                    st.info(f"📊 **Strategy Recommendation:** {performance['recommendation']}")
+                    
+                except Exception as e:
+                    st.write("Strategy performance data loading...")
             
             st.markdown("---")
             
