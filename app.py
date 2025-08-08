@@ -2264,26 +2264,13 @@ def show_mobile_sidebar_hamburger():
 
 # --- Dependency helpers ------------------------------------------------------
 def ensure_gemini_sdk(min_version: str = "0.8.5") -> bool:
-    """Ensure google-generativeai is importable. Install at runtime if missing.
-
-    This is a safety net for hosted environments that didn't pick up
-    requirements.txt changes yet.
-    """
+    """Check if google-generativeai is available. No auto-install to avoid errors."""
     try:
         import google.generativeai  # type: ignore
         return True
     except Exception:
-        try:
-            import sys, subprocess
-            subprocess.check_call([sys.executable, "-m", "pip", "install", f"google-generativeai>={min_version}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            import google.generativeai  # retry
-            return True
-        except Exception as e:
-            try:
-                st.warning(f"Gemini SDK install failed: {e}")
-            except Exception:
-                pass
-            return False
+        # Silently return False - app works fine with OpenAI only
+        return False
 
 def show_mobile_top_nav():
     """Show a mobile-only top navigation bar as a fallback when sidebar is hidden."""
