@@ -19,7 +19,7 @@ except ImportError:
     SUPABASE_AVAILABLE = False
     # Only warn if env vars are present (i.e., user intends to use the DB)
     if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_ANON_KEY"):
-        st.warning("⚠️ Supabase not installed. Database features disabled. Run: pip install supabase")
+    st.warning("⚠️ Supabase not installed. Database features disabled. Run: pip install supabase")
 
 # Configure page - must be first Streamlit command
 st.set_page_config(
@@ -35,11 +35,19 @@ if 'cache_cleared' not in st.session_state:
         st.cache_data.clear()
         st.session_state.cache_cleared = True
         
-        # Clear any old parlay/props cached data
-        keys_to_clear = ['parlay_suggestions', 'props_data', 'game_props', 'parlay_combos']
+        # Clear any old parlay/props cached data aggressively
+        keys_to_clear = [
+            'parlay_suggestions', 'props_data', 'game_props', 'parlay_combos',
+            'analyzed_games', 'final_games', 'cached_predictions', 'ai_analysis',
+            'game_analysis', 'enhanced_analysis', 'consensus_data'
+        ]
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
+        
+        # Force clear all cached functions
+        st.cache_data.clear()
+        st.cache_resource.clear()
                 
     except:
         pass
@@ -2220,7 +2228,7 @@ def show_theme_toggle():
             new_theme = "dark" if st.session_state.dark_mode else "light"
             
             st.markdown(f"""
-            <script>
+                <script>
             // Method 1: Direct theme toggle
             function applyTheme() {{
                 const theme = '{new_theme}';
@@ -2249,8 +2257,8 @@ def show_theme_toggle():
             
             // Also apply after a short delay to ensure DOM is ready
             setTimeout(applyTheme, 100);
-            </script>
-            """, unsafe_allow_html=True)
+                </script>
+                """, unsafe_allow_html=True)
             
             st.rerun()
 
@@ -2290,7 +2298,7 @@ def show_mobile_sidebar_hamburger():
         <div class="spizo-hamburger" id="spizo-hamburger">
             <span></span><span></span><span></span>
         </div>
-        <script>
+                <script>
         (function(){
           const btn = document.getElementById('spizo-hamburger');
           if (!btn) return;
@@ -2303,7 +2311,7 @@ def show_mobile_sidebar_hamburger():
             } catch(e) {}
           });
         })();
-        </script>
+                </script>
         """,
         unsafe_allow_html=True,
     )
@@ -2338,7 +2346,7 @@ def show_mobile_top_nav():
         with col:
             if st.button(icon, key=f"topnav_{key}"):
                 st.session_state.current_page = key
-                st.rerun()
+            st.rerun()
 
 def ensure_sidebar_visible():
     """Force the Streamlit sidebar to be visible on render (safety net)."""
@@ -3046,6 +3054,31 @@ def show_winning_picks():
     
     st.markdown("---")
     
+    # Add cache clearing button
+    col_gen, col_clear = st.columns([3, 1])
+    
+    with col_clear:
+        if st.button("🧹 Clear Cache", help="Clear all cached data if you're seeing old content", use_container_width=True):
+            # Clear all caches aggressively
+            st.cache_data.clear()
+            try:
+                st.cache_resource.clear()
+            except:
+                pass
+            
+            # Clear all session state data
+            keys_to_clear = [
+                'parlay_suggestions', 'props_data', 'game_props', 'parlay_combos',
+                'analyzed_games', 'final_games', 'cached_predictions', 'ai_analysis',
+                'game_analysis', 'enhanced_analysis', 'consensus_data', 'cache_cleared'
+            ]
+            for key in list(st.session_state.keys()):
+                if any(clear_key in key.lower() for clear_key in ['parlay', 'props', 'cache', 'analysis']):
+                    del st.session_state[key]
+            
+            st.success("✅ All caches cleared!")
+            st.rerun()
+    
     # Generate picks only when button is clicked
     if generate_btn:
         with st.spinner("🤖 AI is analyzing games..."):
@@ -3162,8 +3195,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         # Force continue with the sample games
                         # The analysis will proceed below
                     else:
-                        show_upcoming_dates()
-                        return
+                show_upcoming_dates()
+                return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
@@ -3307,8 +3340,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 for future in concurrent.futures.as_completed(future_to_game, timeout=60):
                     completed += 1
                     progress = completed / min(len(games), max_picks)
-                    progress_bar.progress(progress)
-                    
+                progress_bar.progress(progress)
+                
                     try:
                         game, consensus = future.result()
                         
@@ -3325,7 +3358,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             game['full_consensus'] = consensus
 
                             if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
-                                analyzed_games.append(game)
+                    analyzed_games.append(game)
                                 
                     except Exception as e:
                         if st.session_state.get('debug_mode', False):
@@ -3825,9 +3858,9 @@ def show_enhanced_pick_card_v2(game, rank):
             st.markdown("• Market conditions evaluated")
     
     # Live odds section removed per user request
-    
-    st.markdown("---")
-
+        
+        st.markdown("---")
+        
 def show_dedicated_parlay_section(final_games):
     """Dedicated section for parlay combinations - separated from individual picks"""
     
@@ -3878,8 +3911,8 @@ def show_dedicated_parlay_section(final_games):
                     with st.expander(f"🎲 **Parlay #{parlay_count}** - {combined_conf:.1%} Combined Confidence", expanded=parlay_count == 1):
                         
                         parlay_col1, parlay_col2 = st.columns([2, 1])
-                        
-                        with parlay_col1:
+            
+            with parlay_col1:
                             st.markdown("**Parlay Legs:**")
                             
                             # Game 1
@@ -3927,7 +3960,7 @@ def show_dedicated_parlay_section(final_games):
                         if combined_conf >= 0.60:
                             st.markdown("• Consider 0.5-1 unit stake")
                             st.markdown("• Both picks have strong individual merit")
-                        else:
+                else:
                             st.markdown("• Use minimal stake (0.25-0.5 units)")
                             st.markdown("• Entertainment value rather than investment")
                         
@@ -3969,15 +4002,15 @@ def show_dedicated_parlay_section(final_games):
                     
                     # 3-game metrics
                     col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
+        
+        with col1:
                         st.metric("Combined Odds", f"{combined_3game:.1%}")
-                    
-                    with col2:
+        
+        with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-                    
-                    with col3:
+        
+        with col3:
                         st.metric("Risk Level", "🔴 Very High")
                     
                     st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
@@ -4767,60 +4800,60 @@ def get_espn_games_for_date(target_date, sports):
         
         try:
             response = requests.get(url, timeout=8)  # Reduced timeout
-            if response.status_code == 200:
-                data = response.json()
-                
+                if response.status_code == 200:
+                    data = response.json()
+                    
                 if 'events' in data and len(data['events']) > 0:
-                    for event in data['events']:
-                        try:
-                            competitions = event.get('competitions', [])
-                            if competitions:
-                                competition = competitions[0]
-                                competitors = competition.get('competitors', [])
-                                
-                                if len(competitors) >= 2:
-                                    # Find home and away teams
-                                    home_team = None
-                                    away_team = None
+                        for event in data['events']:
+                            try:
+                                competitions = event.get('competitions', [])
+                                if competitions:
+                                    competition = competitions[0]
+                                    competitors = competition.get('competitors', [])
                                     
-                                    for competitor in competitors:
-                                        if competitor.get('homeAway') == 'home':
-                                            home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                        elif competitor.get('homeAway') == 'away':
-                                            away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                    
-                                    if home_team and away_team:
-                                        # Parse game time
-                                        game_time = event.get('date', '')
-                                        est_time = 'TBD'
+                                    if len(competitors) >= 2:
+                                        # Find home and away teams
+                                        home_team = None
+                                        away_team = None
                                         
-                                        if game_time:
-                                            try:
-                                                dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                                import pytz
-                                                est = pytz.timezone('US/Eastern')
-                                                dt_est = dt.astimezone(est)
-                                                est_time = dt_est.strftime('%I:%M %p EST')
-                                            except:
-                                                pass
+                                        for competitor in competitors:
+                                            if competitor.get('homeAway') == 'home':
+                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                            elif competitor.get('homeAway') == 'away':
+                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
                                         
-                                        game = {
+                                        if home_team and away_team:
+                                            # Parse game time
+                                            game_time = event.get('date', '')
+                                            est_time = 'TBD'
+                                            
+                                            if game_time:
+                                                try:
+                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                                    import pytz
+                                                    est = pytz.timezone('US/Eastern')
+                                                    dt_est = dt.astimezone(est)
+                                                    est_time = dt_est.strftime('%I:%M %p EST')
+                                                except:
+                                                    pass
+                                            
+                                            game = {
                                             'game_id': event.get('id', ''),
-                                            'sport': sport,
+                                                'sport': sport,
                                             'league': sport,
                                             'home_team': {'name': home_team},
                                             'away_team': {'name': away_team},
-                                            'commence_time': game_time,
-                                            'est_time': est_time,
+                                                'commence_time': game_time,
+                                                'est_time': est_time,
                                             'date': target_date.strftime('%Y-%m-%d'),
                                             'time': est_time,
-                                            'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                            'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
                                             'bookmakers': []
-                                        }
+                                            }
                                         sport_games.append(game)
                         except Exception:
-                            continue
+                                continue
         except Exception:
             pass
         
@@ -7356,21 +7389,21 @@ def get_real_market_alerts():
 
 def show_sidebar_toggle():
     """Show a toggle button to hide/show the sidebar programmatically"""
-
+    
     col1, col2, col3 = st.columns([1, 1, 8])
-
+    
     with col1:
         if st.button("📁 Toggle Sidebar", key="toggle_sidebar_btn", help="Show/Hide the sidebar"):
             st.markdown(
                 """
-                <script>
+    <script>
                 (function(){
                   const sb = parent.document.querySelector('[data-testid="stSidebar"]');
                   if (!sb) return;
                   const current = sb.style.display || getComputedStyle(sb).display;
                   sb.style.display = (current === 'none') ? 'block' : 'none';
                 })();
-                </script>
+    </script>
                 """,
                 unsafe_allow_html=True,
             )
