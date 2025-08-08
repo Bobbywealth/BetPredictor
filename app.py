@@ -3285,7 +3285,11 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             elif sort_by == "Game Time":
                 analyzed_games.sort(key=lambda x: x.get('commence_time', ''))
             elif sort_by == "Alphabetical":
-                analyzed_games.sort(key=lambda x: f"{x.get('away_team', '')} vs {x.get('home_team', '')}")
+                def get_team_name(team):
+                    if isinstance(team, dict):
+                        return team.get('name', '')
+                    return str(team) if team else ''
+                analyzed_games.sort(key=lambda x: f"{get_team_name(x.get('away_team', ''))} vs {get_team_name(x.get('home_team', ''))}")
             
             # Limit results
             final_games = analyzed_games[:max_picks]
@@ -3392,8 +3396,16 @@ def get_bet_type_recommendation(analysis, game):
 def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
     """Enhanced pick card with clear bet types and comprehensive explanations"""
     
+    # Handle team names that might be dicts or strings
     home_team = game.get('home_team', 'Unknown')
     away_team = game.get('away_team', 'Unknown')
+    
+    # Extract team names if they're dictionaries
+    if isinstance(home_team, dict):
+        home_team = home_team.get('name', 'Unknown')
+    if isinstance(away_team, dict):
+        away_team = away_team.get('name', 'Unknown')
+        
     game_time = game.get('est_time', 'TBD')
     analysis = game.get('ai_analysis', {})
     
