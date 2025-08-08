@@ -6821,17 +6821,96 @@ def get_ai_analysis(game):
     return None
 
 def get_gemini_analysis_fast(home_team, away_team, sport):
-    """Ultra-fast Gemini analysis optimized for speed"""
+    """Ultra-fast Gemini analysis optimized for speed.
+    Returns dict with predicted_winner, confidence, key_factors, reasoning, edge_score.
+    """
     try:
+        import json
         import google.generativeai as genai
         api_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        if not api_key:
+            return None
+
         genai.configure(api_key=api_key)
-        
-        # Use fastest model with minimal prompt
         model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        prompt = f"""Quick sports prediction for {sport}: {away_team} @ {home_team}
-Return only JSON: {{"predicted_winner": "team_name", "confidence": 0.75, "key_factors": ["reason1", "reason2"], "recommendation": "MODERATE_BET", "edge_score": 0.70, "reasoning": "brief analysis"}}"""
+
+        prompt = (
+            f"Quick sports prediction for {sport}: {away_team} @ {home_team}\n"
+            "Return only JSON: {\"predicted_winner\": \"team_name\", \"confidence\": 0.75, \"key_factors\": [\"reason1\", \"reason2\"], \"edge_score\": 0.70, \"reasoning\": \"brief analysis\"}"
+        )
+
+        resp = model.generate_content(prompt)
+        content = getattr(resp, 'text', None)
+        if not content and getattr(resp, 'candidates', None):
+            try:
+                content = resp.candidates[0].content.parts[0].text
+            except Exception:
+                content = None
+        if not content:
+            return None
+
+        content = content.strip()
+        if content.startswith('```'):
+            content = content.strip('`')
+            lines = [ln for ln in content.splitlines() if not ln.strip().startswith('json')]
+            content = "\n".join(lines)
+
+        data = json.loads(content)
+        return {
+            'predicted_winner': data.get('predicted_winner') or home_team,
+            'confidence': float(data.get('confidence', 0.72)),
+            'key_factors': data.get('key_factors') or [data.get('reasoning', 'Gemini fast analysis')],
+            'reasoning': data.get('reasoning', 'Gemini fast analysis'),
+            'edge_score': float(data.get('edge_score', 0.1)),
+        }
+    except Exception:
+        return None
+def get_openai_analysis_fast(home_team, away_team, sport):
+    """Ultra-fast OpenAI analysis returning compact JSON."""
+    try:
+        import json
+        from openai import OpenAI
+        api_key = get_secret_or_env("OPENAI_API_KEY")
+        if not api_key:
+            return None
+
+        client = OpenAI(api_key=api_key)
+        prompt = (
+            f"Quick sports prediction for {sport}: {away_team} @ {home_team}.\n"
+            "Return only JSON with keys: predicted_winner (string), confidence (0-1), key_factors (list), edge_score (0-1), reasoning (string)."
+        )
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a concise sports prediction engine. Respond with valid JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=200,
+            temperature=0.2,
+        )
+
+        content = response.choices[0].message.content if response.choices else None
+        if not content:
+            return None
+
+        content = content.strip()
+        if content.startswith('```'):
+            content = content.strip('`')
+            lines = [ln for ln in content.splitlines() if not ln.strip().startswith('json')]
+            content = "\n".join(lines)
+
+        data = json.loads(content)
+        return {
+            'predicted_winner': data.get('predicted_winner') or home_team,
+            'confidence': float(data.get('confidence', 0.7)),
+            'key_factors': data.get('key_factors') or [data.get('reasoning', 'OpenAI fast analysis')],
+            'reasoning': data.get('reasoning', 'OpenAI fast analysis'),
+            'edge_score': float(data.get('edge_score', 0.1)),
+        }
+    except Exception:
+        return None
+
 def main():
     """Professional billion-dollar level sports betting application"""
     
