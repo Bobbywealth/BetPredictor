@@ -1128,6 +1128,13 @@ def save_generated_picks_to_track_record(pick_date: date, games: list) -> int:
 
     supabase = init_supabase()
     if not supabase:
+        # Show more detailed debug info
+        if st.session_state.get('debug_mode', False):
+            supabase_url = get_secret_or_env("SUPABASE_URL")
+            supabase_key = get_secret_or_env("SUPABASE_ANON_KEY")
+            st.write(f"Debug: SUPABASE_AVAILABLE = {SUPABASE_AVAILABLE}")
+            st.write(f"Debug: SUPABASE_URL configured = {bool(supabase_url)}")
+            st.write(f"Debug: SUPABASE_ANON_KEY configured = {bool(supabase_key)}")
         st.info("ℹ️ Track record storage skipped (no database configured)")
         st.session_state[session_flag] = True
         return 0
@@ -6916,15 +6923,29 @@ def main():
     
     # Initialize database on app startup
     if 'db_initialized' not in st.session_state:
-        st.session_state.db_initialized = create_database_tables()
-        if st.session_state.db_initialized:
-            st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
-            # Test user creation
-            user_id = get_or_create_user_id()
-            if user_id:
-                st.info(f"👤 User session active (ID: {user_id})")
+        # Test connection first
+        supabase_test = init_supabase()
+        if supabase_test:
+            st.session_state.db_initialized = create_database_tables()
+            if st.session_state.db_initialized:
+                st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
+                # Test user creation
+                user_id = get_or_create_user_id()
+                if user_id:
+                    st.info(f"👤 User session active (ID: {user_id})")
+            else:
+                st.error("❌ Database tables creation failed")
         elif SUPABASE_AVAILABLE:
-            st.warning("⚠️ Database connection failed. Check your SUPABASE_URL and SUPABASE_ANON_KEY in secrets.")
+            st.session_state.db_initialized = False
+            supabase_url = get_secret_or_env("SUPABASE_URL")
+            supabase_key = get_secret_or_env("SUPABASE_ANON_KEY")
+            if not supabase_url or not supabase_key:
+                st.warning("⚠️ Database not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to secrets.")
+            else:
+                st.error("⚠️ Database connection failed despite having credentials. Check Supabase project status.")
+        else:
+            st.session_state.db_initialized = False
+            st.info("ℹ️ Database features disabled (Supabase not installed)")
     
     # Custom CSS for professional styling with mobile responsiveness
     st.markdown("""
