@@ -4877,72 +4877,80 @@ def get_espn_games_for_date(target_date, sports):
     }
     
     def fetch_sport_games(sport):
-        """Fetch games for a single sport - for parallel execution"""
+        """Fetch games for a single sport - for parallel execution; honors target_date via ESPN 'dates' param."""
         if sport not in espn_endpoints:
             return []
-        
+
         sport_games = []
-        # Only try current games first (fastest)
-        url = espn_endpoints[sport]
-        
-        try:
-            response = requests.get(url, timeout=8)  # Reduced timeout
-            if response.status_code == 200:
+        base_url = espn_endpoints[sport]
+        # Try explicit date first, then fallback to base
+        date_ymd = target_date.strftime('%Y%m%d')
+        date_dash = target_date.strftime('%Y-%m-%d')
+        urls_to_try = [f"{base_url}?dates={date_ymd}", f"{base_url}?dates={date_dash}", base_url]
+
+        for url in urls_to_try:
+            try:
+                response = requests.get(url, timeout=8)
+                if response.status_code != 200:
+                    continue
                 data = response.json()
                 if 'events' in data and len(data['events']) > 0:
                     for event in data['events']:
                         try:
-                                competitions = event.get('competitions', [])
-                                if competitions:
-                                    competition = competitions[0]
-                                    competitors = competition.get('competitors', [])
-                                    
-                                    if len(competitors) >= 2:
-                                        # Find home and away teams
-                                        home_team = None
-                                        away_team = None
-                                        
-                                        for competitor in competitors:
-                                            if competitor.get('homeAway') == 'home':
-                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                            elif competitor.get('homeAway') == 'away':
-                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                        
-                                        if home_team and away_team:
-                                            # Parse game time
-                                            game_time = event.get('date', '')
-                                            est_time = 'TBD'
-                                            
-                                            if game_time:
-                                                try:
-                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                                    import pytz
-                                                    est = pytz.timezone('US/Eastern')
-                                                    dt_est = dt.astimezone(est)
-                                                    est_time = dt_est.strftime('%I:%M %p EST')
-                                                except:
-                                                    pass
-                                            
-                                            game = {
-                                                'game_id': event.get('id', ''),
-                                                'sport': sport,
-                                                'league': sport,
-                                                'home_team': {'name': home_team},
-                                                'away_team': {'name': away_team},
-                                                'commence_time': game_time,
-                                                'est_time': est_time,
-                                                'date': target_date.strftime('%Y-%m-%d'),
-                                                'time': est_time,
-                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
-                                                'bookmakers': []
-                                            }
-                                            sport_games.append(game)
+                            competitions = event.get('competitions', [])
+                            if not competitions:
+                                continue
+                            competition = competitions[0]
+                            competitors = competition.get('competitors', [])
+
+                            if len(competitors) < 2:
+                                continue
+
+                            home_team = None
+                            away_team = None
+                            for competitor in competitors:
+                                if competitor.get('homeAway') == 'home':
+                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                elif competitor.get('homeAway') == 'away':
+                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
+
+                            if not (home_team and away_team):
+                                continue
+
+                            game_time = event.get('date', '')
+                            est_time = 'TBD'
+                            if game_time:
+                                try:
+                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                    import pytz
+                                    est = pytz.timezone('US/Eastern')
+                                    dt_est = dt.astimezone(est)
+                                    est_time = dt_est.strftime('%I:%M %p EST')
+                                except:
+                                    pass
+
+                            game = {
+                                'game_id': event.get('id', ''),
+                                'sport': sport,
+                                'league': sport,
+                                'home_team': {'name': home_team},
+                                'away_team': {'name': away_team},
+                                'commence_time': game_time,
+                                'est_time': est_time,
+                                'date': target_date.strftime('%Y-%m-%d'),
+                                'time': est_time,
+                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                'bookmakers': []
+                            }
+                            sport_games.append(game)
                         except Exception:
                             continue
-        except Exception:
-            pass
-        
+                if sport_games:
+                    break
+            except Exception:
+                continue
+
         return sport_games
     
     # PARALLEL EXECUTION - Fetch all sports simultaneously
