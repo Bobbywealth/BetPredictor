@@ -914,8 +914,8 @@ def init_supabase():
     if not SUPABASE_AVAILABLE:
         return None
     
-    supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+    supabase_url = get_secret_or_env("SUPABASE_URL")
+    supabase_key = get_secret_or_env("SUPABASE_ANON_KEY")
     
     if not supabase_url or not supabase_key:
         return None
@@ -926,6 +926,36 @@ def init_supabase():
     except Exception as e:
         st.error(f"Database connection failed: {str(e)}")
         return None
+
+def get_or_create_user_id():
+    """Get or create user ID for database operations"""
+    supabase = init_supabase()
+    if not supabase:
+        return 1  # Default user ID if no database
+    
+    username = st.session_state.get('username', 'demo_user')
+    
+    try:
+        # Try to find existing user
+        result = supabase.table('users').select('id').eq('username', username).execute()
+        
+        if result.data:
+            return result.data[0]['id']
+        else:
+            # Create new user
+            user_data = {
+                'username': username,
+                'email': f"{username}@demo.com",
+                'password_hash': 'demo_hash',  # In real app, this would be properly hashed
+                'is_admin': username == 'admin',
+                'total_predictions': 0,
+                'correct_predictions': 0
+            }
+            result = supabase.table('users').insert(user_data).execute()
+            return result.data[0]['id']
+    except Exception as e:
+        st.error(f"User management error: {str(e)}")
+        return 1  # Fallback to default user ID
 
 def create_database_tables():
     """Create database tables if they don't exist"""
@@ -1010,11 +1040,15 @@ def create_database_tables():
         st.error(f"Database table creation failed: {str(e)}")
         return False
 
-def save_prediction_to_db(user_id, game_data, ai_analysis):
+def save_prediction_to_db(game_data, ai_analysis, user_id=None):
     """Save prediction to database"""
     supabase = init_supabase()
     if not supabase:
         return False
+    
+    # Get user ID if not provided
+    if user_id is None:
+        user_id = get_or_create_user_id()
     
     try:
         prediction_data = {
@@ -1102,10 +1136,14 @@ def save_generated_picks_to_track_record(pick_date: date, games: list) -> int:
     # Run lightweight cleanup before saving
     delete_old_track_records(3)
 
+    # Get proper user ID
+    user_id = get_or_create_user_id()
+
     saved = 0
     for rank, game in enumerate(games, 1):
         analysis = game.get('ai_analysis', {})
         bet_data = {
+            'user_id': user_id,
             'bet_rank': rank,
             'game_date': date_str,
             'home_team': game.get('home_team', 'Unknown'),
@@ -7578,9 +7616,13 @@ def main():
     if 'db_initialized' not in st.session_state:
         st.session_state.db_initialized = create_database_tables()
         if st.session_state.db_initialized:
-            st.success("🗄️ Database connected successfully!")
+            st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
+            # Test user creation
+            user_id = get_or_create_user_id()
+            if user_id:
+                st.info(f"👤 User session active (ID: {user_id})")
         elif SUPABASE_AVAILABLE:
-            st.warning("⚠️ Database connection failed. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.")
+            st.warning("⚠️ Database connection failed. Check your SUPABASE_URL and SUPABASE_ANON_KEY in secrets.")
     
     # Custom CSS for professional styling with mobile responsiveness
     st.markdown("""
