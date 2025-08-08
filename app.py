@@ -2205,8 +2205,8 @@ def show_todays_top_predictions():
                 st.rerun()
         
         with col2:
-            if st.button("📈 Live Odds", use_container_width=True):
-                st.session_state.current_page = 'odds'
+            if st.button("📺 Live Scores", key="top_live_scores_btn", use_container_width=True):
+                st.session_state.current_page = 'scores'
                 st.rerun()
         
         with col3:
@@ -2912,8 +2912,8 @@ def show_dashboard():
             st.rerun()
     
     with action_col2:
-        if st.button("📈 Live Odds", use_container_width=True):
-            st.session_state.current_page = 'odds'
+        if st.button("📺 Live Scores", key="quick_live_scores_btn", use_container_width=True):
+            st.session_state.current_page = 'scores'
             st.rerun()
     
     with action_col3:
@@ -6885,7 +6885,6 @@ def get_ai_analysis(game):
     
     # If we get here, both AIs failed
     return None
-
 def get_gemini_analysis_fast(home_team, away_team, sport):
     """Ultra-fast Gemini analysis optimized for speed.
     Returns dict with predicted_winner, confidence, key_factors, reasoning, edge_score.
@@ -7618,7 +7617,6 @@ def show_admin_panel():
         show_admin_settings()
     else:
         show_admin_overview()
-
 def show_admin_sidebar():
     """Admin-only sidebar with full control options"""
     
