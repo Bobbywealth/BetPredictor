@@ -3016,10 +3016,12 @@ def show_winning_picks():
             )
         
         with col2:
-            include_live_odds = st.checkbox("💰 Include Live Odds", value=True)
+            # Live odds removed - placeholder for future options
+            st.empty()
         
         with col3:
-            show_all_bookmakers = st.checkbox("📊 Show All Bookmakers", value=False)
+            # Bookmaker options removed - placeholder for future options  
+            st.empty()
             
         with col4:
             debug_mode = st.checkbox("🔍 Debug Mode", value=False, help="Show detailed debugging info")
@@ -3039,13 +3041,13 @@ def show_winning_picks():
     
     # Generate picks only when button is clicked
     if generate_btn:
-        with st.spinner("🤖 AI is analyzing games and odds..."):
-            show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers)
+        with st.spinner("🤖 AI is analyzing games..."):
+            show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by)
     else:
         st.info("👆 Click 'Generate AI Picks' above to start analyzing games and generating predictions")
 
-def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by, include_live_odds, show_all_bookmakers):
-    """Unified system showing AI picks with live odds comparison"""
+def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, sort_by):
+    """Unified system showing AI picks with enhanced analysis"""
     
     try:
         # First check if we have cached predictions for this date/sports combo
@@ -3421,7 +3423,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             
             # Display enhanced pick cards with clean, user-friendly design
             for i, game in enumerate(final_games, 1):
-                show_enhanced_pick_card_v2(game, i, include_live_odds, show_all_bookmakers)
+                show_enhanced_pick_card_v2(game, i)
             
             # Show dedicated parlay section separately
             show_dedicated_parlay_section(final_games)
@@ -3690,50 +3692,7 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
                     payout_color = "💰" if combo['payout'] > 500 else "💵"
                     st.write(f"{payout_color} {combo['description']} (+{combo['payout']})")
         
-        # Live Odds Section (if enabled)
-        if include_live_odds:
-            st.markdown("#### 💰 Live Odds Comparison")
-            
-            bookmakers = game.get('bookmakers', [])
-            if bookmakers:
-                # Create odds comparison table
-                odds_data = []
-                display_bookmakers = bookmakers if show_all_bookmakers else bookmakers[:3]
-                
-                for bookmaker in display_bookmakers:
-                    name = bookmaker.get('title', 'Unknown')
-                    markets = bookmaker.get('markets', [])
-                    
-                    for market in markets:
-                        if market.get('key') == 'h2h':
-                            outcomes = market.get('outcomes', [])
-                            
-                            row = {'Bookmaker': name}
-                            for outcome in outcomes:
-                                team = outcome.get('name', '')
-                                price = outcome.get('price', 0)
-                                
-                                if team == away_team:
-                                    row[f'{away_team}'] = f"{price:+d}" if price > 0 else str(price)
-                                elif team == home_team:
-                                    row[f'{home_team}'] = f"{price:+d}" if price > 0 else str(price)
-                            
-                            if len(row) > 1:
-                                odds_data.append(row)
-                            break
-                
-                if odds_data:
-                    import pandas as pd
-                    df = pd.DataFrame(odds_data)
-                    st.dataframe(df, use_container_width=True, hide_index=True)
-                    
-                    # Best odds highlight
-                    if len(odds_data) > 1:
-                        st.info("💡 **Best Odds:** Compare prices above to find the best value for your bet")
-                else:
-                    st.info("No odds comparison available for this game")
-            else:
-                st.info("Live odds not available for this game")
+        # Live odds section removed per user request
         
         # Action buttons
         col1, col2, col3, col4 = st.columns(4)
@@ -3754,7 +3713,7 @@ def show_unified_pick_card(game, rank, include_live_odds, show_all_bookmakers):
             if st.button("🔔 Set Alert", key=f"alert_unified_{rank}"):
                 st.success(f"✅ Alert set for {away_team} @ {home_team}!")
 
-def show_enhanced_pick_card_v2(game, rank, include_live_odds, show_all_bookmakers):
+def show_enhanced_pick_card_v2(game, rank):
     """Clean, professional pick card with data-driven analysis and clear betting strategy"""
     
     # Extract team names safely
@@ -4078,27 +4037,7 @@ def show_enhanced_pick_card_v2(game, rank, include_live_odds, show_all_bookmaker
             st.markdown("• Similar situation analysis completed")
             st.markdown("• Market conditions evaluated")
     
-    # Clean odds display (no parlay clutter)
-    if include_live_odds and game.get('bookmakers'):
-        with st.expander("💰 **Best Available Odds**", expanded=False):
-            bookmakers = game.get('bookmakers', [])[:2]  # Limit to top 2 bookmakers
-            
-            if bookmakers:
-                for bookmaker in bookmakers:
-                    st.markdown(f"**{bookmaker.get('title', 'Sportsbook')}**")
-                    markets = bookmaker.get('markets', [])[:1]  # Only show main market
-                    
-                    for market in markets:
-                        market_name = market.get('key', 'Unknown')
-                        outcomes = market.get('outcomes', [])
-                        
-                        if outcomes and len(outcomes) >= 2:
-                            outcome1 = outcomes[0]
-                            outcome2 = outcomes[1]
-                            
-                            st.markdown(f"• **{market_name}:** {outcome1.get('name', 'Team1')} ({outcome1.get('price', 'N/A')}) | {outcome2.get('name', 'Team2')} ({outcome2.get('price', 'N/A')})")
-            else:
-                st.info("Live odds will be displayed when available")
+    # Live odds section removed per user request
     
     st.markdown("---")
 
