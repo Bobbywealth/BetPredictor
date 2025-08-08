@@ -2774,28 +2774,62 @@ def get_user_role(username):
     return roles.get(username.lower(), 'Guest User')
 
 def get_real_dashboard_metrics():
-    """Get real dashboard metrics from database or fallback to defaults"""
+    """Return dashboard metrics with all expected keys and safe fallbacks."""
     try:
-        # Try to get real metrics from database
-        betting_stats = calculate_betting_stats(7)  # Last 7 days
-        
+        today = datetime.now().date()
+
+        # Games today via ESPN (safe fallback)
+        games_today = 0
+        try:
+            sports = ['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'Tennis', 'NCAAF', 'NCAAB']
+            espn_games = get_espn_games_for_date(today, sports)
+            games_today = len(espn_games) if espn_games else 0
+        except Exception:
+            games_today = 0
+
+        stats_7 = calculate_betting_stats(7)
+        stats_30 = calculate_betting_stats(30)
+
+        # Hot picks today from DB (confidence >= 0.8)
+        hot_picks = 0
+        try:
+            supabase = init_supabase()
+            if supabase:
+                ds = today.isoformat()
+                result = (
+                    supabase.table('predictions')
+                    .select('confidence')
+                    .eq('is_daily_bet', True)
+                    .eq('game_date', ds)
+                    .execute()
+                )
+                if result and getattr(result, 'data', None):
+                    hot_picks = len([r for r in result.data if (r or {}).get('confidence', 0) >= 0.8])
+        except Exception:
+            pass
+
         return {
-            'total_predictions': betting_stats.get('total_bets', 0),
-            'win_rate': betting_stats.get('win_rate', 0.0),
-            'net_profit': betting_stats.get('net_profit', 0),
-            'active_users': 1,  # For now, single user
-            'avg_confidence': betting_stats.get('avg_confidence', 0.0),
-            'high_confidence_wins': betting_stats.get('high_confidence_wins', 0)
+            'games_today': games_today,
+            'hot_picks': hot_picks,
+            'roi': f"{stats_30.get('roi', 0.0):.1f}%",
+            'total_predictions': stats_7.get('total_bets', 0),
+            'win_rate': stats_7.get('win_rate', 0.0),
+            'net_profit': stats_7.get('net_profit', 0),
+            'active_users': 1,
+            'avg_confidence': stats_7.get('avg_confidence', 0.0),
+            'high_confidence_wins': stats_7.get('high_confidence_wins', 0),
         }
-    except Exception as e:
-        # Fallback to default metrics if database fails
+    except Exception:
         return {
+            'games_today': 0,
+            'hot_picks': 0,
+            'roi': '0.0%',
             'total_predictions': 0,
             'win_rate': 0.0,
             'net_profit': 0,
             'active_users': 1,
             'avg_confidence': 0.0,
-            'high_confidence_wins': 0
+            'high_confidence_wins': 0,
         }
 
 def show_dashboard():
