@@ -119,15 +119,19 @@ class DualAIConsensusEngine:
             agreement_status = 'DISAGREEMENT'
             
         elif openai_pick and not gemini_pick:
-            # Only OpenAI has pick
+            # Only OpenAI has pick — apply a light reduction so single-AI picks still surface
             consensus_pick = openai_pick
-            final_confidence = openai_confidence * 0.7  # Reduce for single AI
+            # Reduce confidence slightly instead of heavily penalizing
+            adjusted = openai_confidence * 0.9
+            # Keep within bounds and avoid dropping below a small delta of original
+            final_confidence = max(min(adjusted, 1.0), openai_confidence - 0.05)
             agreement_status = 'SINGLE_AI_OPENAI'
             
         elif gemini_pick and not openai_pick:
-            # Only Gemini has pick
+            # Only Gemini has pick — if available, similar light reduction
             consensus_pick = gemini_pick
-            final_confidence = gemini_confidence * 0.7
+            adjusted = gemini_confidence * 0.9
+            final_confidence = max(min(adjusted, 1.0), gemini_confidence - 0.05)
             agreement_status = 'SINGLE_AI_GEMINI'
             
         else:

@@ -3094,8 +3094,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 
                 return
             
-            # Safety: ensure Gemini SDK is present in hosted env
-            ensure_gemini_sdk()
+            # Safety: try Gemini SDK, but continue even if unavailable
+            gem_ok = ensure_gemini_sdk()
 
             # Process each game with enhanced progress tracking
             # Use Dual AI Consensus Engine (OpenAI + Gemini)
@@ -3110,8 +3110,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 game_name = f"{game.get('away_team', 'Team A')} @ {game.get('home_team', 'Team B')}"
                 status_text.info(f"🔍 Analyzing {game_name} ({i+1}/{len(games)})")
                 
-                # Get consensus analysis from both AIs (OpenAI + Gemini)
-                status_text.info("🤖 Processing with ChatGPT + Gemini (consensus)...")
+                # Get consensus analysis from both AIs (OpenAI + Gemini if available)
+                status_text.info("🤖 Processing with ChatGPT analysis" + (" + Gemini" if gem_ok else "") + "...")
                 try:
                     consensus = dual_engine.analyze_game_dual_ai(game)
                 except Exception as e:
