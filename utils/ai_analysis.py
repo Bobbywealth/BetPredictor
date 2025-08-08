@@ -27,32 +27,49 @@ class GamePrediction(BaseModel):
     key_factors: List[str]
     risk_level: str  # "LOW", "MEDIUM", "HIGH"
 
+def _get_secret_or_env(*keys: str) -> Optional[str]:
+    """Lookup helper: prefer Streamlit secrets, then environment variables."""
+    for key in keys:
+        try:
+            if key in st.secrets:
+                return st.secrets[key]
+        except Exception:
+            pass
+        if os.environ.get(key):
+            return os.environ.get(key)
+    return None
+
+
 class AIGameAnalyzer:
     """AI-powered game analysis using OpenAI and Gemini"""
     
     def __init__(self):
         # Initialize OpenAI (only if API key available)
         self.openai_client = None
-        if os.environ.get("OPENAI_API_KEY"):
+        openai_key = _get_secret_or_env("OPENAI_API_KEY")
+        if openai_key:
             try:
-                self.openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+                self.openai_client = OpenAI(api_key=openai_key)
             except Exception as e:
                 st.warning(f"OpenAI initialization failed: {e}")
         
         # Initialize Gemini (only if API key available)
         self.gemini_client = None
-        if os.environ.get("GEMINI_API_KEY") and GENAI_AVAILABLE:
+        gemini_key = _get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        if gemini_key and GENAI_AVAILABLE:
             try:
-                genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+                genai.configure(api_key=gemini_key)
                 self.gemini_client = True
             except Exception as e:
                 st.warning(f"Gemini initialization failed: {e}")
-        elif os.environ.get("GEMINI_API_KEY") and not GENAI_AVAILABLE:
+        elif gemini_key and not GENAI_AVAILABLE:
             st.info("Gemini SDK not available in this environment; continuing with OpenAI only.")
         
     def analyze_game_with_openai(self, game_data: Dict) -> Dict:
         """Analyze game using OpenAI GPT-4o"""
         try:
+            if not self.openai_client:
+                return {"error": "OpenAI not configured"}
             home_team = game_data.get('home_team', {}).get('name', 'Unknown')
             away_team = game_data.get('away_team', {}).get('name', 'Unknown')
             sport = game_data.get('sport', 'Unknown')
@@ -114,6 +131,8 @@ class AIGameAnalyzer:
     def analyze_game_with_gemini(self, game_data: Dict) -> Dict:
         """Analyze game using Google Gemini"""
         try:
+            if not GENAI_AVAILABLE or not self.gemini_client:
+                return {"error": "Gemini SDK not available"}
             home_team = game_data.get('home_team', {}).get('name', 'Unknown')
             away_team = game_data.get('away_team', {}).get('name', 'Unknown')
             sport = game_data.get('sport', 'Unknown')
