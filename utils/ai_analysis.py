@@ -44,26 +44,37 @@ class AIGameAnalyzer:
     """AI-powered game analysis using OpenAI and Gemini"""
     
     def __init__(self):
-        # Initialize OpenAI (only if API key available)
+        # Initialize OpenAI first (primary AI)
         self.openai_client = None
         openai_key = _get_secret_or_env("OPENAI_API_KEY")
         if openai_key:
             try:
                 self.openai_client = OpenAI(api_key=openai_key)
+                if st.session_state.get('debug_mode', False):
+                    st.success("✅ OpenAI (Primary AI) initialized successfully")
             except Exception as e:
-                st.warning(f"OpenAI initialization failed: {e}")
+                st.error(f"❌ OpenAI initialization failed: {e}")
+        else:
+            st.warning("⚠️ OpenAI API key not found - primary AI unavailable")
         
-        # Initialize Gemini (only if API key available)
+        # Initialize Gemini second (enhancement AI)
         self.gemini_client = None
         gemini_key = _get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
         if gemini_key and GENAI_AVAILABLE:
             try:
                 genai.configure(api_key=gemini_key)
                 self.gemini_client = True
+                if st.session_state.get('debug_mode', False):
+                    st.success("✅ Gemini (Enhancement AI) initialized successfully")
             except Exception as e:
-                st.warning(f"Gemini initialization failed: {e}")
+                if st.session_state.get('debug_mode', False):
+                    st.warning(f"⚠️ Gemini initialization failed: {e}")
         elif gemini_key and not GENAI_AVAILABLE:
-            st.info("Gemini SDK not available in this environment; continuing with OpenAI only.")
+            if st.session_state.get('debug_mode', False):
+                st.info("ℹ️ Gemini SDK not available; continuing with OpenAI-only analysis")
+        else:
+            if st.session_state.get('debug_mode', False):
+                st.info("ℹ️ Gemini API key not found - enhancement AI unavailable")
         
     def analyze_game_with_openai(self, game_data: Dict) -> Dict:
         """Analyze game using OpenAI GPT-4o"""

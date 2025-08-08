@@ -32,15 +32,18 @@ class DualAIConsensusEngine:
         if cached_result is not None:
             return cached_result
         
-        # Get both AI analyses
+        # Get OpenAI analysis first (primary)
         with st.spinner("Getting ChatGPT analysis..."):
             openai_analysis = self.ai_analyzer.analyze_game_with_openai(game_data)
         
-        with st.spinner("Getting Gemini analysis..."):
-            try:
+        # Get Gemini analysis second (enhancement)
+        gemini_analysis = {"error": "Gemini unavailable"}  # Default fallback
+        try:
+            with st.spinner("Getting Gemini enhancement..."):
                 gemini_analysis = self.ai_analyzer.analyze_game_with_gemini(game_data)
-            except Exception:
-                gemini_analysis = {"error": "Gemini unavailable"}
+        except Exception as e:
+            # Gemini is optional - continue with OpenAI only
+            pass
         
         # Generate consensus analysis
         consensus_result = self._generate_consensus(
@@ -109,14 +112,10 @@ class DualAIConsensusEngine:
             agreement_status = 'STRONG_CONSENSUS'
             
         elif openai_pick and gemini_pick and not picks_agree:
-            # AIs disagree - use higher confidence pick
-            if openai_confidence > gemini_confidence:
-                consensus_pick = openai_pick
-                final_confidence = openai_confidence * 0.8  # Reduce confidence due to disagreement
-            else:
-                consensus_pick = gemini_pick
-                final_confidence = gemini_confidence * 0.8
-            agreement_status = 'DISAGREEMENT'
+            # AIs disagree - prioritize OpenAI (more reliable), but reduce confidence
+            consensus_pick = openai_pick
+            final_confidence = openai_confidence * 0.85  # Light reduction for disagreement
+            agreement_status = 'DISAGREEMENT_OPENAI_PRIORITY'
             
         elif openai_pick and not gemini_pick:
             # Only OpenAI has pick — apply a light reduction so single-AI picks still surface
@@ -354,16 +353,16 @@ class DualAIConsensusEngine:
                 for factor in all_factors[:5]:  # Limit to top 5
                     reasoning.append(f"  • {factor}")
         
-        elif agreement_status == 'DISAGREEMENT':
-            reasoning.append("⚠️ AI models disagree - using higher confidence pick")
+        elif agreement_status == 'DISAGREEMENT_OPENAI_PRIORITY':
+            reasoning.append("⚠️ AI models disagree - using OpenAI (primary AI) recommendation")
             
             openai_conf = openai_result.get('confidence', 0) if 'error' not in openai_result else 0
             gemini_conf = gemini_result.get('confidence_score', 0) if 'error' not in gemini_result else 0
             
-            if openai_conf > gemini_conf:
-                reasoning.append(f"📈 ChatGPT shows higher confidence ({openai_conf:.1%})")
-            else:
-                reasoning.append(f"📈 Gemini shows higher confidence ({gemini_conf:.1%})")
+            reasoning.append(f"🎯 OpenAI confidence: {openai_conf:.1%}")
+            if gemini_conf > 0:
+                reasoning.append(f"🤖 Gemini confidence: {gemini_conf:.1%}")
+            reasoning.append("📊 OpenAI prioritized as primary analysis engine")
         
         elif agreement_status.startswith('SINGLE_AI'):
             ai_name = 'ChatGPT' if 'OPENAI' in agreement_status else 'Gemini'
