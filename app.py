@@ -3563,6 +3563,13 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             for i, game in enumerate(final_games, 1):
                 show_enhanced_pick_card_v2(game, i)
             
+            # Add Score Results button (AI testing feature)
+            st.markdown("---")
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("🏆 Score These Predictions", type="primary", use_container_width=True, help="Test AI accuracy by comparing predictions to final scores"):
+                    score_predictions_for_date(pick_date, final_games, sports)
+            
             # Show dedicated parlay section separately
             show_dedicated_parlay_section(final_games)
         else:
@@ -8053,6 +8060,130 @@ def show_daily_betting_tracker():
                             
                             st.success("✅ Result saved!")
                             st.rerun()
+
+def score_predictions_for_date(pick_date, predictions, sports):
+    """Score predictions against final results for a given date - AI testing feature"""
+    
+    try:
+        # Initialize result scorer
+        from utils.result_scorer import ResultScorer
+        scorer = ResultScorer()
+        
+        # Show progress
+        with st.spinner("🔍 Fetching final scores..."):
+            # Get final results for the date
+            final_results = scorer.get_final_scores_for_date(
+                pick_date.strftime('%Y-%m-%d'), 
+                sports
+            )
+        
+        if not final_results:
+            st.warning(f"⚠️ No final results found for {pick_date.strftime('%B %d, %Y')}. This could mean:")
+            st.write("• Games haven't finished yet")
+            st.write("• No games occurred on this date")  
+            st.write("• ESPN API temporarily unavailable")
+            return
+        
+        # Convert predictions to format expected by scorer
+        formatted_predictions = []
+        for pred in predictions:
+            ai_analysis = pred.get('ai_analysis', {})
+            formatted_pred = {
+                'sport': pred.get('sport', '').upper(),
+                'home_team': pred.get('home_team', {}).get('name', ''),
+                'away_team': pred.get('away_team', {}).get('name', ''),
+                'predicted_winner': ai_analysis.get('pick', '').replace(' (Home)', '').replace(' (Away)', ''),
+                'confidence': ai_analysis.get('confidence', 0),
+                'prediction_id': pred.get('game_id', ''),
+                'date': pick_date.strftime('%Y-%m-%d')
+            }
+            formatted_predictions.append(formatted_pred)
+        
+        # Score the predictions
+        with st.spinner("🏆 Scoring predictions..."):
+            scored_predictions = scorer.score_predictions(formatted_predictions, final_results)
+            metrics = scorer.calculate_accuracy_metrics(scored_predictions)
+        
+        # Display results
+        st.success("🎯 **Prediction Results Scored!**")
+        
+        # Overall metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Predictions", metrics['total_predictions'])
+        
+        with col2:
+            accuracy_color = "🟢" if metrics['accuracy'] >= 60 else "🟡" if metrics['accuracy'] >= 50 else "🔴"
+            st.metric("Accuracy", f"{metrics['accuracy']:.1f}%", 
+                     delta=f"{accuracy_color}")
+        
+        with col3:
+            roi_color = "🟢" if metrics['roi_estimate'] > 0 else "🔴"
+            st.metric("ROI Estimate", f"{metrics['roi_estimate']:+.1f}%",
+                     delta=f"{roi_color}")
+        
+        with col4:
+            if metrics['total_with_results'] > 0:
+                st.metric("Win/Loss Record", f"{metrics['wins']}-{metrics['losses']}")
+            else:
+                st.metric("Results Available", "0")
+        
+        # High confidence performance
+        if metrics['high_confidence_accuracy'] > 0:
+            st.info(f"🎯 **High Confidence (80%+) Accuracy:** {metrics['high_confidence_accuracy']:.1f}%")
+        
+        # Detailed results
+        st.markdown("### 📊 **Detailed Results**")
+        
+        for i, pred in enumerate(scored_predictions):
+            result_icon = "✅" if pred['result'] == 'win' else "❌" if pred['result'] == 'loss' else "⏳"
+            
+            with st.expander(f"{result_icon} {pred['away_team']} @ {pred['home_team']} ({pred['sport']})"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write(f"**Predicted Winner:** {pred['predicted_winner']}")
+                    st.write(f"**Confidence:** {pred['confidence']:.1%}")
+                    st.write(f"**Result:** {pred['result'].upper()}")
+                
+                with col2:
+                    if pred.get('actual_winner'):
+                        st.write(f"**Actual Winner:** {pred['actual_winner'].title()}")
+                    if pred.get('home_score') is not None and pred.get('away_score') is not None:
+                        st.write(f"**Final Score:** {pred['away_team']} {pred['away_score']} - {pred['home_score']} {pred['home_team']}")
+        
+        # Store results to database if available
+        try:
+            supabase = init_supabase()
+            if supabase:
+                user_id = get_or_create_user_id()
+                
+                # Store accuracy metrics
+                accuracy_record = {
+                    'user_id': user_id,
+                    'test_date': pick_date.isoformat(),
+                    'total_predictions': metrics['total_predictions'],
+                    'wins': metrics['wins'],
+                    'losses': metrics['losses'],
+                    'accuracy': metrics['accuracy'],
+                    'roi_estimate': metrics['roi_estimate'],
+                    'sports_tested': sports,
+                    'created_at': datetime.now().isoformat()
+                }
+                
+                supabase.table('accuracy_tests').insert(accuracy_record).execute()
+                st.success("📊 Results saved to database for tracking!")
+                
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Database storage failed: {e}")
+        
+    except Exception as e:
+        st.error(f"❌ Error scoring predictions: {e}")
+        if st.session_state.get('debug_mode', False):
+            import traceback
+            st.text("\n".join(traceback.format_exception(type(e), e, e.__traceback__)))
 
 if __name__ == "__main__":
     main()
