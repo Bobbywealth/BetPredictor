@@ -3297,8 +3297,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         # Force continue with the sample games
                         # The analysis will proceed below
                     else:
-                show_upcoming_dates()
-                return
+                        show_upcoming_dates()
+                        return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
