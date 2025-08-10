@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from openai import OpenAI
 from utils.advanced_ai_strategy import AdvancedAIStrategy
+from utils.data_hub import get_game_features
 
 class EnhancedAIAnalyzer:
     """
@@ -34,11 +35,17 @@ class EnhancedAIAnalyzer:
             return {"error": "OpenAI not configured"}
         
         try:
-            # Step 1: Gather real-time data
+            # Step 1: Extract structured features from data hub
+            game_features = get_game_features(game_data)
+            
+            # Step 2: Calculate quantitative baseline probability
+            baseline_prob = self._calculate_baseline_probability(game_features)
+            
+            # Step 3: Gather real-time data
             real_time_data = self.strategy.fetch_real_time_data(game_data)
             
-            # Step 2: Generate enhanced prompt
-            enhanced_prompt = self.strategy.generate_enhanced_prompt(game_data, real_time_data)
+            # Step 4: Generate enhanced prompt with baseline and features
+            enhanced_prompt = self.strategy.generate_enhanced_prompt(game_data, real_time_data, baseline_prob, game_features)
             
             # Step 3: Get AI analysis with advanced prompt
             response = self.openai_client.chat.completions.create(
@@ -83,6 +90,32 @@ class EnhancedAIAnalyzer:
             
         except Exception as e:
             return {"error": f"Enhanced analysis failed: {str(e)}"}
+    
+    def _calculate_baseline_probability(self, features: Dict) -> float:
+        """Calculate quantitative baseline win probability using structured features"""
+        try:
+            home_rating = features.get('home_rating', 1500)
+            away_rating = features.get('away_rating', 1500) 
+            home_edge = features.get('home_edge', 0.045)
+            
+            # Elo-style calculation with home advantage
+            rating_diff = home_rating - away_rating
+            adjusted_diff = rating_diff + (home_edge * 400)  # Convert home edge to rating points
+            
+            # Convert to probability using logistic function
+            baseline_prob = 1 / (1 + 10 ** (-adjusted_diff / 400))
+            
+            # Apply injury/form adjustments
+            if features.get('key_out_home', False):
+                baseline_prob *= 0.85
+            if features.get('key_out_away', False):
+                baseline_prob *= 1.15
+                
+            # Bound between 0.15-0.85 for realistic sports outcomes
+            return max(0.15, min(0.85, baseline_prob))
+            
+        except Exception:
+            return 0.5  # Neutral if calculation fails
 
     def _enhance_analysis(self, analysis: Dict, game_data: Dict, real_time_data: Dict) -> Dict:
         """Apply additional validation and enhancement to AI analysis"""

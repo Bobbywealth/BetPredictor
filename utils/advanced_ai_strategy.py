@@ -42,13 +42,26 @@ class AdvancedAIStrategy:
             'games_analyzed': 0
         }
 
-    def generate_enhanced_prompt(self, game_data: Dict, real_time_data: Dict = None) -> str:
+    def generate_enhanced_prompt(self, game_data: Dict, real_time_data: Dict = None, baseline_prob: float = None, game_features: Dict = None) -> str:
         """Generate a comprehensive prompt with all available data"""
         
         home_team = game_data.get('home_team', {}).get('name', 'Unknown')
         away_team = game_data.get('away_team', {}).get('name', 'Unknown')
         sport = game_data.get('sport', 'Unknown')
         
+        # Add baseline and features context
+        baseline_context = ""
+        if baseline_prob is not None and game_features:
+            baseline_context = f"""
+        **QUANTITATIVE BASELINE:**
+        - Statistical Model Probability: {baseline_prob:.3f} ({baseline_prob*100:.1f}% home win)
+        - Data Quality Score: {game_features.get('data_quality', 0.5):.2f}/1.0
+        - Home Rating: {game_features.get('home_rating', 1500):.0f}
+        - Away Rating: {game_features.get('away_rating', 1500):.0f}
+        - Home Advantage: {game_features.get('home_edge', 0.045)*100:.1f}%
+        
+        """
+
         # Base prompt with enhanced instructions
         prompt = f"""
         You are an elite sports analyst with access to comprehensive data. Analyze this {sport} game with extreme precision:
@@ -60,7 +73,7 @@ class AdvancedAIStrategy:
         - Time: {game_data.get('time', 'Unknown')}
         - Venue: {game_data.get('venue', 'Unknown')}
         
-        **ANALYSIS REQUIREMENTS:**
+        {baseline_context}**ANALYSIS REQUIREMENTS:**
         1. **Team Form Analysis**: Recent performance trends (last 10 games)
         2. **Head-to-Head**: Historical matchup patterns and trends
         3. **Key Player Impact**: Star players, injuries, suspensions
@@ -168,6 +181,61 @@ class AdvancedAIStrategy:
                 st.write(f"⚠️ Real-time data fetch error: {e}")
         
         return real_time_data
+
+    # =========================
+    # Quant baseline (multi‑sport)
+    # =========================
+    def compute_baseline_probability(self, features: Dict) -> float:
+        """Baseline win probability (home team) from Elo-style ratings + situational adjustments.
+        Returns p_home in [0,1].
+        """
+        home = float(features.get('home_rating', 1500))
+        away = float(features.get('away_rating', 1500))
+        home_edge = float(features.get('home_edge', 0.04))  # 4%
+
+        # Elo logistic
+        diff = (home - away) / 400.0
+        p_home = 1.0 / (1.0 + (10 ** (-diff)))
+
+        # Home advantage
+        p_home = self._clip01(p_home + home_edge)
+
+        # Injuries (very light until real API wired)
+        if 'Key starter OUT' in str(features.get('injuries_home', '')):
+            p_home -= 0.04
+        if 'Key starter OUT' in str(features.get('injuries_away', '')):
+            p_home += 0.04
+
+        # Form
+        form_home = float(features.get('form_home', 0.5))
+        form_away = float(features.get('form_away', 0.5))
+        p_home += (form_home - form_away) * 0.06
+
+        # Weather (outdoor)
+        sport = str(features.get('sport', 'Unknown')).upper()
+        wind = float(features.get('wind_mph', 0.0))
+        if sport in {"MLB", "NFL", "NCAAF"}:
+            if wind >= 18:
+                p_home += 0.01  # mild home familiarity edge in poor weather
+
+        return self._clip01(p_home)
+
+    def calibrate_probability(self, p: float, scope: str = '30d') -> float:
+        """Placeholder isotonic/Platt-like calibration. Tightens extremes slightly."""
+        # Pull real mapping from DB later
+        if p > 0.9:
+            p = 0.9 - (0.9 - p) * 0.5
+        elif p < 0.1:
+            p = 0.1 + (p - 0.1) * 0.5
+        return self._clip01(p)
+
+    def fuse_llm_with_quant(self, p_home: float, llm_delta_bp: float) -> float:
+        """Fuse quant baseline with LLM delta (in basis points)."""
+        p = p_home + (llm_delta_bp / 10000.0)
+        return self._clip01(p)
+
+    def _clip01(self, x: float) -> float:
+        return max(0.0, min(1.0, float(x)))
 
     def _get_injury_reports(self, game_data: Dict) -> str:
         """Get current injury reports (simulated)"""
