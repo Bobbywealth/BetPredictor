@@ -3297,8 +3297,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         # Force continue with the sample games
                         # The analysis will proceed below
                     else:
-                        show_upcoming_dates()
-                        return
+                show_upcoming_dates()
+                return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
@@ -3457,7 +3457,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             game['ai_analysis'] = normalized
                             game['full_consensus'] = consensus
                             if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
-                                analyzed_games.append(game)
+                    analyzed_games.append(game)
                     except Exception as e:
                         if st.session_state.get('debug_mode', False):
                             st.write(f"❌ Analysis failed: {e}")
@@ -3564,11 +3564,22 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 show_enhanced_pick_card_v2(game, i)
             
             # Add Score Results button (AI testing feature)
-            st.markdown("---")
+                st.markdown("---")
+            
+            # Debug info
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Found {len(final_games)} games for scoring")
+            
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                if st.button("🏆 Score These Predictions", type="primary", use_container_width=True, help="Test AI accuracy by comparing predictions to final scores"):
-                    score_predictions_for_date(pick_date, final_games, sports)
+                # Always show the button if we have games
+                button_clicked = st.button("🏆 Score These Predictions", type="primary", use_container_width=True, help="Test AI accuracy by comparing predictions to final scores")
+                
+                if button_clicked:
+                    if len(final_games) > 0:
+                        score_predictions_for_date(pick_date, final_games, sports)
+                    else:
+                        st.error("No games available to score")
             
             # Show dedicated parlay section separately
             show_dedicated_parlay_section(final_games)
@@ -4003,7 +4014,7 @@ def show_dedicated_parlay_section(final_games):
         for i in range(len(high_conf_games)):
             for j in range(i + 1, len(high_conf_games)):
                 if parlay_count >= max_parlays:
-                    break
+                            break
                 
                 game1 = high_conf_games[i]
                 game2 = high_conf_games[j]
@@ -4053,14 +4064,14 @@ def show_dedicated_parlay_section(final_games):
                                 st.success("✅ Good Value")
                             elif combined_conf >= 0.50:
                                 st.warning("⚠️ Moderate Risk")
-                            else:
+                else:
                                 st.error("🔴 High Risk")
                         # Parlay strategy
                         st.markdown("**💡 Parlay Strategy:**")
                         if combined_conf >= 0.60:
                             st.markdown("• Consider 0.5-1 unit stake")
                             st.markdown("• Both picks have strong individual merit")
-                        else:
+            else:
                             st.markdown("• Use minimal stake (0.25-0.5 units)")
                             st.markdown("• Entertainment value rather than investment")
                         st.markdown("• **Remember:** Each leg must win for parlay to pay")
@@ -4106,7 +4117,7 @@ def show_dedicated_parlay_section(final_games):
                     with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-                    with col3:
+        with col3:
                         st.metric("Risk Level", "🔴 Very High")
                     st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
             else:
@@ -4902,52 +4913,52 @@ def get_espn_games_for_date(target_date, sports):
                     continue
                 data = response.json()
                 if 'events' in data and len(data['events']) > 0:
-                    for event in data['events']:
-                        try:
-                            competitions = event.get('competitions', [])
+                        for event in data['events']:
+                            try:
+                                competitions = event.get('competitions', [])
                             if not competitions:
                                 continue
-                            competition = competitions[0]
-                            competitors = competition.get('competitors', [])
-
+                                    competition = competitions[0]
+                                    competitors = competition.get('competitors', [])
+                                    
                             if len(competitors) < 2:
                                 continue
 
-                            home_team = None
-                            away_team = None
-                            for competitor in competitors:
-                                if competitor.get('homeAway') == 'home':
-                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                elif competitor.get('homeAway') == 'away':
-                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-
+                                        home_team = None
+                                        away_team = None
+                                        for competitor in competitors:
+                                            if competitor.get('homeAway') == 'home':
+                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                            elif competitor.get('homeAway') == 'away':
+                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                        
                             if not (home_team and away_team):
                                 continue
 
-                            game_time = event.get('date', '')
-                            est_time = 'TBD'
-                            if game_time:
-                                try:
-                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                    import pytz
-                                    est = pytz.timezone('US/Eastern')
-                                    dt_est = dt.astimezone(est)
-                                    est_time = dt_est.strftime('%I:%M %p EST')
-                                except:
-                                    pass
-
-                            game = {
+                                            game_time = event.get('date', '')
+                                            est_time = 'TBD'
+                                            if game_time:
+                                                try:
+                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                                    import pytz
+                                                    est = pytz.timezone('US/Eastern')
+                                                    dt_est = dt.astimezone(est)
+                                                    est_time = dt_est.strftime('%I:%M %p EST')
+                                                except:
+                                                    pass
+                                            
+                                            game = {
                                 'game_id': event.get('id', ''),
-                                'sport': sport,
+                                                'sport': sport,
                                 'league': sport,
                                 'home_team': {'name': home_team},
                                 'away_team': {'name': away_team},
-                                'commence_time': game_time,
-                                'est_time': est_time,
+                                                'commence_time': game_time,
+                                                'est_time': est_time,
                                 'date': target_date.strftime('%Y-%m-%d'),
                                 'time': est_time,
-                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
                                 'bookmakers': []
                             }
                             sport_games.append(game)
@@ -4956,8 +4967,8 @@ def get_espn_games_for_date(target_date, sports):
                 if sport_games:
                     break
             except Exception:
-                continue
-
+                                continue
+                                
         return sport_games
     
     # PARALLEL EXECUTION - Fetch all sports simultaneously
@@ -6911,10 +6922,10 @@ def get_gemini_analysis_fast(home_team, away_team, sport):
         api_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
         if not api_key:
             return None
-
+        
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
-
+        
         prompt = (
             f"Quick sports prediction for {sport}: {away_team} @ {home_team}\n"
             "Return only JSON: {\"predicted_winner\": \"team_name\", \"confidence\": 0.75, \"key_factors\": [\"reason1\", \"reason2\"], \"edge_score\": 0.70, \"reasoning\": \"brief analysis\"}"
@@ -6937,7 +6948,7 @@ def get_gemini_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-        return {
+            return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.72)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'Gemini fast analysis')],
@@ -6960,7 +6971,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
             f"Quick sports prediction for {sport}: {away_team} @ {home_team}.\n"
             "Return only JSON with keys: predicted_winner (string), confidence (0-1), key_factors (list), edge_score (0-1), reasoning (string)."
         )
-
+        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -6973,7 +6984,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
 
         content = response.choices[0].message.content if response.choices else None
         if not content:
-            return None
+        return None
 
         content = content.strip()
         if content.startswith('```'):
@@ -6982,7 +6993,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-        return {
+            return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.7)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'OpenAI fast analysis')],
@@ -7000,8 +7011,8 @@ def main():
         # Test connection first
         supabase_test = init_supabase()
         if supabase_test:
-            st.session_state.db_initialized = create_database_tables()
-            if st.session_state.db_initialized:
+        st.session_state.db_initialized = create_database_tables()
+        if st.session_state.db_initialized:
                 st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
                 # Test user creation
                 user_id = get_or_create_user_id()
