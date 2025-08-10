@@ -4064,17 +4064,18 @@ def show_dedicated_parlay_section(final_games):
                                 st.success("✅ Good Value")
                             elif combined_conf >= 0.50:
                                 st.warning("⚠️ Moderate Risk")
-                else:
+                            else:
                                 st.error("🔴 High Risk")
-                        # Parlay strategy
-                        st.markdown("**💡 Parlay Strategy:**")
-                        if combined_conf >= 0.60:
-                            st.markdown("• Consider 0.5-1 unit stake")
-                            st.markdown("• Both picks have strong individual merit")
-            else:
-                            st.markdown("• Use minimal stake (0.25-0.5 units)")
-                            st.markdown("• Entertainment value rather than investment")
-                        st.markdown("• **Remember:** Each leg must win for parlay to pay")
+                            
+                            # Parlay strategy
+                            st.markdown("**💡 Parlay Strategy:**")
+                            if combined_conf >= 0.60:
+                                st.markdown("• Consider 0.5-1 unit stake")
+                                st.markdown("• Both picks have strong individual merit")
+                            else:
+                                st.markdown("• Use minimal stake (0.25-0.5 units)")
+                                st.markdown("• Entertainment value rather than investment")
+                            st.markdown("• **Remember:** Each leg must win for parlay to pay")
             
             if parlay_count >= max_parlays:
                 break
@@ -4117,11 +4118,11 @@ def show_dedicated_parlay_section(final_games):
                     with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-        with col3:
-                        st.metric("Risk Level", "🔴 Very High")
-                    st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
-            else:
-                st.info("💡 **No Quality 3-Game Parlays** - Combined confidence too low for recommendation.")
+                        with col3:
+                            st.metric("Risk Level", "🔴 Very High")
+                        st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
+                else:
+                    st.info("💡 **No Quality 3-Game Parlays** - Combined confidence too low for recommendation.")
     
     # Parlay education section
     with st.expander("📚 **Parlay Strategy Guide**", expanded=False):
@@ -4913,52 +4914,54 @@ def get_espn_games_for_date(target_date, sports):
                     continue
                 data = response.json()
                 if 'events' in data and len(data['events']) > 0:
-                        for event in data['events']:
-                            try:
-                                competitions = event.get('competitions', [])
+                    for event in data['events']:
+                        try:
+                            competitions = event.get('competitions', [])
                             if not competitions:
                                 continue
-                                    competition = competitions[0]
-                                    competitors = competition.get('competitors', [])
-                                    
+                            
+                            competition = competitions[0]
+                            competitors = competition.get('competitors', [])
+                            
                             if len(competitors) < 2:
                                 continue
-
-                                        home_team = None
-                                        away_team = None
-                                        for competitor in competitors:
-                                            if competitor.get('homeAway') == 'home':
-                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                            elif competitor.get('homeAway') == 'away':
-                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                        
+                            
+                            home_team = None
+                            away_team = None
+                            
+                            for competitor in competitors:
+                                if competitor.get('homeAway') == 'home':
+                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                elif competitor.get('homeAway') == 'away':
+                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                            
                             if not (home_team and away_team):
                                 continue
-
-                                            game_time = event.get('date', '')
-                                            est_time = 'TBD'
-                                            if game_time:
-                                                try:
-                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                                    import pytz
-                                                    est = pytz.timezone('US/Eastern')
-                                                    dt_est = dt.astimezone(est)
-                                                    est_time = dt_est.strftime('%I:%M %p EST')
-                                                except:
-                                                    pass
-                                            
-                                            game = {
+                            
+                            game_time = event.get('date', '')
+                            est_time = 'TBD'
+                            if game_time:
+                                try:
+                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                    import pytz
+                                    est = pytz.timezone('US/Eastern')
+                                    dt_est = dt.astimezone(est)
+                                    est_time = dt_est.strftime('%I:%M %p EST')
+                                except:
+                                    pass
+                            
+                            game = {
                                 'game_id': event.get('id', ''),
-                                                'sport': sport,
+                                'sport': sport,
                                 'league': sport,
                                 'home_team': {'name': home_team},
                                 'away_team': {'name': away_team},
-                                                'commence_time': game_time,
-                                                'est_time': est_time,
+                                'commence_time': game_time,
+                                'est_time': est_time,
                                 'date': target_date.strftime('%Y-%m-%d'),
                                 'time': est_time,
-                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
                                 'bookmakers': []
                             }
                             sport_games.append(game)
@@ -6948,7 +6951,7 @@ def get_gemini_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-            return {
+        return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.72)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'Gemini fast analysis')],
@@ -6984,7 +6987,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
 
         content = response.choices[0].message.content if response.choices else None
         if not content:
-        return None
+            return None
 
         content = content.strip()
         if content.startswith('```'):
@@ -6993,7 +6996,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-            return {
+        return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.7)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'OpenAI fast analysis')],
@@ -7011,8 +7014,8 @@ def main():
         # Test connection first
         supabase_test = init_supabase()
         if supabase_test:
-        st.session_state.db_initialized = create_database_tables()
-        if st.session_state.db_initialized:
+            st.session_state.db_initialized = create_database_tables()
+            if st.session_state.db_initialized:
                 st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
                 # Test user creation
                 user_id = get_or_create_user_id()
