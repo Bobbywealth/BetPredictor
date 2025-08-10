@@ -4118,9 +4118,10 @@ def show_dedicated_parlay_section(final_games):
                     with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-                        with col3:
-                            st.metric("Risk Level", "🔴 Very High")
-                        st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
+                    with col3:
+                        st.metric("Risk Level", "🔴 Very High")
+                    
+                    st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
                 else:
                     st.info("💡 **No Quality 3-Game Parlays** - Combined confidence too low for recommendation.")
     
