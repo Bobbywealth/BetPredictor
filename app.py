@@ -31,25 +31,23 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# AGGRESSIVE CACHE CLEARING - Force deployment to pick up changes
-if 'cache_cleared_v2' not in st.session_state:
+# Clear any problematic cached functions on startup
+if 'cache_cleared' not in st.session_state:
     try:
         st.cache_data.clear()
-        st.cache_resource.clear()
-        st.session_state.cache_cleared_v2 = True
+        st.session_state.cache_cleared = True
         
-        # Clear any old cached data aggressively
+        # Clear any old parlay/props cached data aggressively
         keys_to_clear = [
             'parlay_suggestions', 'props_data', 'game_props', 'parlay_combos',
             'analyzed_games', 'final_games', 'cached_predictions', 'ai_analysis',
-            'game_analysis', 'enhanced_analysis', 'consensus_data', 'main_page_cache',
-            'ai_lab_cache', 'backtest_cache', 'result_scorer_cache'
+            'game_analysis', 'enhanced_analysis', 'consensus_data'
         ]
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
         
-        # Force clear all cached functions again
+        # Force clear all cached functions
         st.cache_data.clear()
         st.cache_resource.clear()
                 
@@ -8069,7 +8067,6 @@ def score_predictions_for_date(pick_date, predictions, sports):
     
     try:
         # Initialize result scorer
-        from utils.result_scorer import ResultScorer
         scorer = ResultScorer()
         
         # Show progress
@@ -8299,7 +8296,6 @@ def run_ai_backtest(start_date, end_date, sports, min_confidence, max_games_per_
     """Run comprehensive AI backtest across date range"""
     
     # Initialize components
-    from utils.result_scorer import ResultScorer
     scorer = ResultScorer()
     
     # Calculate date range
@@ -8509,9 +8505,6 @@ def run_ai_backtest(start_date, end_date, sports, min_confidence, max_games_per_
 
 def main():
     """Main app function - simplified single page with AI Lab access"""
-    
-    # Visual indicator that new version loaded
-    st.sidebar.success("🆕 AI Lab v2.0 Loaded!")
     
     # Database connection check
     try:
