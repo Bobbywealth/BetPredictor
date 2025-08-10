@@ -3457,7 +3457,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             game['ai_analysis'] = normalized
                             game['full_consensus'] = consensus
                             if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
-                    analyzed_games.append(game)
+                                analyzed_games.append(game)
                     except Exception as e:
                         if st.session_state.get('debug_mode', False):
                             st.write(f"❌ Analysis failed: {e}")
