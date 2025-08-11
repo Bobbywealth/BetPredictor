@@ -86,9 +86,15 @@ class EnhancedAIAnalyzer:
             # Step 5: Apply advanced validation and adjustments
             enhanced_analysis = self._enhance_analysis(analysis, game_data, real_time_data)
             
-            # Step 5.5: Add real-time data quality score
+            # Step 5.5: Add real-time data quality score and detailed info
             enhanced_analysis['data_quality_score'] = real_time_data.get('data_quality_score', 0.5)
             enhanced_analysis['real_time_data_summary'] = self._summarize_real_time_data(real_time_data)
+            
+            # Add specific real-time insights to key factors
+            rt_insights = self._extract_real_time_insights(real_time_data)
+            if rt_insights:
+                current_factors = enhanced_analysis.get('key_factors', [])
+                enhanced_analysis['key_factors'] = rt_insights + current_factors[:3]  # Prioritize real-time data
             
             # Step 6: Apply Kelly Criterion for bet sizing
             if enhanced_analysis.get('confidence', 0) >= 0.7:
@@ -541,3 +547,81 @@ You are an elite sports analyst with access to comprehensive real-time data. Ana
             'data_quality': real_time_data.get('data_quality_score', 0.5),
             'last_updated': real_time_data.get('last_updated', datetime.now().isoformat())
         }
+
+    def _extract_real_time_insights(self, real_time_data: Dict) -> List[str]:
+        """Extract key insights from real-time data for display"""
+        insights = []
+        
+        try:
+            # Injury insights
+            injuries = real_time_data.get('injuries', {})
+            if injuries and not injuries.get('error'):
+                injury_data = injuries.get('injuries', {})
+                home_injuries = injury_data.get('home_team', [])
+                away_injuries = injury_data.get('away_team', [])
+                
+                for injury in home_injuries[:2]:  # Top 2 home injuries
+                    if injury.get('impact') in ['High', 'Medium']:
+                        insights.append(f"🏥 {injury.get('player', 'Player')} ({injury.get('position', '')}) {injury.get('status', 'injured')}")
+                
+                for injury in away_injuries[:2]:  # Top 2 away injuries  
+                    if injury.get('impact') in ['High', 'Medium']:
+                        insights.append(f"🏥 {injury.get('player', 'Player')} ({injury.get('position', '')}) {injury.get('status', 'injured')}")
+            
+            # Weather insights
+            weather = real_time_data.get('weather', {})
+            if weather and not weather.get('error'):
+                weather_info = weather.get('weather', {})
+                impact = weather.get('impact', '')
+                
+                if impact in ['high_wind', 'heavy_rain', 'freezing', 'extreme_heat']:
+                    temp = weather_info.get('temperature_high', '')
+                    wind = weather_info.get('wind_speed', '')
+                    precip = weather_info.get('precipitation', '')
+                    
+                    weather_desc = []
+                    if temp: weather_desc.append(f"{temp:.0f}°F")
+                    if wind: weather_desc.append(f"{wind:.0f}mph wind")
+                    if precip and precip > 0: weather_desc.append(f"{precip:.1f}mm rain")
+                    
+                    if weather_desc:
+                        insights.append(f"🌤️ Weather: {', '.join(weather_desc)}")
+            
+            # Lineup insights
+            lineups = real_time_data.get('lineups', {})
+            if lineups and not lineups.get('error'):
+                lineup_info = lineups.get('lineup', {})
+                
+                if lineup_info.get('type') == 'pitchers':
+                    pitchers = lineup_info.get('probable_pitchers', {})
+                    home_p = pitchers.get('home_pitcher', {})
+                    away_p = pitchers.get('away_pitcher', {})
+                    
+                    if home_p.get('name') != 'TBD':
+                        insights.append(f"⚾ Home P: {home_p.get('name', 'TBD')} (ERA: {home_p.get('era', 'N/A')})")
+                    if away_p.get('name') != 'TBD':
+                        insights.append(f"⚾ Away P: {away_p.get('name', 'TBD')} (ERA: {away_p.get('era', 'N/A')})")
+                
+                elif lineup_info.get('type') == 'starters':
+                    starters = lineup_info.get('starters', {})
+                    scratches = starters.get('scratches', [])
+                    late_scratches = starters.get('late_scratches', [])
+                    
+                    if late_scratches:
+                        insights.append(f"🚨 Late scratches: {', '.join(late_scratches[:2])}")
+                    elif scratches:
+                        insights.append(f"❌ Out: {', '.join(scratches[:2])}")
+            
+            # News insights
+            news = real_time_data.get('news', {})
+            if news and not news.get('error'):
+                sentiment_score = news.get('news', {}).get('sentiment_score', 0)
+                if abs(sentiment_score) > 0.3:
+                    direction = "positive" if sentiment_score > 0 else "negative"
+                    team = "home" if sentiment_score > 0 else "away"
+                    insights.append(f"📰 {direction.title()} news trend for {team} team")
+            
+            return insights[:3]  # Return top 3 insights
+            
+        except Exception:
+            return []

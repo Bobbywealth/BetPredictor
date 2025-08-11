@@ -334,41 +334,93 @@ class RealTimeDataEngine:
         return location.get('outdoor', True)  # Default outdoor for unknown venues
 
     def _fetch_team_injuries(self, endpoint: str, team_name: str) -> List[Dict]:
-        """Fetch injury reports for a specific team"""
+        """Fetch injury reports for a specific team from ESPN"""
         try:
-            # This would use ESPN's team-specific injury endpoints
-            # For now, return simulated data structure
-            return [
-                {
-                    'player': 'Key Player',
-                    'position': 'QB',
-                    'status': 'Questionable',
-                    'injury': 'Shoulder',
-                    'impact': 'High'
-                }
-            ]
-        except Exception:
+            # Get team ID first
+            team_id = self._get_team_id(endpoint, team_name)
+            if not team_id:
+                return []
+            
+            # Fetch team roster with injury status
+            roster_url = f"{self.espn_base}/{endpoint}/teams/{team_id}/roster"
+            response = self.session.get(roster_url, timeout=8)
+            
+            if response.status_code != 200:
+                return []
+            
+            data = response.json()
+            injuries = []
+            
+            # Parse roster for injury information
+            athletes = data.get('athletes', [])
+            for athlete in athletes:
+                items = athlete.get('items', [])
+                for player in items:
+                    status = player.get('status', {})
+                    injury = player.get('injuries', [])
+                    
+                    if status.get('type') in ['OUT', 'DOUBTFUL', 'QUESTIONABLE'] or injury:
+                        position = player.get('position', {}).get('abbreviation', 'N/A')
+                        injuries.append({
+                            'player': player.get('displayName', 'Unknown'),
+                            'position': position,
+                            'status': status.get('type', 'Unknown'),
+                            'injury': injury[0].get('description', 'Undisclosed') if injury else 'Status',
+                            'impact': self._assess_player_impact(position, status.get('type', ''))
+                        })
+            
+            return injuries[:5]  # Return top 5 injuries
+            
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Injury fetch error for {team_name}: {e}")
             return []
 
     def _get_probable_pitchers(self, endpoint: str, home_team: str, away_team: str, game_date: str) -> Dict:
-        """Get probable starting pitchers for MLB"""
+        """Get probable starting pitchers for MLB from ESPN"""
         try:
-            # This would use ESPN's MLB probable pitcher endpoints
-            return {
-                'home_pitcher': {
-                    'name': 'Ace Pitcher',
-                    'era': 2.85,
-                    'whip': 1.12,
-                    'record': '12-5'
-                },
-                'away_pitcher': {
-                    'name': 'Good Pitcher', 
-                    'era': 3.45,
-                    'whip': 1.25,
-                    'record': '9-7'
-                }
-            }
-        except Exception:
+            # Get today's MLB scoreboard to find the specific game
+            scoreboard_url = f"{self.espn_base}/{endpoint}/scoreboard"
+            
+            # Try with date parameter
+            try:
+                game_dt = datetime.strptime(game_date, '%Y-%m-%d')
+                date_param = game_dt.strftime('%Y%m%d')
+                response = self.session.get(f"{scoreboard_url}?dates={date_param}", timeout=8)
+            except:
+                response = self.session.get(scoreboard_url, timeout=8)
+            
+            if response.status_code != 200:
+                return {}
+            
+            data = response.json()
+            events = data.get('events', [])
+            
+            # Find the specific game
+            for event in events:
+                competitors = event.get('competitions', [{}])[0].get('competitors', [])
+                if len(competitors) >= 2:
+                    home_comp = next((c for c in competitors if c.get('homeAway') == 'home'), None)
+                    away_comp = next((c for c in competitors if c.get('homeAway') == 'away'), None)
+                    
+                    if (home_comp and away_comp and 
+                        self._team_name_matches(home_comp.get('team', {}).get('displayName', ''), home_team) and
+                        self._team_name_matches(away_comp.get('team', {}).get('displayName', ''), away_team)):
+                        
+                        # Extract pitcher information
+                        home_pitcher = self._extract_pitcher_info(home_comp)
+                        away_pitcher = self._extract_pitcher_info(away_comp)
+                        
+                        return {
+                            'home_pitcher': home_pitcher,
+                            'away_pitcher': away_pitcher
+                        }
+            
+            return {}
+            
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Pitcher fetch error: {e}")
             return {}
 
     def _get_starting_lineups(self, endpoint: str, home_team: str, away_team: str, game_date: str) -> Dict:
@@ -536,3 +588,102 @@ class RealTimeDataEngine:
             return min(quality_score, 1.0)
         except Exception:
             return 0.5  # Default moderate quality
+
+    def _get_team_id(self, endpoint: str, team_name: str) -> Optional[str]:
+        """Get ESPN team ID for API calls"""
+        try:
+            # Get teams list for the sport
+            teams_url = f"{self.espn_base}/{endpoint}/teams"
+            response = self.session.get(teams_url, timeout=5)
+            
+            if response.status_code != 200:
+                return None
+            
+            data = response.json()
+            teams = data.get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', [])
+            
+            # Find team by name
+            for team in teams:
+                team_info = team.get('team', {})
+                names_to_check = [
+                    team_info.get('displayName', ''),
+                    team_info.get('name', ''),
+                    team_info.get('shortDisplayName', ''),
+                    team_info.get('abbreviation', '')
+                ]
+                
+                if any(team_name.lower() in name.lower() or name.lower() in team_name.lower() 
+                       for name in names_to_check if name):
+                    return team_info.get('id')
+            
+            return None
+            
+        except Exception:
+            return None
+
+    def _assess_player_impact(self, position: str, status: str) -> str:
+        """Assess impact level based on position and injury status"""
+        key_positions = ['QB', 'RB', 'WR', 'TE', 'PG', 'SG', 'SF', 'PF', 'C', 'P', 'C', 'SP', 'RP']
+        
+        if position in key_positions:
+            if status == 'OUT':
+                return 'High'
+            elif status == 'DOUBTFUL':
+                return 'Medium'
+            elif status == 'QUESTIONABLE':
+                return 'Low'
+
+    def _team_name_matches(self, espn_name: str, target_name: str) -> bool:
+        """Check if ESPN team name matches target team name"""
+        if not espn_name or not target_name:
+            return False
+        
+        # Normalize names for comparison
+        espn_clean = espn_name.lower().replace(' ', '').replace('.', '')
+        target_clean = target_name.lower().replace(' ', '').replace('.', '')
+        
+        # Check various matching patterns
+        return (
+            espn_clean in target_clean or
+            target_clean in espn_clean or
+            espn_name.split()[-1].lower() in target_name.lower() or  # Last word (team name)
+            target_name.split()[-1].lower() in espn_name.lower()
+        )
+
+    def _extract_pitcher_info(self, competitor: Dict) -> Dict:
+        """Extract pitcher information from ESPN competitor data"""
+        try:
+            # Look for probable pitcher in various places
+            team = competitor.get('team', {})
+            
+            # Check if pitcher info is in the competitor data
+            pitcher_info = competitor.get('probablePitcher', {})
+            if not pitcher_info:
+                # Try alternative locations
+                pitcher_info = competitor.get('startingPitcher', {})
+            
+            if pitcher_info:
+                stats = pitcher_info.get('statistics', [])
+                era = whip = record = None
+                
+                # Extract stats if available
+                for stat_group in stats:
+                    for stat in stat_group.get('stats', []):
+                        if stat.get('name') == 'ERA':
+                            era = stat.get('value')
+                        elif stat.get('name') == 'WHIP':
+                            whip = stat.get('value')
+                        elif stat.get('name') == 'W-L':
+                            record = stat.get('displayValue')
+                
+                return {
+                    'name': pitcher_info.get('displayName', 'TBD'),
+                    'era': era or 'N/A',
+                    'whip': whip or 'N/A',
+                    'record': record or 'N/A'
+                }
+            
+            return {'name': 'TBD', 'era': 'N/A', 'whip': 'N/A', 'record': 'N/A'}
+            
+        except Exception:
+            return {'name': 'TBD', 'era': 'N/A', 'whip': 'N/A', 'record': 'N/A'}
