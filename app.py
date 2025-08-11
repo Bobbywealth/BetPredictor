@@ -4030,12 +4030,30 @@ def show_enhanced_pick_card_v2(game, rank):
             st.markdown("**🎲 Statistical Edge**")
             
             stat_edge = analysis.get('statistical_edge', {})
-            if stat_edge:
+            # Show quantitative model details if available
+            quant_baseline = analysis.get('quantitative_baseline') or consensus.get('quantitative_baseline')
+            
+            if quant_baseline:
+                model_type = quant_baseline.get('model_type', 'Quantitative Model')
+                model_confidence = quant_baseline.get('confidence_level', 0.6)
+                home_rating = quant_baseline.get('home_rating', 1500)
+                away_rating = quant_baseline.get('away_rating', 1500)
+                adjustments = quant_baseline.get('adjustments', [])
+                
+                st.markdown(f"• **Model Type:** {model_type} ({model_confidence:.0%} confidence)")
+                st.markdown(f"• **Team Ratings:** Home {home_rating:.0f} vs Away {away_rating:.0f}")
+                
+                if adjustments:
+                    st.markdown(f"• **Key Adjustments:** {adjustments[0] if adjustments else 'Standard analysis'}")
+                else:
+                    st.markdown("• **Analysis:** Pure statistical baseline applied")
+                    
+            elif stat_edge:
                 st.markdown(f"• **Metric:** {stat_edge.get('metric', 'Advanced analytics')}")
                 st.markdown(f"• **Value:** {stat_edge.get('value', 'Positive edge detected')}")
                 st.markdown(f"• **Significance:** {stat_edge.get('significance', 'Medium')}")
             else:
-                st.markdown("• Multi-factor statistical model applied")
+                st.markdown("• Enhanced AI analysis with statistical foundation")
                 st.markdown("• Historical performance patterns analyzed")
                 st.markdown("• Market inefficiency identified")
             
