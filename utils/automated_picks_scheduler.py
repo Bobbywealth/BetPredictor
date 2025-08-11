@@ -4,9 +4,14 @@ Generates picks automatically and tracks performance over time
 """
 
 import streamlit as st
-import schedule
 import time
 import threading
+try:
+    import schedule
+    SCHEDULE_AVAILABLE = True
+except ImportError:
+    SCHEDULE_AVAILABLE = False
+    schedule = None
 from datetime import datetime, timedelta
 import json
 import os
@@ -345,6 +350,10 @@ class AutomatedPicksScheduler:
         if self.is_running:
             return
         
+        if not SCHEDULE_AVAILABLE:
+            logging.warning("Schedule module not available - automated scheduling disabled")
+            return
+        
         # Schedule daily pick generation at 6 AM
         schedule.every().day.at("06:00").do(self.generate_daily_picks)
         
@@ -369,7 +378,8 @@ class AutomatedPicksScheduler:
     def stop_automated_scheduling(self):
         """Stop the automated scheduling system"""
         self.is_running = False
-        schedule.clear()
+        if SCHEDULE_AVAILABLE and schedule:
+            schedule.clear()
         logging.info("Automated picks scheduler stopped")
 
     def force_generate_picks(self):
