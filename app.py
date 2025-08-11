@@ -3414,6 +3414,14 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         
                         enhanced_analysis['ai_source'] = 'Enhanced AI with Real-Time Data'
                         
+                        # Debug: Check if quantitative baseline exists
+                        if st.session_state.get('debug_mode', False):
+                            quant_baseline = enhanced_analysis.get('quantitative_baseline')
+                            if quant_baseline:
+                                st.write(f"Debug: Quantitative baseline found - {quant_baseline.get('model_type', 'Unknown')}")
+                            else:
+                                st.write("Debug: No quantitative baseline in enhanced analysis")
+                        
                         # Convert enhanced analysis to consensus format
                         consensus = {
                             'consensus_pick': enhanced_analysis.get('predicted_winner', ''),
@@ -3931,6 +3939,9 @@ def show_enhanced_pick_card_v2(game, rank):
             elif 'Enhanced AI with Real-Time Data' in ai_source:
                 # Show that quantitative system is active
                 st.markdown("**Model:** Quantitative + AI (Active)")
+            else:
+                # Fallback to show we're using enhanced system
+                st.markdown("**Model:** Enhanced AI System")
         
         with col2:
             # Risk level
