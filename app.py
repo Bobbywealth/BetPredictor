@@ -8269,8 +8269,10 @@ def show_ai_lab_page():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🚀 **Run Backtest**", type="primary", use_container_width=True, key="lab_run_test"):
+        if st.button("🚀 **Run Backtest (Simulated)**", type="secondary", use_container_width=True, key="lab_run_test"):
             run_ai_backtest_simple(start_date, end_date, selected_sports, min_confidence_test, max_games_per_day)
+        if st.button("🧠 **Run Real Backtest**", type="primary", use_container_width=True, key="lab_run_real"):
+            run_ai_backtest_real(start_date, end_date, selected_sports, min_confidence_test, max_games_per_day)
     
     # Historical results section
     st.markdown("---")
@@ -8401,6 +8403,106 @@ def run_ai_backtest_simple(start_date, end_date, sports, min_confidence, max_gam
     
     else:
         st.warning("⚠️ **No results generated during backtest period**")
+
+
+def run_ai_backtest_real(start_date, end_date, sports, min_confidence, max_games_per_day):
+    """Real backtest using current pipeline: get games -> analyze -> score -> metrics"""
+    from utils.result_scorer import ResultScorer
+    from utils.enhanced_ai_analyzer import EnhancedAIAnalyzer
+    
+    # Calculate date range
+    date_range = []
+    current_date = start_date
+    while current_date <= end_date:
+        date_range.append(current_date)
+        current_date += timedelta(days=1)
+    
+    st.success(f"🔍 **Starting REAL backtest:** {len(date_range)} days, {len(sports)} sports")
+    
+    # Components
+    scorer = ResultScorer()
+    if 'enhanced_analyzer' not in st.session_state:
+        st.session_state.enhanced_analyzer = EnhancedAIAnalyzer()
+    analyzer = st.session_state.enhanced_analyzer
+    
+    # Progress
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    all_scored: list = []
+    daily_rows: list = []
+    
+    for i, test_date in enumerate(date_range):
+        progress_bar.progress((i + 1) / len(date_range))
+        status_text.info(f"📅 {test_date.strftime('%B %d, %Y')} - fetching games and running AI")
+        
+        try:
+            games = get_games_for_date(test_date, sports)
+            if not games:
+                continue
+            
+            # Analyze and filter
+            date_predictions = []
+            for game in games[:max_games_per_day]:
+                try:
+                    analysis = analyzer.analyze_game_enhanced(game)
+                    if analysis and not analysis.get('error'):
+                        conf = float(analysis.get('confidence', 0) or 0)
+                        if conf >= min_confidence:
+                            date_predictions.append({
+                                'sport': game.get('sport', '').upper(),
+                                'home_team': game.get('home_team', {}).get('name', ''),
+                                'away_team': game.get('away_team', {}).get('name', ''),
+                                'predicted_winner': analysis.get('pick', ''),
+                                'confidence': conf,
+                                'prediction_id': game.get('game_id', ''),
+                                'date': test_date.strftime('%Y-%m-%d')
+                            })
+                except Exception:
+                    continue
+            
+            # Score against final results
+            final_results = scorer.get_final_scores_for_date(test_date.strftime('%Y-%m-%d'), sports)
+            if date_predictions and final_results:
+                scored = scorer.score_predictions(date_predictions, final_results)
+                metrics = scorer.calculate_accuracy_metrics(scored)
+                all_scored.extend(scored)
+                daily_rows.append({
+                    'date': test_date,
+                    'predictions': metrics['total_predictions'],
+                    'wins': metrics['wins'],
+                    'losses': metrics['losses'],
+                    'accuracy': metrics['accuracy'],
+                    'roi': metrics['roi_estimate']
+                })
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Real backtest error on {test_date}: {e}")
+            continue
+    
+    progress_bar.progress(1.0)
+    status_text.success("✅ REAL backtest complete")
+    
+    if not all_scored:
+        st.warning("⚠️ No scored predictions in the selected period. Try widening the date range or lowering confidence.")
+        return
+    
+    # Aggregate and display
+    metrics = scorer.calculate_accuracy_metrics(all_scored)
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Predictions", metrics['total_predictions'])
+    with col2:
+        st.metric("Accuracy", f"{metrics['accuracy']:.1f}%")
+    with col3:
+        st.metric("ROI Estimate", f"{metrics['roi_estimate']:+.1f}%")
+    with col4:
+        st.metric("Record", f"{metrics['wins']}-{metrics['losses']}")
+    
+    if daily_rows:
+        st.markdown("### 📅 Daily Performance")
+        for r in daily_rows[-5:]:
+            st.write(f"{r['date'].strftime('%b %d, %Y')}: {r['wins']}-{r['losses']} | {r['accuracy']:.1f}% | ROI {r['roi']:+.1f}%")
 
 # Add AI Lab to sidebar navigation
 def add_ai_lab_navigation():
