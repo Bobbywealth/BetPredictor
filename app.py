@@ -3606,9 +3606,11 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             
             st.markdown("---")
             
-            # Display enhanced pick cards with clean, user-friendly design
+            # Display clean, organized pick cards
+            from utils.clean_pick_card import show_clean_pick_card
+            
             for i, game in enumerate(final_games, 1):
-                show_enhanced_pick_card_v2(game, i)
+                show_clean_pick_card(game, i)
             
             # Add Score Results button (AI testing feature)
                 st.markdown("---")
