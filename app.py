@@ -3436,6 +3436,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             'real_time_sources': enhanced_analysis.get('real_time_sources'),
                             'data_quality_display': enhanced_analysis.get('data_quality_display'),
                             'quantitative_baseline': enhanced_analysis.get('quantitative_baseline'),
+                            'confidence_calibration': enhanced_analysis.get('confidence_calibration'),
                             'success_metrics': {
                                 'edge_score': enhanced_analysis.get('expected_value', 0.0),
                                 'risk_score': enhanced_analysis.get('risk_score', 0.5),
@@ -3949,6 +3950,20 @@ def show_enhanced_pick_card_v2(game, rank):
             else:
                 # Fallback to show we're using enhanced system
                 st.markdown("**Model:** Enhanced AI System")
+            
+            # Confidence calibration info (if available)
+            calibration = analysis.get('confidence_calibration') or consensus.get('confidence_calibration')
+            if calibration:
+                reliability = calibration.get('reliability_score', 0.6)
+                calibration_quality = calibration.get('calibration_quality', 'Medium')
+                st.markdown(f"**Reliability:** {reliability:.0%} ({calibration_quality})")
+                
+                # Show if confidence was adjusted
+                raw_conf = calibration.get('raw_confidence', confidence)
+                if abs(raw_conf - confidence) > 0.02:  # Significant adjustment
+                    adjustment = confidence - raw_conf
+                    direction = "↑" if adjustment > 0 else "↓"
+                    st.markdown(f"**Calibrated:** {direction} {abs(adjustment):.1%} adjustment")
         
         with col2:
             # Risk level

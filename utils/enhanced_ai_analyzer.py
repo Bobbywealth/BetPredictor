@@ -6,6 +6,7 @@ from openai import OpenAI
 from utils.advanced_ai_strategy import AdvancedAIStrategy
 from utils.real_time_data import RealTimeDataEngine
 from utils.quantitative_models import QuantitativeModelEngine
+from utils.confidence_calibration import ConfidenceCalibrator
 
 class EnhancedAIAnalyzer:
     """
@@ -23,6 +24,7 @@ class EnhancedAIAnalyzer:
         self.strategy = AdvancedAIStrategy()
         self.real_time_engine = RealTimeDataEngine()
         self.quantitative_engine = QuantitativeModelEngine()
+        self.confidence_calibrator = ConfidenceCalibrator()
         self.openai_client = None
         
         # Initialize OpenAI
@@ -103,8 +105,28 @@ class EnhancedAIAnalyzer:
                 all_insights = quant_insights + rt_insights + current_factors[:2]  # Prioritize quantitative + real-time
                 enhanced_analysis['key_factors'] = all_insights[:5]  # Keep top 5
             
-            # Step 6: Apply Kelly Criterion for bet sizing
-            if enhanced_analysis.get('confidence', 0) >= 0.7:
+            # Step 6: Apply Confidence Calibration (Critical for accuracy)
+            raw_confidence = enhanced_analysis.get('confidence', 0.5)
+            
+            prediction_context = {
+                'sport': game_data.get('sport', 'Unknown'),
+                'model_type': quantitative_baseline.get('model_type', 'Generic'),
+                'data_quality_score': enhanced_analysis.get('data_quality_score', 0.5)
+            }
+            
+            calibration_result = self.confidence_calibrator.calibrate_confidence(
+                raw_confidence, prediction_context
+            )
+            
+            # Update analysis with calibrated confidence
+            enhanced_analysis['raw_confidence'] = raw_confidence
+            enhanced_analysis['confidence'] = calibration_result['calibrated_confidence']
+            enhanced_analysis['confidence_calibration'] = calibration_result
+            enhanced_analysis['recommendation_tier'] = calibration_result['recommendation_tier']
+            enhanced_analysis['reliability_score'] = calibration_result['reliability_score']
+            
+            # Step 7: Apply Kelly Criterion with calibrated confidence
+            if enhanced_analysis.get('confidence', 0) >= 0.65:  # Lower threshold with calibration
                 kelly_info = self.strategy.apply_kelly_criterion(enhanced_analysis)
                 enhanced_analysis['kelly_criterion'] = kelly_info
             
