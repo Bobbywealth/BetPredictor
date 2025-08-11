@@ -3382,14 +3382,34 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             def analyze_single_game(game):
                 """Analyze a single game with enhanced AI strategy"""
                 try:
-                    # Try enhanced analysis first (most sophisticated)
+                    # Try enhanced analysis with real-time data first (most sophisticated)
                     enhanced_analysis = enhanced_analyzer.analyze_game_enhanced(game)
                     
                     if enhanced_analysis and 'error' not in enhanced_analysis:
+                        # Add real-time data indicators to the analysis
+                        data_quality = enhanced_analysis.get('data_quality_score', 0.5)
+                        enhanced_analysis['data_quality_display'] = f"Data Quality: {data_quality:.1f}/1.0"
+                        
+                        # Add real-time data source indicators
+                        rt_summary = enhanced_analysis.get('real_time_data_summary', {})
+                        if rt_summary:
+                            data_sources = []
+                            if rt_summary.get('injuries_available'): data_sources.append("🏥 Injuries")
+                            if rt_summary.get('weather_available'): data_sources.append("🌤️ Weather") 
+                            if rt_summary.get('lineups_available'): data_sources.append("👥 Lineups")
+                            if rt_summary.get('news_available'): data_sources.append("📰 News")
+                            
+                            if data_sources:
+                                enhanced_analysis['real_time_sources'] = " | ".join(data_sources)
+                        
+                        enhanced_analysis['ai_source'] = 'Enhanced AI with Real-Time Data'
+                        
                         # Convert enhanced analysis to consensus format
                         consensus = {
                             'consensus_pick': enhanced_analysis.get('predicted_winner', ''),
                             'consensus_confidence': enhanced_analysis.get('confidence', 0.0),
+                            'real_time_sources': enhanced_analysis.get('real_time_sources'),
+                            'data_quality_display': enhanced_analysis.get('data_quality_display'),
                             'success_metrics': {
                                 'edge_score': enhanced_analysis.get('expected_value', 0.0),
                                 'risk_score': enhanced_analysis.get('risk_score', 0.5),
@@ -3866,6 +3886,16 @@ def show_enhanced_pick_card_v2(game, rank):
             ai_source = consensus.get('ai_source', 'Enhanced AI')
             clean_ai_source = ai_source.replace('Enhanced ', '').replace(' Strategy', '')
             st.metric("AI Model", clean_ai_source)
+            
+            # Real-time data sources (if available)
+            rt_sources = analysis.get('real_time_sources') or consensus.get('real_time_sources')
+            if rt_sources:
+                st.markdown(f"**Data:** {rt_sources}")
+            
+            # Data quality score (if available)  
+            data_quality = analysis.get('data_quality_display') or consensus.get('data_quality_display')
+            if data_quality:
+                st.markdown(f"**{data_quality}**")
         
         with col2:
             # Risk level
