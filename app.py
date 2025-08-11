@@ -3385,6 +3385,10 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 st.session_state.dual_ai_engine = DualAIConsensusEngine()
             if 'enhanced_ai_analyzer' not in st.session_state:
                 st.session_state.enhanced_ai_analyzer = EnhancedAIAnalyzer()
+                
+            # Debug: Show that enhanced AI is being used
+            if st.session_state.get('debug_mode', False):
+                st.success("🔧 DEBUG: Enhanced AI Analyzer with Quantitative Models initialized!")
             
             dual_engine = st.session_state.dual_ai_engine
             enhanced_analyzer = st.session_state.enhanced_ai_analyzer
@@ -3393,6 +3397,9 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 """Analyze a single game with enhanced AI strategy"""
                 try:
                     # Try enhanced analysis with real-time data first (most sophisticated)
+                    if st.session_state.get('debug_mode', False):
+                        st.info(f"🧠 DEBUG: Running Enhanced AI Analysis for {game.get('away_team', {}).get('name', 'Away')} @ {game.get('home_team', {}).get('name', 'Home')}")
+                    
                     enhanced_analysis = enhanced_analyzer.analyze_game_enhanced(game)
                     
                     if enhanced_analysis and 'error' not in enhanced_analysis:
