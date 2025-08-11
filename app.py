@@ -13,6 +13,7 @@ from datetime import datetime, date, timedelta
 import os
 import random
 import hashlib
+from utils.automated_picks_scheduler import AutomatedPicksScheduler
 import pickle
 
 # Database imports
@@ -3627,6 +3628,41 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                     st.markdown("• Multi-layer quantitative + AI analysis")
                     st.markdown("• Real-time data integration")  
                     st.markdown("• Professional-grade confidence calibration")
+            
+            st.markdown("---")
+            
+            # Automated Picks Status
+            if 'automated_scheduler' in st.session_state:
+                scheduler = st.session_state.automated_scheduler
+                
+                # Check if we have today's automated picks
+                todays_picks = scheduler.get_todays_automated_picks()
+                
+                if todays_picks:
+                    st.success(f"🤖 **Automated Daily Picks Active** - {len(todays_picks)} picks generated at 6 AM")
+                    
+                    # Show performance stats
+                    perf_stats = scheduler.get_performance_stats(30)
+                    if perf_stats['total_picks'] > 0:
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("30-Day Accuracy", f"{perf_stats['accuracy']:.1%}")
+                        with col2:
+                            st.metric("Total Picks", perf_stats['total_picks'])
+                        with col3:
+                            st.metric("High-Conf Accuracy", f"{perf_stats['high_confidence_accuracy']:.1%}")
+                        with col4:
+                            st.metric("Avg Expected Value", f"{perf_stats['avg_expected_value']:.1%}")
+                else:
+                    # Show manual generation option
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.info("🤖 **Automated Daily Picks** - Scheduled for 6 AM daily | Results updated at 11 PM")
+                    with col2:
+                        if st.button("🔄 Generate Now", help="Force generate automated picks now"):
+                            with st.spinner("Generating automated picks..."):
+                                scheduler.force_generate_picks()
+                                st.rerun()
             
             st.markdown("---")
             
@@ -8723,6 +8759,12 @@ def add_ai_lab_navigation():
         st.rerun()
 
 if __name__ == "__main__":
+    # Initialize automated picks scheduler
+    if 'automated_scheduler' not in st.session_state:
+        st.session_state.automated_scheduler = AutomatedPicksScheduler()
+        # Start automated scheduling (6 AM daily picks, 11 PM results)
+        st.session_state.automated_scheduler.start_automated_scheduling()
+    
     # Check if AI Lab should be shown
     if 'show_ai_lab' not in st.session_state:
         st.session_state.show_ai_lab = False
