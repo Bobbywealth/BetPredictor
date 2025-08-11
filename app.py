@@ -15,6 +15,7 @@ import random
 import hashlib
 from utils.automated_picks_scheduler import AutomatedPicksScheduler
 import pickle
+from typing import Dict, List
 
 # Database imports
 try:
@@ -4541,42 +4542,194 @@ def show_live_odds():
 
 def show_live_scores():
     """Show live scores across selected sports using ESPN scoreboard endpoints"""
-    st.markdown("# 📺 Live Scores")
+    st.markdown("# 📺 Live Scores & Game Center")
 
-    col1, col2 = st.columns([1, 3])
+    # Import the live scores API
+    from utils.live_scores_api import LiveScoresAPI
+    
+    # Initialize the API
+    live_api = LiveScoresAPI()
+    
+    # Controls
+    col1, col2, col3 = st.columns([2, 3, 1])
+    
     with col1:
         est = pytz.timezone('US/Eastern')
         today_est = datetime.now(est).date()
-        target_date = st.date_input("Date", value=today_est)
+        target_date = st.date_input("📅 Date", value=today_est)
+    
     with col2:
         sports = st.multiselect(
-            "Sports",
+            "🏈 Sports",
             options=['NFL', 'NBA', 'WNBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'],
-            default=['NFL', 'MLB']
+            default=['NFL', 'NBA', 'MLB'] if datetime.now().month in [9, 10, 11, 12, 1, 2] else ['MLB', 'NBA']
         )
-
-    games = get_espn_games_for_date(target_date, sports)
-    if not games:
-        st.info("No games found for the selected filters.")
+    
+    with col3:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.rerun()
+    
+    if not sports:
+        st.warning("Please select at least one sport to view scores.")
         return
+    
+    # Fetch live scores
+    with st.spinner("Loading live scores..."):
+        date_str = target_date.strftime('%Y-%m-%d')
+        all_scores = live_api.get_live_scores_for_date(date_str, sports)
+    
+    if not all_scores:
+        st.info(f"No games found for {target_date.strftime('%B %d, %Y')} in the selected sports.")
+        
+        # Show trending games as alternative
+        st.markdown("### 🔥 Trending Games")
+        trending = live_api.get_trending_games()
+        if trending:
+            for game in trending[:5]:
+                show_live_score_card(game)
+        return
+    
+    # Display scores by sport
+    total_games = sum(len(games) for games in all_scores.values())
+    st.success(f"📊 Found {total_games} games across {len(all_scores)} sports")
+    
+    # Create tabs for each sport
+    if len(all_scores) > 1:
+        tabs = st.tabs([f"{sport} ({len(games)})" for sport, games in all_scores.items()])
+        
+        for i, (sport, games) in enumerate(all_scores.items()):
+            with tabs[i]:
+                show_sport_scores(sport, games)
+    else:
+        # Single sport - no tabs needed
+        sport, games = next(iter(all_scores.items()))
+        show_sport_scores(sport, games)
 
-    from collections import defaultdict
-    by_sport = defaultdict(list)
-    for g in games:
-        by_sport[str(g.get('sport', 'Unknown')).upper()].append(g)
+def show_sport_scores(sport: str, games: List[Dict]):
+    """Display scores for a specific sport"""
+    
+    # Separate games by status
+    live_games = [g for g in games if g.get('is_live', False)]
+    final_games = [g for g in games if g.get('is_final', False)]
+    upcoming_games = [g for g in games if g.get('is_upcoming', False)]
+    
+    # Show live games first
+    if live_games:
+        st.markdown("### 🔴 Live Games")
+        for game in live_games:
+            show_live_score_card(game, highlight_live=True)
+        st.markdown("---")
+    
+    # Show final games
+    if final_games:
+        st.markdown("### ✅ Final Scores")
+        for game in final_games:
+            show_live_score_card(game)
+        st.markdown("---")
+    
+    # Show upcoming games
+    if upcoming_games:
+        st.markdown("### ⏰ Upcoming Games")
+        for game in upcoming_games:
+            show_live_score_card(game)
 
-    for sport, items in by_sport.items():
-        st.markdown(f"### {sport}")
-        for g in items:
-            away = g.get('away_team', 'Away')
-            home = g.get('home_team', 'Home')
-            when = g.get('est_time', 'TBD')
-            status = g.get('status', 'Scheduled')
-            cols = st.columns([3, 1, 3, 2])
-            cols[0].markdown(f"**{away}**")
-            cols[1].markdown("@")
-            cols[2].markdown(f"**{home}**")
-            cols[3].markdown(f"{when} • {status}")
+def show_live_score_card(game: Dict, highlight_live: bool = False):
+    """Display a single game score card"""
+    
+    # Extract game data
+    home_team = game.get('home_team', {})
+    away_team = game.get('away_team', {})
+    status = game.get('status', 'scheduled')
+    status_detail = game.get('status_detail', '')
+    period_info = game.get('period_info', '')
+    is_live = game.get('is_live', False)
+    is_final = game.get('is_final', False)
+    
+    # Card styling based on game status
+    if highlight_live and is_live:
+        card_style = "background: linear-gradient(90deg, #ff4444aa, transparent); border-left: 4px solid #ff4444;"
+        status_color = "#ff4444"
+        status_icon = "🔴"
+    elif is_final:
+        card_style = "background: linear-gradient(90deg, #28a745aa, transparent); border-left: 4px solid #28a745;"
+        status_color = "#28a745"
+        status_icon = "✅"
+    else:
+        card_style = "background: linear-gradient(90deg, #17a2b8aa, transparent); border-left: 4px solid #17a2b8;"
+        status_color = "#17a2b8"
+        status_icon = "⏰"
+    
+    # Team names and scores
+    home_name = home_team.get('name', 'Home Team')
+    away_name = away_team.get('name', 'Away Team')
+    home_short = home_team.get('short_name', 'HOME')
+    away_short = away_team.get('short_name', 'AWAY')
+    home_score = home_team.get('score', '0')
+    away_score = away_team.get('score', '0')
+    
+    # Winner styling
+    home_winner = home_team.get('winner', False)
+    away_winner = away_team.get('winner', False)
+    
+    # Create the score card
+    st.markdown(f"""
+    <div style="
+        {card_style}
+        padding: 16px;
+        border-radius: 8px;
+        margin: 8px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-weight: {'bold' if away_winner else 'normal'}; font-size: 1.1em;">
+                        {away_short} {away_name}
+                    </div>
+                    <div style="font-size: 1.4em; font-weight: bold; color: {status_color};">
+                        {away_score}
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: {'bold' if home_winner else 'normal'}; font-size: 1.1em;">
+                        {home_short} {home_name}
+                    </div>
+                    <div style="font-size: 1.4em; font-weight: bold; color: {status_color};">
+                        {home_score}
+                    </div>
+                </div>
+            </div>
+            <div style="margin-left: 16px; text-align: right; min-width: 120px;">
+                <div style="color: {status_color}; font-weight: bold; font-size: 0.9em;">
+                    {status_icon} {status.upper()}
+                </div>
+                <div style="color: #666; font-size: 0.85em; margin-top: 4px;">
+                    {period_info if period_info else status_detail}
+                </div>
+                <div style="color: #666; font-size: 0.8em; margin-top: 2px;">
+                    {game.get('game_time', '')}
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Additional game info in expander for detailed view
+    if game.get('venue') or game.get('weather'):
+        with st.expander(f"📍 Game Details - {away_short} @ {home_short}", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if game.get('venue'):
+                    st.markdown(f"**🏟️ Venue:** {game['venue']}")
+                if game.get('weather'):
+                    st.markdown(f"**🌤️ Weather:** {game['weather']}")
+            
+            with col2:
+                if home_team.get('record'):
+                    st.markdown(f"**{home_short} Record:** {home_team['record']}")
+                if away_team.get('record'):
+                    st.markdown(f"**{away_short} Record:** {away_team['record']}")
 
     
     # Load and filter odds data
