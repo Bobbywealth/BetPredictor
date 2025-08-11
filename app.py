@@ -4731,40 +4731,7 @@ def show_live_score_card(game: Dict, highlight_live: bool = False):
                 if away_team.get('record'):
                     st.markdown(f"**{away_short} Record:** {away_team['record']}")
 
-    
-    # Load and filter odds data
-    try:
-        with st.spinner("Loading live odds..."):
-            all_odds_data = get_live_odds_data()
-        
-        if all_odds_data:
-            # Filter by selected criteria
-            filtered_data = filter_odds_data(all_odds_data, selected_sports, date_range, sort_by)
-            
-            # Limit results
-            display_data = filtered_data[:max_games]
-            
-            if display_data:
-                st.success(f"📊 Showing {len(display_data)} games from {len(all_odds_data)} total available")
-                
-                # Game selection interface
-                show_game_selector(display_data)
-                
-                st.markdown("---")
-                
-                # Display selected games
-                for i, game in enumerate(display_data, 1):
-                    show_enhanced_odds_card(game, i)
-            else:
-                st.warning("No games match your current filters. Try adjusting your selection.")
-                show_filter_suggestions()
-        else:
-            st.info("No live odds available at this time")
-            show_offline_message()
-            
-    except Exception as e:
-        st.error(f"Error loading odds: {str(e)}")
-        show_error_troubleshooting()
+
 
 def show_odds_card(game):
     """Modern odds comparison card"""
