@@ -8274,6 +8274,40 @@ def show_ai_lab_page():
         if st.button("🧠 **Run Real Backtest**", type="primary", use_container_width=True, key="lab_run_real"):
             run_ai_backtest_real(start_date, end_date, selected_sports, min_confidence_test, max_games_per_day)
     
+    # Quick test section
+    st.markdown("---")
+    st.markdown("### 🔧 **Quick Test**")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🧪 Test Single Day", help="Test one recent day to check if components work"):
+            test_date = datetime.now().date() - timedelta(days=2)
+            st.info(f"Testing {test_date}...")
+            try:
+                games = get_games_for_date(test_date, ['NFL', 'NBA'])
+                st.success(f"✅ Found {len(games) if games else 0} games")
+                if games:
+                    st.write(f"Sample game: {games[0].get('away_team', {}).get('name', 'Unknown')} @ {games[0].get('home_team', {}).get('name', 'Unknown')}")
+            except Exception as e:
+                st.error(f"❌ Error: {e}")
+    
+    with col2:
+        if st.button("🔬 Test AI Analysis", help="Test AI analysis on a sample game"):
+            try:
+                from utils.enhanced_ai_analyzer import EnhancedAIAnalyzer
+                analyzer = EnhancedAIAnalyzer()
+                sample_game = {
+                    'home_team': {'name': 'Lakers'},
+                    'away_team': {'name': 'Celtics'},
+                    'sport': 'NBA'
+                }
+                result = analyzer.analyze_game_enhanced(sample_game)
+                if result:
+                    st.success(f"✅ AI analysis works! Confidence: {result.get('confidence', 0):.2f}")
+                else:
+                    st.error("❌ AI analysis returned None")
+            except Exception as e:
+                st.error(f"❌ AI Error: {e}")
+    
     # Historical results section
     st.markdown("---")
     st.markdown("## 📊 **Recent Test Results**")
@@ -8437,15 +8471,35 @@ def run_ai_backtest_real(start_date, end_date, sports, min_confidence, max_games
         status_text.info(f"📅 {test_date.strftime('%B %d, %Y')} - fetching games and running AI")
         
         try:
+            # Debug info
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Fetching games for {test_date}")
+            
             games = get_games_for_date(test_date, sports)
+            
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Found {len(games) if games else 0} games")
+            
             if not games:
+                if st.session_state.get('debug_mode', False):
+                    st.write(f"Debug: No games found for {test_date}, skipping")
                 continue
             
             # Analyze and filter
             date_predictions = []
-            for game in games[:max_games_per_day]:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Analyzing {len(games[:max_games_per_day])} games")
+            
+            for j, game in enumerate(games[:max_games_per_day]):
                 try:
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"Debug: Analyzing game {j+1}: {game.get('away_team', {}).get('name', 'Unknown')} @ {game.get('home_team', {}).get('name', 'Unknown')}")
+                    
                     analysis = analyzer.analyze_game_enhanced(game)
+                    
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"Debug: Analysis result: {analysis}")
+                    
                     if analysis and not analysis.get('error'):
                         conf = float(analysis.get('confidence', 0) or 0)
                         if conf >= min_confidence:
@@ -8458,7 +8512,13 @@ def run_ai_backtest_real(start_date, end_date, sports, min_confidence, max_games
                                 'prediction_id': game.get('game_id', ''),
                                 'date': test_date.strftime('%Y-%m-%d')
                             })
-                except Exception:
+                        elif st.session_state.get('debug_mode', False):
+                            st.write(f"Debug: Confidence {conf:.2f} below threshold {min_confidence}")
+                    elif st.session_state.get('debug_mode', False):
+                        st.write(f"Debug: Analysis failed or had error")
+                except Exception as e:
+                    if st.session_state.get('debug_mode', False):
+                        st.write(f"Debug: Exception analyzing game: {e}")
                     continue
             
             # Score against final results
@@ -8476,8 +8536,10 @@ def run_ai_backtest_real(start_date, end_date, sports, min_confidence, max_games
                     'roi': metrics['roi_estimate']
                 })
         except Exception as e:
+            st.error(f"❌ Error processing {test_date}: {str(e)[:100]}...")
             if st.session_state.get('debug_mode', False):
-                st.write(f"Debug: Real backtest error on {test_date}: {e}")
+                import traceback
+                st.text(traceback.format_exc())
             continue
     
     progress_bar.progress(1.0)
