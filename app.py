@@ -8416,17 +8416,16 @@ def add_ai_lab_navigation():
         st.session_state.show_ai_lab = False
         st.rerun()
 
-# Check if AI Lab should be shown
-if 'show_ai_lab' not in st.session_state:
-    st.session_state.show_ai_lab = False
-
-# Add navigation to sidebar
-add_ai_lab_navigation()
-
-# Show AI Lab if requested
-if st.session_state.show_ai_lab:
-    show_ai_lab_page()
-    st.stop()  # Don't show the main app content
-
 if __name__ == "__main__":
-    main()
+    # Check if AI Lab should be shown
+    if 'show_ai_lab' not in st.session_state:
+        st.session_state.show_ai_lab = False
+
+    # Add navigation to sidebar
+    add_ai_lab_navigation()
+
+    # Show AI Lab if requested
+    if st.session_state.show_ai_lab:
+        show_ai_lab_page()
+    else:
+        main()
