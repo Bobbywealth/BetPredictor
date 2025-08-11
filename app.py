@@ -3591,10 +3591,16 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             if st.session_state.get('debug_mode', False):
                 st.write(f"Debug: Found {len(final_games)} games for scoring")
             
-            col1, col2, col3 = st.columns([1, 2, 1])
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+            with col1:
+                if st.button("🧹 Clear Cache", help="Clear caches to see quantitative updates"):
+                    st.cache_data.clear()
+                    st.success("Cache cleared! Generate new picks.")
+                    st.rerun()
+            
             with col2:
                 # Always show the button if we have games
-                button_clicked = st.button("🏆 Score These Predictions", type="primary", use_container_width=True, help="Test AI accuracy by comparing predictions to final scores")
+                button_clicked = st.button("🏆 Score Results", help="Test AI accuracy by comparing predictions to final scores")
                 
                 if button_clicked:
                     if len(final_games) > 0:
@@ -3912,6 +3918,9 @@ def show_enhanced_pick_card_v2(game, rank):
                 model_type = quant_baseline.get('model_type', 'Generic')
                 model_confidence = quant_baseline.get('confidence_level', 0.6)
                 st.markdown(f"**Model:** {model_type} ({model_confidence:.0%})")
+            elif 'Enhanced AI with Real-Time Data' in ai_source:
+                # Show that quantitative system is active
+                st.markdown("**Model:** Quantitative + AI (Active)")
         
         with col2:
             # Risk level
