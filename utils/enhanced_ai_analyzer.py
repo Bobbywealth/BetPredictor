@@ -5,6 +5,7 @@ from datetime import datetime
 from openai import OpenAI
 from utils.advanced_ai_strategy import AdvancedAIStrategy
 from utils.real_time_data import RealTimeDataEngine
+from utils.quantitative_models import QuantitativeModelEngine
 
 class EnhancedAIAnalyzer:
     """
@@ -21,6 +22,7 @@ class EnhancedAIAnalyzer:
     def __init__(self):
         self.strategy = AdvancedAIStrategy()
         self.real_time_engine = RealTimeDataEngine()
+        self.quantitative_engine = QuantitativeModelEngine()
         self.openai_client = None
         
         # Initialize OpenAI
@@ -39,18 +41,19 @@ class EnhancedAIAnalyzer:
             # Step 1: Gather comprehensive real-time data
             real_time_data = self.real_time_engine.get_comprehensive_game_data(game_data)
             
-            # Step 2: Extract structured features for baseline
+            # Step 2: Calculate quantitative baseline (the foundation)
+            quantitative_baseline = self.quantitative_engine.calculate_baseline_probability(game_data, real_time_data)
+            baseline_prob = quantitative_baseline.get('home_win_probability', 0.5)
+            
+            # Step 3: Extract structured features for additional context
             try:
                 from utils.data_hub import get_game_features
                 game_features = get_game_features(game_data)
-                baseline_prob = self._calculate_baseline_probability(game_features)
             except ImportError:
-                # Fallback if data_hub not available
                 game_features = {}
-                baseline_prob = 0.5
             
-            # Step 3: Generate enhanced prompt with all data
-            enhanced_prompt = self._generate_comprehensive_prompt(game_data, real_time_data, baseline_prob, game_features)
+            # Step 4: Generate enhanced prompt with quantitative foundation
+            enhanced_prompt = self._generate_quantitative_prompt(game_data, real_time_data, quantitative_baseline, game_features)
             
             # Step 3: Get AI analysis with advanced prompt
             response = self.openai_client.chat.completions.create(
@@ -84,17 +87,21 @@ class EnhancedAIAnalyzer:
             analysis = json.loads(content)
             
             # Step 5: Apply advanced validation and adjustments
-            enhanced_analysis = self._enhance_analysis(analysis, game_data, real_time_data)
+            enhanced_analysis = self._enhance_analysis(analysis, game_data, real_time_data, quantitative_baseline)
             
-            # Step 5.5: Add real-time data quality score and detailed info
+            # Step 5.5: Add quantitative foundation and real-time data
+            enhanced_analysis['quantitative_baseline'] = quantitative_baseline
             enhanced_analysis['data_quality_score'] = real_time_data.get('data_quality_score', 0.5)
             enhanced_analysis['real_time_data_summary'] = self._summarize_real_time_data(real_time_data)
             
             # Add specific real-time insights to key factors
             rt_insights = self._extract_real_time_insights(real_time_data)
-            if rt_insights:
+            quant_insights = self._extract_quantitative_insights(quantitative_baseline)
+            
+            if rt_insights or quant_insights:
                 current_factors = enhanced_analysis.get('key_factors', [])
-                enhanced_analysis['key_factors'] = rt_insights + current_factors[:3]  # Prioritize real-time data
+                all_insights = quant_insights + rt_insights + current_factors[:2]  # Prioritize quantitative + real-time
+                enhanced_analysis['key_factors'] = all_insights[:5]  # Keep top 5
             
             # Step 6: Apply Kelly Criterion for bet sizing
             if enhanced_analysis.get('confidence', 0) >= 0.7:
@@ -106,7 +113,7 @@ class EnhancedAIAnalyzer:
         except Exception as e:
             return {"error": f"Enhanced analysis failed: {str(e)}"}
 
-    def _enhance_analysis(self, analysis: Dict, game_data: Dict, real_time_data: Dict) -> Dict:
+    def _enhance_analysis(self, analysis: Dict, game_data: Dict, real_time_data: Dict, quantitative_baseline: Dict = None) -> Dict:
         """Apply additional validation and enhancement to AI analysis"""
         
         # Confidence adjustments based on data quality
@@ -620,6 +627,115 @@ You are an elite sports analyst with access to comprehensive real-time data. Ana
                     direction = "positive" if sentiment_score > 0 else "negative"
                     team = "home" if sentiment_score > 0 else "away"
                     insights.append(f"📰 {direction.title()} news trend for {team} team")
+            
+            return insights[:3]  # Return top 3 insights
+            
+        except Exception:
+            return []
+
+    def _generate_quantitative_prompt(self, game_data: Dict, real_time_data: Dict, 
+                                     quantitative_baseline: Dict, game_features: Dict) -> str:
+        """Generate prompt with quantitative foundation (LLM as auditor approach)"""
+        
+        home_team = self._extract_team_name(game_data.get('home_team'))
+        away_team = self._extract_team_name(game_data.get('away_team'))
+        sport = game_data.get('sport', 'Unknown')
+        
+        # Extract quantitative insights
+        baseline_prob = quantitative_baseline.get('home_win_probability', 0.5)
+        model_confidence = quantitative_baseline.get('confidence_level', 0.6)
+        model_type = quantitative_baseline.get('model_type', 'Generic')
+        adjustments = quantitative_baseline.get('adjustments', [])
+        
+        # Build comprehensive prompt with quantitative foundation
+        prompt = f"""
+You are an elite sports analyst acting as an AUDITOR of a sophisticated quantitative model. Your job is to review the statistical baseline and make SMALL, JUSTIFIED adjustments based on factors the model may have missed.
+
+**GAME DETAILS:**
+- Matchup: {away_team} @ {home_team}
+- Sport: {sport}
+- Date: {game_data.get('date', 'Unknown')}
+
+**QUANTITATIVE MODEL BASELINE:**
+- Model Type: {model_type}
+- Statistical Win Probability: {baseline_prob:.1%} home team
+- Model Confidence: {model_confidence:.1%}
+- Home Team Rating: {quantitative_baseline.get('home_rating', 1500):.0f}
+- Away Team Rating: {quantitative_baseline.get('away_rating', 1500):.0f}
+
+**MODEL ADJUSTMENTS ALREADY APPLIED:**
+{chr(10).join([f"- {adj}" for adj in adjustments]) if adjustments else "- No significant adjustments applied"}
+
+**REAL-TIME DATA CONTEXT:**
+{self._format_injury_data(real_time_data.get('injuries', {}))}
+
+{self._format_weather_data(real_time_data.get('weather', {}))}
+
+{self._format_lineup_data(real_time_data.get('lineups', {}))}
+
+{self._format_news_data(real_time_data.get('news', {}))}
+
+**YOUR ROLE AS AI AUDITOR:**
+1. START with the quantitative baseline as your foundation
+2. Look for factors the statistical model may have MISSED or UNDERWEIGHTED
+3. Make SMALL adjustments (+/-5% max) only when you have strong justification
+4. Focus on QUALITATIVE factors: team chemistry, coaching, momentum, situational spots
+5. DO NOT second-guess the statistical foundation - enhance it
+
+**CONFIDENCE GUIDELINES:**
+- High confidence (80%+): Only when baseline + your adjustments strongly align
+- Medium confidence (65-79%): When you have modest adjustments to make
+- Lower confidence (50-64%): When significant uncertainty remains
+- NEVER exceed 90% confidence - sports have inherent randomness
+
+**REQUIRED JSON OUTPUT:**
+{{
+    "predicted_winner": "Team Name",
+    "confidence": 0.XX,
+    "baseline_adjustment": "+/-X.X% from {baseline_prob:.1%} baseline because...",
+    "key_factors": ["Quantitative edge", "Real-time factor", "Qualitative insight", "Risk factor", "Value assessment"],
+    "quantitative_validation": "Why the statistical model baseline makes sense",
+    "ai_additions": "What qualitative factors you're adding to the analysis",
+    "risk_assessment": "Low/Medium/High",
+    "bet_recommendation": "Strong/Moderate/Lean/Pass",
+    "reasoning": "Your complete analysis as an auditor of the quantitative model"
+}}
+
+**REMEMBER:** You are enhancing a sophisticated statistical model, not replacing it. Be conservative with adjustments and focus on what the numbers might miss.
+"""
+        
+        return prompt
+
+    def _extract_quantitative_insights(self, quantitative_baseline: Dict) -> List[str]:
+        """Extract key insights from quantitative model for display"""
+        insights = []
+        
+        try:
+            # Model type and confidence
+            model_type = quantitative_baseline.get('model_type', 'Generic')
+            confidence = quantitative_baseline.get('confidence_level', 0.6)
+            insights.append(f"📊 {model_type} Model ({confidence:.0%} confidence)")
+            
+            # Rating differential
+            home_rating = quantitative_baseline.get('home_rating', 1500)
+            away_rating = quantitative_baseline.get('away_rating', 1500)
+            rating_diff = home_rating - away_rating
+            
+            if abs(rating_diff) > 50:
+                team = "Home" if rating_diff > 0 else "Away"
+                insights.append(f"⚖️ {team} team {abs(rating_diff):.0f} rating advantage")
+            
+            # Key adjustments from the model
+            adjustments = quantitative_baseline.get('adjustments', [])
+            for adj in adjustments[:2]:  # Top 2 adjustments
+                insights.append(f"📈 {adj}")
+            
+            # Probability assessment
+            home_prob = quantitative_baseline.get('home_win_probability', 0.5)
+            if home_prob > 0.65:
+                insights.append(f"🏠 Strong home advantage ({home_prob:.0%})")
+            elif home_prob < 0.35:
+                insights.append(f"✈️ Road team favored ({1-home_prob:.0%})")
             
             return insights[:3]  # Return top 3 insights
             

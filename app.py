@@ -3410,6 +3410,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             'consensus_confidence': enhanced_analysis.get('confidence', 0.0),
                             'real_time_sources': enhanced_analysis.get('real_time_sources'),
                             'data_quality_display': enhanced_analysis.get('data_quality_display'),
+                            'quantitative_baseline': enhanced_analysis.get('quantitative_baseline'),
                             'success_metrics': {
                                 'edge_score': enhanced_analysis.get('expected_value', 0.0),
                                 'risk_score': enhanced_analysis.get('risk_score', 0.5),
@@ -3904,6 +3905,13 @@ def show_enhanced_pick_card_v2(game, rank):
                 # Show default data quality for enhanced AI
                 if 'Enhanced AI with Real-Time Data' in ai_source:
                     st.markdown("**Data Quality: 0.7/1.0**")
+            
+            # Quantitative model info (if available)
+            quant_baseline = analysis.get('quantitative_baseline') or consensus.get('quantitative_baseline')
+            if quant_baseline:
+                model_type = quant_baseline.get('model_type', 'Generic')
+                model_confidence = quant_baseline.get('confidence_level', 0.6)
+                st.markdown(f"**Model:** {model_type} ({model_confidence:.0%})")
         
         with col2:
             # Risk level
