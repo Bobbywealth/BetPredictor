@@ -8,3 +8,4 @@ google-generativeai>=0.8.5
 pytz>=2023.3
 supabase>=2.0.0
 postgrest>=0.13.0
+anthropic>=0.34.2

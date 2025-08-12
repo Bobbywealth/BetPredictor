@@ -35,33 +35,41 @@ class DualAIConsensusEngine:
         # Get OpenAI analysis first (primary)
         with st.spinner("Getting ChatGPT analysis..."):
             openai_analysis = self.ai_analyzer.analyze_game_with_openai(game_data)
-        
-        # Get Gemini analysis second (enhancement)
-        gemini_analysis = {"error": "Gemini unavailable"}  # Default fallback
+
+        # Get Gemini (enhancement)
+        gemini_analysis = {"error": "Gemini unavailable"}
         try:
             with st.spinner("Getting Gemini enhancement..."):
                 gemini_analysis = self.ai_analyzer.analyze_game_with_gemini(game_data)
-        except Exception as e:
-            # Gemini is optional - continue with OpenAI only
+        except Exception:
+            pass
+
+        # Get Claude (auditor/third opinion)
+        claude_analysis = {"error": "Claude unavailable"}
+        try:
+            with st.spinner("Getting Claude audit..."):
+                claude_analysis = self.ai_analyzer.analyze_game_with_claude(game_data)
+        except Exception:
             pass
         
         # Generate consensus analysis
         consensus_result = self._generate_consensus(
-            game_data, openai_analysis, gemini_analysis
+            game_data, openai_analysis, gemini_analysis, claude_analysis
         )
         
         # Cache the result
         self.cache.set_cached_data(cache_key, consensus_result)
         return consensus_result
     
-    def _generate_consensus(self, game_data: Dict, openai_result: Dict, gemini_result: Dict) -> Dict[str, Any]:
+    def _generate_consensus(self, game_data: Dict, openai_result: Dict, gemini_result: Dict, claude_result: Dict) -> Dict[str, Any]:
         """Generate consensus analysis from both AI results"""
         
         # Extract predictions from both AIs
         openai_valid = 'error' not in openai_result
         gemini_valid = 'error' not in gemini_result
+        claude_valid = 'error' not in claude_result
         
-        if not openai_valid and not gemini_valid:
+        if not openai_valid and not gemini_valid and not claude_valid:
             return {
                 'error': 'Both AI analyses failed',
                 'recommendation': 'SKIP',
@@ -79,45 +87,53 @@ class DualAIConsensusEngine:
             },
             'ai_analyses': {
                 'openai': openai_result if openai_valid else {'error': 'Analysis failed'},
-                'gemini': gemini_result if gemini_valid else {'error': 'Analysis failed'}
+                'gemini': gemini_result if gemini_valid else {'error': 'Analysis failed'},
+                'claude': claude_result if claude_valid else {'error': 'Analysis failed'}
             }
         }
         
         # Generate consensus pick
-        pick_analysis = self._calculate_consensus_pick(openai_result, gemini_result, game_data)
+        pick_analysis = self._calculate_consensus_pick(openai_result, gemini_result, claude_result, game_data)
         consensus.update(pick_analysis)
         
         return consensus
     
-    def _calculate_consensus_pick(self, openai_result: Dict, gemini_result: Dict, game_data: Dict) -> Dict[str, Any]:
+    def _calculate_consensus_pick(self, openai_result: Dict, gemini_result: Dict, claude_result: Dict, game_data: Dict) -> Dict[str, Any]:
         """Calculate consensus pick using advanced algorithms"""
         
         # Extract predictions
         openai_pick = openai_result.get('predicted_winner', '') if 'error' not in openai_result else ''
         gemini_pick = gemini_result.get('prediction', '') if 'error' not in gemini_result else ''
+        claude_pick = claude_result.get('predicted_winner', '') if 'error' not in claude_result else ''
         
         openai_confidence = openai_result.get('confidence', 0.5) if 'error' not in openai_result else 0.0
         gemini_confidence = gemini_result.get('confidence_score', 0.5) if 'error' not in gemini_result else 0.0
+        claude_confidence = claude_result.get('confidence', 0.5) if 'error' not in claude_result else 0.0
         
         # Consensus agreement check
-        picks_agree = self._picks_agree(openai_pick, gemini_pick, game_data)
+        # Agreement across models
+        picks_agree_og = self._picks_agree(openai_pick, gemini_pick, game_data)
+        picks_agree_oc = self._picks_agree(openai_pick, claude_pick, game_data)
+        picks_agree_gc = self._picks_agree(gemini_pick, claude_pick, game_data)
+        agreement_count = sum([picks_agree_og, picks_agree_oc, picks_agree_gc])
         
         # Calculate composite confidence
-        if picks_agree and openai_pick and gemini_pick:
+        if agreement_count >= 2 and (openai_pick or gemini_pick or claude_pick):
             # Both AIs agree - high confidence boost
-            base_confidence = (openai_confidence + gemini_confidence) / 2
+            chosen = openai_pick or gemini_pick or claude_pick
+            base_confidence = (openai_confidence + gemini_confidence + claude_confidence) / max(1, len([c for c in [openai_pick, gemini_pick, claude_pick] if c]))
             consensus_bonus = 0.15  # 15% bonus for agreement
             final_confidence = min(base_confidence + consensus_bonus, 1.0)
-            consensus_pick = openai_pick
+            consensus_pick = chosen
             agreement_status = 'STRONG_CONSENSUS'
             
-        elif openai_pick and gemini_pick and not picks_agree:
+        elif openai_pick and gemini_pick and claude_pick and agreement_count == 1:
             # AIs disagree - prioritize OpenAI (more reliable), but reduce confidence
             consensus_pick = openai_pick
             final_confidence = openai_confidence * 0.85  # Light reduction for disagreement
             agreement_status = 'DISAGREEMENT_OPENAI_PRIORITY'
             
-        elif openai_pick and not gemini_pick:
+        elif openai_pick and not (gemini_pick or claude_pick):
             # Only OpenAI has pick — apply a light reduction so single-AI picks still surface
             consensus_pick = openai_pick
             # Reduce confidence slightly instead of heavily penalizing
@@ -126,12 +142,17 @@ class DualAIConsensusEngine:
             final_confidence = max(min(adjusted, 1.0), openai_confidence - 0.05)
             agreement_status = 'SINGLE_AI_OPENAI'
             
-        elif gemini_pick and not openai_pick:
+        elif gemini_pick and not (openai_pick or claude_pick):
             # Only Gemini has pick — if available, similar light reduction
             consensus_pick = gemini_pick
             adjusted = gemini_confidence * 0.9
             final_confidence = max(min(adjusted, 1.0), gemini_confidence - 0.05)
             agreement_status = 'SINGLE_AI_GEMINI'
+        elif claude_pick and not (openai_pick or gemini_pick):
+            consensus_pick = claude_pick
+            adjusted = claude_confidence * 0.9
+            final_confidence = max(min(adjusted, 1.0), claude_confidence - 0.05)
+            agreement_status = 'SINGLE_AI_CLAUDE'
             
         else:
             # No valid picks

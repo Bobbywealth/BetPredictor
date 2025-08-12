@@ -18,6 +18,14 @@ except Exception:
     GENAI_AVAILABLE = False
 from pydantic import BaseModel
 
+# Claude (Anthropic) integration
+try:
+    import anthropic  # type: ignore
+    ANTHROPIC_AVAILABLE = True
+except Exception:
+    anthropic = None  # type: ignore
+    ANTHROPIC_AVAILABLE = False
+
 class GamePrediction(BaseModel):
     """Structured prediction model"""
     predicted_winner: str
@@ -41,7 +49,7 @@ def _get_secret_or_env(*keys: str) -> Optional[str]:
 
 
 class AIGameAnalyzer:
-    """AI-powered game analysis using OpenAI and Gemini"""
+    """AI-powered game analysis using OpenAI, Gemini, and Claude"""
     
     def __init__(self):
         # Initialize OpenAI first (primary AI)
@@ -75,6 +83,21 @@ class AIGameAnalyzer:
         else:
             if st.session_state.get('debug_mode', False):
                 st.info("ℹ️ Gemini API key not found - enhancement AI unavailable")
+        
+        # Initialize Claude (third model - auditor/consensus)
+        self.claude_client = None
+        claude_key = _get_secret_or_env("ANTHROPIC_API_KEY")
+        if claude_key and ANTHROPIC_AVAILABLE:
+            try:
+                self.claude_client = anthropic.Anthropic(api_key=claude_key)
+                if st.session_state.get('debug_mode', False):
+                    st.success("✅ Claude (Anthropic) initialized successfully")
+            except Exception as e:
+                if st.session_state.get('debug_mode', False):
+                    st.warning(f"⚠️ Claude initialization failed: {e}")
+        elif claude_key and not ANTHROPIC_AVAILABLE:
+            if st.session_state.get('debug_mode', False):
+                st.info("ℹ️ Anthropic SDK not available; continuing without Claude")
         
     def analyze_game_with_openai(self, game_data: Dict) -> Dict:
         """Analyze game using OpenAI GPT-4o"""
@@ -186,6 +209,54 @@ class AIGameAnalyzer:
                 "error": f"Gemini analysis failed: {str(e)}",
                 "ai_source": "Google Gemini"
             }
+
+    def analyze_game_with_claude(self, game_data: Dict) -> Dict:
+        """Analyze game using Claude 3.5 Sonnet with strict JSON output"""
+        try:
+            if not ANTHROPIC_AVAILABLE or not self.claude_client:
+                return {"error": "Claude SDK not available"}
+            home_team = game_data.get('home_team', {}).get('name', 'Unknown')
+            away_team = game_data.get('away_team', {}).get('name', 'Unknown')
+            sport = game_data.get('sport', 'Unknown')
+            league = game_data.get('league', 'Unknown')
+            game_date = game_data.get('date', 'Unknown')
+
+            prompt = (
+                "You are an elite quantitative sports bettor. Analyze the matchup and return STRICT JSON only.\n"
+                f"Game: {away_team} @ {home_team}\n"
+                f"League: {league}  Date: {game_date}\n"
+                "JSON schema:{\n"
+                "  \"predicted_winner\": \"Team Name\",\n"
+                "  \"confidence\": 0.0,\n"
+                "  \"key_factors\": [\"...\", \"...\"],\n"
+                "  \"risk_level\": \"LOW|MEDIUM|HIGH\",\n"
+                "  \"edge_score\": 0.0\n"
+                "}"
+            )
+
+            msg = self.claude_client.messages.create(
+                model="claude-3.5-sonnet-20240620",
+                max_tokens=700,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            text = "".join([b.text for b in getattr(msg, 'content', []) if hasattr(b, 'text')])
+            if text:
+                try:
+                    # Extract JSON payload if wrapped
+                    start = text.find('{')
+                    end = text.rfind('}') + 1
+                    payload = text[start:end]
+                    result = json.loads(payload)
+                except Exception:
+                    result = {"error": "Claude returned non-JSON"}
+                if 'error' not in result:
+                    result['ai_source'] = 'Claude 3.5 Sonnet'
+                return result
+            return {"error": "Empty response from Claude", "ai_source": "Claude"}
+        except Exception as e:
+            return {"error": f"Claude analysis failed: {str(e)}", "ai_source": "Claude"}
     
     def get_game_recommendations(self, games_df: pd.DataFrame, user_preferences: Dict = None) -> List[Dict]:
         """Get AI-powered game recommendations"""
