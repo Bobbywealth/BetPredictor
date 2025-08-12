@@ -17,6 +17,12 @@ from utils.automated_picks_scheduler import AutomatedPicksScheduler
 import pickle
 from typing import Dict, List
 
+# Import notification system
+from utils.notification_system import notification_manager, add_notification_to_page, show_notification_settings
+
+# Import game monitoring
+from utils.game_monitor import add_picks_to_monitor, show_monitoring_status
+
 # Database imports
 try:
     from supabase import create_client, Client
@@ -1176,6 +1182,19 @@ def save_generated_picks_to_track_record(pick_date: date, games: list) -> int:
 
     st.success(f"💾 Saved {saved} picks to track record for {date_str}")
     st.session_state[session_flag] = True
+    
+    # Send notification for successful pick generation
+    if saved > 0:
+        notification_manager.add_notification(
+            title="🎯 Picks Generated!",
+            message=f"{saved} high-confidence picks saved for {date_str}. Track results in Win Tracker.",
+            type="success",
+            action_button={
+                'text': 'View Win Tracker',
+                'action': 'navigate_to_win_tracker'
+            }
+        )
+    
     return saved
 
 def get_user_predictions(user_id, limit=100):
@@ -3234,8 +3253,21 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             analyzed_games = cached_games
             total_games = len(cached_games)
             
-            # Filter by confidence level 
-            analyzed_games = [g for g in analyzed_games if g.get('ai_analysis', {}).get('confidence', 0) >= min_confidence]
+            # Filter by confidence level with sport-specific floors
+            def meets_confidence_floor(game_dict):
+                analysis = game_dict.get('ai_analysis', {})
+                confidence = float(analysis.get('confidence', 0))
+                sport = (game_dict.get('sport') or analysis.get('sport') or '').upper()
+                # Sport-specific minimums
+                sport_min = {
+                    'WNBA': max(min_confidence, 0.86),
+                    'NCAAF': max(min_confidence, 0.80),
+                    'NCAAB': max(min_confidence, 0.82),
+                    'MLB': max(min_confidence, 0.78),
+                }.get(sport, min_confidence)
+                return confidence >= sport_min
+
+            analyzed_games = [g for g in analyzed_games if meets_confidence_floor(g)]
             
             # Apply sorting and limiting
             if sort_by == "Confidence":
@@ -3535,7 +3567,27 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 st.write(f"   Min Required: {min_confidence:.1%}")
                                 st.write(f"   Meets Threshold: {normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK'}")
                             
-                            if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
+                            # Apply sport-specific floors and basic consensus gate
+                            sport = (game.get('sport') or '').upper()
+                            required = {
+                                'WNBA': max(min_confidence, 0.86),
+                                'NCAAF': max(min_confidence, 0.80),
+                                'NCAAB': max(min_confidence, 0.82),
+                                'MLB': max(min_confidence, 0.78),
+                            }.get(sport, min_confidence)
+
+                            # Simple consensus: prefer when both models align on winner
+                            openai_pick = consensus.get('openai_pick') if isinstance(consensus, dict) else None
+                            gemini_pick = consensus.get('gemini_pick') if isinstance(consensus, dict) else None
+                            consensus_ok = True
+                            try:
+                                # If we have individual picks, require agreement; otherwise allow
+                                if openai_pick and gemini_pick:
+                                    consensus_ok = (str(openai_pick).lower() == str(gemini_pick).lower())
+                            except Exception:
+                                consensus_ok = True
+
+                            if normalized['confidence'] >= required and normalized['pick'] != 'NO_PICK' and consensus_ok:
                                 analyzed_games.append(game)
                         else:
                             # DEBUG: Show failed analysis
@@ -3587,6 +3639,9 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 # Persist top 3-6 high-probability picks to track record
                 top_picks = analyzed_games[:min(len(analyzed_games), max(3, min(6, max_picks)))]
                 save_generated_picks_to_track_record(pick_date, top_picks)
+                
+                # Add picks to game monitoring for notifications
+                add_picks_to_monitor(top_picks)
             
             # Sort games based on selection
             if sort_by == "Confidence":
@@ -5132,6 +5187,23 @@ def show_settings():
         - Professional animations
         - Interactive quick actions
         """)
+    
+    st.markdown("---")
+    
+    # Notification Settings Section
+    show_notification_settings()
+    
+    st.markdown("---")
+    
+    # Notification Center Section
+    st.markdown("## 🔔 Notification Center")
+    notification_manager.render_notification_center()
+    
+    st.markdown("---")
+    
+    # Game Monitoring Section
+    st.markdown("## 🔍 Game Monitoring Status")
+    show_monitoring_status()
     
     st.markdown("---")
     
@@ -7391,6 +7463,9 @@ def get_openai_analysis_fast(home_team, away_team, sport):
 def main():
     """Professional billion-dollar level sports betting application"""
     
+    # Add floating notifications to every page
+    add_notification_to_page()
+    
     # Initialize database on app startup
     if 'db_initialized' not in st.session_state:
         # Test connection first
@@ -7403,6 +7478,12 @@ def main():
                 user_id = get_or_create_user_id()
                 if user_id:
                     st.info(f"👤 User session active (ID: {user_id})")
+                    # Welcome notification
+                    notification_manager.add_notification(
+                        title="🎉 Welcome to BetPredictor!",
+                        message="Database connected. You'll get notifications for game results and pick outcomes.",
+                        type="success"
+                    )
             else:
                 st.error("❌ Database tables creation failed")
         elif SUPABASE_AVAILABLE:
@@ -8686,9 +8767,35 @@ def score_predictions_for_date(pick_date, predictions, sports):
                             if st.session_state.get('debug_mode', False):
                                 st.write(f"❌ Failed to update prediction for {pred['away_team']} @ {pred['home_team']}: {e}")
                 
-                # Show success message for updated records
-                if updated_count > 0:
-                    st.success(f"🏆 **Updated {updated_count} win/loss records in Win Tracker!** Check the Win Tracker page to see updated results.")
+                        # Show success message for updated records
+        if updated_count > 0:
+            st.success(f"🏆 **Updated {updated_count} win/loss records in Win Tracker!** Check the Win Tracker page to see updated results.")
+            
+            # Send notifications for each completed pick
+            for pred in scored_predictions:
+                if pred['result'] in ['win', 'loss']:
+                    notification_manager.pick_result_notification(
+                        pick_data={
+                            'away_team': pred['away_team'],
+                            'home_team': pred['home_team'],
+                            'predicted_winner': pred['predicted_winner'],
+                            'confidence': pred.get('confidence', 0)
+                        },
+                        result=pred['result']
+                    )
+            
+            # Check for performance milestones
+            if metrics['accuracy'] >= 0.8 and metrics['total_predictions'] >= 5:
+                notification_manager.performance_milestone_notification(
+                    'accuracy_milestone',
+                    {'accuracy': metrics['accuracy']}
+                )
+            
+            if metrics['total_predictions'] > 0 and metrics['wins'] == metrics['total_predictions']:
+                notification_manager.performance_milestone_notification(
+                    'daily_perfect',
+                    {'wins': metrics['wins'], 'total': metrics['total_predictions']}
+                )
                 
                 # Store accuracy metrics
                 accuracy_record = {
