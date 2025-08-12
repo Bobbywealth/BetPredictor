@@ -3517,8 +3517,25 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             }
                             game['ai_analysis'] = normalized
                             game['full_consensus'] = consensus
+                            
+                            # DEBUG: Show analysis results
+                            if st.session_state.get('debug_mode', False):
+                                st.write(f"🔍 Analysis for {game.get('away_team', {}).get('name', 'Away')} @ {game.get('home_team', {}).get('name', 'Home')}")
+                                st.write(f"   Pick: {normalized['pick']}")
+                                st.write(f"   Confidence: {normalized['confidence']:.1%}")
+                                st.write(f"   Min Required: {min_confidence:.1%}")
+                                st.write(f"   Meets Threshold: {normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK'}")
+                            
                             if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
                                 analyzed_games.append(game)
+                        else:
+                            # DEBUG: Show failed analysis
+                            if st.session_state.get('debug_mode', False):
+                                st.write(f"❌ Analysis failed for {game.get('away_team', {}).get('name', 'Away')} @ {game.get('home_team', {}).get('name', 'Home')}")
+                                if consensus:
+                                    st.write(f"   Error: {consensus.get('error', 'Unknown error')}")
+                                else:
+                                    st.write("   Consensus is None")
                     except Exception as e:
                         if st.session_state.get('debug_mode', False):
                             st.write(f"❌ Analysis failed: {e}")
@@ -3528,6 +3545,19 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
             loading_container.empty()
             progress_bar.empty()
             status_text.empty()
+            
+            # DEBUG: Show final analysis summary
+            if st.session_state.get('debug_mode', False):
+                st.write(f"🎯 **ANALYSIS SUMMARY:**")
+                st.write(f"   Total games processed: {len(games)}")
+                st.write(f"   Games meeting threshold: {len(analyzed_games)}")
+                st.write(f"   Min confidence required: {min_confidence:.1%}")
+                
+                # Check API keys
+                openai_key = get_secret_or_env("OPENAI_API_KEY")
+                gemini_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY") 
+                st.write(f"   OpenAI API: {'✅ Configured' if openai_key else '❌ Missing'}")
+                st.write(f"   Gemini API: {'✅ Configured' if gemini_key else '❌ Missing'}")
             
             # Show completion notification
             if analyzed_games:
