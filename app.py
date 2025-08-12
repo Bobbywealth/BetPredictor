@@ -2861,7 +2861,11 @@ def show_dashboard():
     
     # Classic Dashboard (fallback)
     user = st.session_state.get('username', 'User')
-    current_time = datetime.now().strftime('%B %d, %Y • %I:%M %p')
+    
+    # Fix timezone issue - use Eastern time
+    import pytz
+    est = pytz.timezone('US/Eastern')
+    current_time = datetime.now(est).strftime('%B %d, %Y • %I:%M %p EST')
     
     col1, col2 = st.columns([3, 1])
     
@@ -8228,62 +8232,44 @@ def show_admin_overview():
         st.bar_chart(resource_data.set_index('Resource'))
         st.caption("💻 System resource utilization")
 def show_daily_betting_tracker():
-    """Daily betting system with top 10 high-confidence picks and win/loss tracking"""
+    """Win/Loss tracking for existing picks - shows results, doesn't generate new picks"""
     
-    st.markdown("# 🏆 Daily Betting Tracker")
-    st.markdown("**Automated high-confidence picks with real win/loss tracking**")
+    st.markdown("# 🏆 Win Tracker")
+    st.markdown("**Track win/loss records for your generated picks**")
     
-    # Check API configuration
-    openai_configured = bool(os.environ.get("OPENAI_API_KEY"))
-    gemini_configured = bool(os.environ.get("GOOGLE_API_KEY"))
-    
-    if not openai_configured and not gemini_configured:
-        st.error("🚨 No AI providers configured! Please set up API keys in Settings first.")
-        return
-    
-    # Date selector
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Date selector - simplified
+    col1, col2 = st.columns([2, 2])
     
     with col1:
         selected_date = st.date_input(
-            "📅 Select Date", 
+            "📅 View Date", 
             value=datetime.now().date(),
-            help="Choose date for daily picks"
+            help="View picks and results for this date"
         )
     
     with col2:
-        min_confidence = st.slider(
-            "🎯 Min Confidence", 
-            min_value=0.5, 
-            max_value=0.95, 
-            value=0.75, 
-            step=0.05,
-            help="Minimum confidence for daily picks"
-        )
+        # Show instructions instead of generation controls
+        st.info("💡 **How to use:** Generate picks on the main page, then use 'Score Results' to update win/loss records here.")
     
-    with col3:
-        if st.button("🎲 Generate Daily Picks", type="primary"):
-            with st.spinner("🧠 Analyzing all sports..."):
-                daily_bets = generate_daily_top_picks(selected_date, min_confidence)
-                if daily_bets:
-                    st.rerun()
-    
-    # Get daily bets
+    # Get existing daily bets (no generation)
     daily_bets = get_daily_bets(selected_date)
     
     if not daily_bets:
-        st.info("🎯 **No daily picks generated yet!**")
+        st.warning(f"📅 **No picks found for {selected_date.strftime('%B %d, %Y')}**")
         st.markdown("""
-        ### 🚀 How Daily Betting Works:
+        ### 🎯 To see win/loss records:
         
-        1. **🧠 AI Analysis**: Analyzes ALL sports (NFL, NBA, MLB, NCAAF, etc.)
-        2. **🎯 High-Confidence Filter**: Only picks with 75%+ confidence
-        3. **🏆 Top 10 Selection**: Ranks and selects the best 10 picks
-        4. **💰 $100 Standard Bet**: Each pick is a $100 wager
-        5. **📊 Performance Tracking**: Automatic win/loss recording
+        1. **📈 Generate Picks**: Use the main "Winning Picks" page to generate predictions
+        2. **🏆 Score Results**: After games finish, click "Score Results" to update win/loss
+        3. **📊 Track Performance**: Come back here to see your win/loss records
         
-        **Click "Generate Daily Picks" to get started!**
+        **This page shows results only - it doesn't generate new picks.**
         """)
+        
+        # Show link to main picks page
+        if st.button("🎯 Go to Winning Picks Page", type="primary"):
+            st.session_state.current_page = 'picks'
+            st.rerun()
         return
     
     # Show betting performance stats

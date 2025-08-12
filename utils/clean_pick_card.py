@@ -334,8 +334,11 @@ def show_clean_pick_card(game, rank):
             note = sport_notes.get(sport, 'Standard analysis')
             st.markdown(f"• **Sport Context:** {note}")
     
-    # Clean footer
-    st.markdown(f"<div style='text-align: center; color: #999; font-size: 0.8em; margin-top: 12px;'><em>Generated at {datetime.now().strftime('%I:%M %p')}</em></div>", unsafe_allow_html=True)
+    # Clean footer with correct timezone
+    import pytz
+    est = pytz.timezone('US/Eastern')
+    current_time = datetime.now(est)
+    st.markdown(f"<div style='text-align: center; color: #999; font-size: 0.8em; margin-top: 12px;'><em>Generated at {current_time.strftime('%I:%M %p EST')}</em></div>", unsafe_allow_html=True)
 
 def _generate_clean_factors(predicted_winner, home_team, confidence, sport, tier):
     """Generate clean, specific analysis factors"""

@@ -93,7 +93,11 @@ def show_revolutionary_dashboard():
     
     # Hero Section
     user = st.session_state.get('username', 'Champion')
-    current_time = datetime.now()
+    
+    # Fix timezone issue - use Eastern time
+    import pytz
+    est = pytz.timezone('US/Eastern')
+    current_time = datetime.now(est)
     
     # Time-based greeting
     hour = current_time.hour
