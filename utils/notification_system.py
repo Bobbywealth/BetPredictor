@@ -207,7 +207,8 @@ class NotificationManager:
     
     def get_active_notifications(self, limit: int = 10) -> List[Dict]:
         """Get active (non-dismissed) notifications"""
-        active = [n for n in st.session_state.notifications if not n.get('dismissed', False)]
+        notifications = st.session_state.get('notifications', [])
+        active = [n for n in notifications if not n.get('dismissed', False)]
         return active[:limit]
     
     def render_notification_center(self):
@@ -348,7 +349,19 @@ class NotificationManager:
             
             # Auto-dismiss after timeout
             if latest.get('auto_dismiss', True):
-                timeout = st.session_state.notification_settings.get('auto_dismiss', 5)
+                # Ensure settings exist for this session
+                settings = st.session_state.get('notification_settings')
+                if not isinstance(settings, dict):
+                    settings = {
+                        'game_finish': True,
+                        'pick_results': True,
+                        'performance_milestones': True,
+                        'daily_summary': True,
+                        'sound_enabled': True,
+                        'auto_dismiss': 5,
+                    }
+                    st.session_state.notification_settings = settings
+                timeout = settings.get('auto_dismiss', 5)
                 st.markdown(f"""
                 <script>
                 setTimeout(function() {{
@@ -449,3 +462,4 @@ def show_notification_settings():
 def add_notification_to_page():
     """Add floating notifications to any page"""
     notification_manager.render_floating_notifications()
+
