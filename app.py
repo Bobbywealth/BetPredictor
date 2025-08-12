@@ -1752,7 +1752,7 @@ def use_cached_predictions_if_available(pick_date, sports):
         if show_notifications and 'prediction_cache_shown' not in st.session_state:
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
+            st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
             with col2:
                 if st.button("🔄 Fresh Analysis", help="Generate new predictions with quantitative models", key="refresh_cache_top"):
                     st.cache_data.clear()
@@ -2845,9 +2845,21 @@ def get_real_dashboard_metrics():
         }
 
 def show_dashboard():
-    """User dashboard with today's data and quick actions"""
+    """Revolutionary home dashboard that impresses from first login"""
     
-    # Dashboard Header
+    # Check if user wants the revolutionary dashboard (default: yes for impressive first impression)
+    use_revolutionary = st.session_state.get('use_revolutionary_dashboard', True)
+    
+    if use_revolutionary:
+        try:
+            from utils.revolutionary_dashboard import show_revolutionary_dashboard
+            show_revolutionary_dashboard()
+            return
+        except Exception as e:
+            st.warning(f"⚠️ Revolutionary dashboard temporarily unavailable. Using classic view.")
+            # Fall back to classic dashboard
+    
+    # Classic Dashboard (fallback)
     user = st.session_state.get('username', 'User')
     current_time = datetime.now().strftime('%B %d, %Y • %I:%M %p')
     
@@ -3309,8 +3321,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         # Force continue with the sample games
                         # The analysis will proceed below
                     else:
-                        show_upcoming_dates()
-                        return
+                show_upcoming_dates()
+                return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
@@ -3506,7 +3518,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             game['ai_analysis'] = normalized
                             game['full_consensus'] = consensus
                             if normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK':
-                                analyzed_games.append(game)
+                    analyzed_games.append(game)
                     except Exception as e:
                         if st.session_state.get('debug_mode', False):
                             st.write(f"❌ Analysis failed: {e}")
@@ -4243,7 +4255,7 @@ def show_dedicated_parlay_section(final_games):
                                 st.success("✅ Good Value")
                             elif combined_conf >= 0.50:
                                 st.warning("⚠️ Moderate Risk")
-                            else:
+                else:
                                 st.error("🔴 High Risk")
                             
                             # Parlay strategy
@@ -4251,7 +4263,7 @@ def show_dedicated_parlay_section(final_games):
                             if combined_conf >= 0.60:
                                 st.markdown("• Consider 0.5-1 unit stake")
                                 st.markdown("• Both picks have strong individual merit")
-                            else:
+            else:
                                 st.markdown("• Use minimal stake (0.25-0.5 units)")
                                 st.markdown("• Entertainment value rather than investment")
                             st.markdown("• **Remember:** Each leg must win for parlay to pay")
@@ -4297,7 +4309,7 @@ def show_dedicated_parlay_section(final_games):
                     with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-                    with col3:
+        with col3:
                         st.metric("Risk Level", "🔴 Very High")
                     
                     st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
@@ -4539,7 +4551,7 @@ def show_live_odds():
             st.success("Favorites saved!")
     
     st.markdown("---")
-
+    
 def show_live_scores():
     """Show live scores across selected sports using ESPN scoreboard endpoints"""
     st.markdown("# 📺 Live Scores & Game Center")
@@ -4618,8 +4630,8 @@ def show_sport_scores(sport: str, games: List[Dict]):
         st.markdown("### 🔴 Live Games")
         for game in live_games:
             show_live_score_card(game, highlight_live=True)
-        st.markdown("---")
-    
+                st.markdown("---")
+                
     # Show final games
     if final_games:
         st.markdown("### ✅ Final Scores")
@@ -4654,7 +4666,7 @@ def show_live_score_card(game: Dict, highlight_live: bool = False):
         card_style = "background: linear-gradient(90deg, #28a745aa, transparent); border-left: 4px solid #28a745;"
         status_color = "#28a745"
         status_icon = "✅"
-    else:
+            else:
         card_style = "background: linear-gradient(90deg, #17a2b8aa, transparent); border-left: 4px solid #17a2b8;"
         status_color = "#17a2b8"
         status_icon = "⏰"
@@ -5052,6 +5064,38 @@ def show_settings():
     
     st.markdown("# ⚙️ Settings & Preferences")
     
+    # Dashboard Preferences Section
+    st.markdown("## 🎨 Dashboard Preferences")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        current_style = st.session_state.get('use_revolutionary_dashboard', True)
+        
+        dashboard_style = st.selectbox(
+            "🏠 Home Dashboard Style",
+            options=[True, False],
+            format_func=lambda x: "🚀 Revolutionary Dashboard (Recommended)" if x else "📊 Classic Dashboard",
+            index=0 if current_style else 1,
+            help="Choose your preferred dashboard experience"
+        )
+        
+        if dashboard_style != current_style:
+            st.session_state.use_revolutionary_dashboard = dashboard_style
+            st.success("✅ Dashboard style updated! Go to Dashboard to see changes.")
+    
+    with col2:
+        st.markdown("""
+        **🚀 Revolutionary Features:**
+        - Live performance charts
+        - Real-time market intelligence  
+        - AI confidence radar
+        - Professional animations
+        - Interactive quick actions
+        """)
+    
+    st.markdown("---")
+    
     # API Configuration Section
     st.markdown("## 🔗 API Configuration")
     st.info("💡 Configure your API keys to enable real-time data and live odds!")
@@ -5213,54 +5257,54 @@ def get_espn_games_for_date(target_date, sports):
                     continue
                 data = response.json()
                 if 'events' in data and len(data['events']) > 0:
-                    for event in data['events']:
-                        try:
-                            competitions = event.get('competitions', [])
+                        for event in data['events']:
+                            try:
+                                competitions = event.get('competitions', [])
                             if not competitions:
                                 continue
                             
-                            competition = competitions[0]
-                            competitors = competition.get('competitors', [])
-                            
+                                    competition = competitions[0]
+                                    competitors = competition.get('competitors', [])
+                                    
                             if len(competitors) < 2:
                                 continue
                             
-                            home_team = None
-                            away_team = None
-                            
-                            for competitor in competitors:
-                                if competitor.get('homeAway') == 'home':
-                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                elif competitor.get('homeAway') == 'away':
-                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                            
+                                        home_team = None
+                                        away_team = None
+                                        
+                                        for competitor in competitors:
+                                            if competitor.get('homeAway') == 'home':
+                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                            elif competitor.get('homeAway') == 'away':
+                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                        
                             if not (home_team and away_team):
                                 continue
                             
-                            game_time = event.get('date', '')
-                            est_time = 'TBD'
-                            if game_time:
-                                try:
-                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                    import pytz
-                                    est = pytz.timezone('US/Eastern')
-                                    dt_est = dt.astimezone(est)
-                                    est_time = dt_est.strftime('%I:%M %p EST')
-                                except:
-                                    pass
-                            
-                            game = {
+                                            game_time = event.get('date', '')
+                                            est_time = 'TBD'
+                                            if game_time:
+                                                try:
+                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                                    import pytz
+                                                    est = pytz.timezone('US/Eastern')
+                                                    dt_est = dt.astimezone(est)
+                                                    est_time = dt_est.strftime('%I:%M %p EST')
+                                                except:
+                                                    pass
+                                            
+                                            game = {
                                 'game_id': event.get('id', ''),
-                                'sport': sport,
+                                                'sport': sport,
                                 'league': sport,
                                 'home_team': {'name': home_team},
                                 'away_team': {'name': away_team},
-                                'commence_time': game_time,
-                                'est_time': est_time,
+                                                'commence_time': game_time,
+                                                'est_time': est_time,
                                 'date': target_date.strftime('%Y-%m-%d'),
                                 'time': est_time,
-                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
                                 'bookmakers': []
                             }
                             sport_games.append(game)
@@ -7250,7 +7294,7 @@ def get_gemini_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-        return {
+            return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.72)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'Gemini fast analysis')],
@@ -7286,7 +7330,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
 
         content = response.choices[0].message.content if response.choices else None
         if not content:
-            return None
+        return None
 
         content = content.strip()
         if content.startswith('```'):
@@ -7295,7 +7339,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-        return {
+            return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.7)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'OpenAI fast analysis')],
@@ -7313,8 +7357,8 @@ def main():
         # Test connection first
         supabase_test = init_supabase()
         if supabase_test:
-            st.session_state.db_initialized = create_database_tables()
-            if st.session_state.db_initialized:
+        st.session_state.db_initialized = create_database_tables()
+        if st.session_state.db_initialized:
                 st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
                 # Test user creation
                 user_id = get_or_create_user_id()
@@ -8374,6 +8418,28 @@ def show_daily_betting_tracker():
                             st.success("✅ Result saved!")
                             st.rerun()
 
+def _team_names_match(name1: str, name2: str) -> bool:
+    """Check if two team names match (fuzzy matching for different formats)"""
+    if not name1 or not name2:
+        return False
+    
+    # Normalize names for comparison
+    def normalize_name(name):
+        return name.lower().replace(' ', '').replace('.', '').replace('-', '')
+    
+    norm1 = normalize_name(str(name1))
+    norm2 = normalize_name(str(name2))
+    
+    # Exact match
+    if norm1 == norm2:
+        return True
+    
+    # Check if one name is contained in the other (for cases like "Lakers" vs "Los Angeles Lakers")
+    if len(norm1) >= 4 and len(norm2) >= 4:
+        return norm1 in norm2 or norm2 in norm1
+    
+    return False
+
 def score_predictions_for_date(pick_date, predictions, sports):
     """Score predictions against final results for a given date - AI testing feature"""
     
@@ -8466,11 +8532,64 @@ def score_predictions_for_date(pick_date, predictions, sports):
                     if pred.get('home_score') is not None and pred.get('away_score') is not None:
                         st.write(f"**Final Score:** {pred['away_team']} {pred['away_score']} - {pred['home_score']} {pred['home_team']}")
         
-        # Store results to database if available
+        # Store results to database if available AND update daily picks
         try:
             supabase = init_supabase()
             if supabase:
                 user_id = get_or_create_user_id()
+                
+                # CRITICAL FIX: Update existing daily picks with results
+                date_str = pick_date.strftime('%Y-%m-%d')
+                updated_count = 0
+                
+                for pred in scored_predictions:
+                    if pred['result'] in ['win', 'loss']:
+                        try:
+                            # Find matching prediction in database (with fuzzy matching for team names)
+                            existing_predictions = supabase.table('predictions')\
+                                .select('*')\
+                                .eq('user_id', user_id)\
+                                .eq('game_date', date_str)\
+                                .eq('is_daily_bet', True)\
+                                .execute()
+                            
+                            # Filter for matching teams (fuzzy match)
+                            matching_predictions = []
+                            for existing_pred in existing_predictions.data:
+                                if (_team_names_match(existing_pred.get('home_team', ''), pred['home_team']) and 
+                                    _team_names_match(existing_pred.get('away_team', ''), pred['away_team'])):
+                                    matching_predictions.append(existing_pred)
+                            
+                            existing_predictions.data = matching_predictions
+                            
+                            if existing_predictions.data:
+                                # Update the existing prediction with results
+                                prediction_id = existing_predictions.data[0]['id']
+                                update_data = {
+                                    'actual_winner': pred.get('actual_winner'),
+                                    'was_correct': pred['result'] == 'win',
+                                    'bet_status': 'completed',
+                                    'final_score': f"{pred['away_team']} {pred.get('away_score', 0)} - {pred.get('home_score', 0)} {pred['home_team']}" if pred.get('away_score') is not None else None,
+                                    'updated_at': datetime.now().isoformat()
+                                }
+                                
+                                supabase.table('predictions')\
+                                    .update(update_data)\
+                                    .eq('id', prediction_id)\
+                                    .execute()
+                                
+                                updated_count += 1
+                                
+                                if st.session_state.get('debug_mode', False):
+                                    st.write(f"✅ Updated prediction {prediction_id} for {pred['away_team']} @ {pred['home_team']}")
+                                    
+                        except Exception as e:
+                            if st.session_state.get('debug_mode', False):
+                                st.write(f"❌ Failed to update prediction for {pred['away_team']} @ {pred['home_team']}: {e}")
+                
+                # Show success message for updated records
+                if updated_count > 0:
+                    st.success(f"🏆 **Updated {updated_count} win/loss records in Win Tracker!** Check the Win Tracker page to see updated results.")
                 
                 # Store accuracy metrics
                 accuracy_record = {
@@ -8876,7 +8995,7 @@ def add_ai_lab_navigation():
     
     if st.sidebar.button("📊 **Back to Main App**", use_container_width=True, help="Return to main prediction interface"):
         st.session_state.show_ai_lab = False
-        st.rerun()
+                            st.rerun()
 
 if __name__ == "__main__":
     # Initialize automated picks scheduler
@@ -8896,4 +9015,4 @@ if __name__ == "__main__":
     if st.session_state.show_ai_lab:
         show_ai_lab_page()
     else:
-        main()
+    main()
