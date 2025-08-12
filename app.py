@@ -8766,8 +8766,12 @@ def score_predictions_for_date(pick_date, predictions, sports):
                         except Exception as e:
                             if st.session_state.get('debug_mode', False):
                                 st.write(f"❌ Failed to update prediction for {pred['away_team']} @ {pred['home_team']}: {e}")
-                
-                        # Show success message for updated records
+        
+        except Exception as e:
+            if st.session_state.get('debug_mode', False):
+                st.write(f"Debug: Database storage failed: {e}")
+        
+        # Show success message for updated records
         if updated_count > 0:
             st.success(f"🏆 **Updated {updated_count} win/loss records in Win Tracker!** Check the Win Tracker page to see updated results.")
             
