@@ -8713,6 +8713,7 @@ def score_predictions_for_date(pick_date, predictions, sports):
                         st.write(f"**Final Score:** {pred['away_team']} {pred['away_score']} - {pred['home_score']} {pred['home_team']}")
         
         # Store results to database if available AND update daily picks
+        updated_count = 0
         try:
             supabase = init_supabase()
             if supabase:
@@ -8720,7 +8721,6 @@ def score_predictions_for_date(pick_date, predictions, sports):
                 
                 # CRITICAL FIX: Update existing daily picks with results
                 date_str = pick_date.strftime('%Y-%m-%d')
-                updated_count = 0
                 
                 for pred in scored_predictions:
                     if pred['result'] in ['win', 'loss']:
@@ -8766,6 +8766,27 @@ def score_predictions_for_date(pick_date, predictions, sports):
                         except Exception as e:
                             if st.session_state.get('debug_mode', False):
                                 st.write(f"❌ Failed to update prediction for {pred['away_team']} @ {pred['home_team']}: {e}")
+                
+                # Store accuracy metrics if we have results
+                if updated_count > 0:
+                    try:
+                        accuracy_record = {
+                            'user_id': user_id,
+                            'test_date': pick_date.isoformat(),
+                            'total_predictions': metrics['total_predictions'],
+                            'wins': metrics['wins'],
+                            'losses': metrics['losses'],
+                            'accuracy': metrics['accuracy'],
+                            'roi_estimate': metrics['roi_estimate'],
+                            'sports_tested': sports,
+                            'created_at': datetime.now().isoformat()
+                        }
+                        
+                        supabase.table('accuracy_tests').insert(accuracy_record).execute()
+                        st.success("📊 Results saved to database for tracking!")
+                    except Exception as e:
+                        if st.session_state.get('debug_mode', False):
+                            st.write(f"Debug: Accuracy metrics storage failed: {e}")
         
         except Exception as e:
             if st.session_state.get('debug_mode', False):
@@ -8800,26 +8821,6 @@ def score_predictions_for_date(pick_date, predictions, sports):
                     'daily_perfect',
                     {'wins': metrics['wins'], 'total': metrics['total_predictions']}
                 )
-                
-                # Store accuracy metrics
-                accuracy_record = {
-                    'user_id': user_id,
-                    'test_date': pick_date.isoformat(),
-                    'total_predictions': metrics['total_predictions'],
-                    'wins': metrics['wins'],
-                    'losses': metrics['losses'],
-                    'accuracy': metrics['accuracy'],
-                    'roi_estimate': metrics['roi_estimate'],
-                    'sports_tested': sports,
-                    'created_at': datetime.now().isoformat()
-                }
-                
-                supabase.table('accuracy_tests').insert(accuracy_record).execute()
-                st.success("📊 Results saved to database for tracking!")
-                
-        except Exception as e:
-            if st.session_state.get('debug_mode', False):
-                st.write(f"Debug: Database storage failed: {e}")
         
     except Exception as e:
         st.error(f"❌ Error scoring predictions: {e}")
