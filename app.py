@@ -8253,11 +8253,83 @@ def show_daily_betting_tracker():
         )
     
     with col2:
-        # Show instructions instead of generation controls
+        # Show database status
+        supabase = init_supabase()
+        if supabase:
+            st.success("✅ Database Connected")
+        else:
+            st.error("❌ Database Not Connected")
+        
+        # Show instructions
         st.info("💡 **How to use:** Generate picks on the main page, then use 'Score Results' to update win/loss records here.")
     
     # Get existing daily bets (no generation)
     daily_bets = get_daily_bets(selected_date)
+    
+    # Debug information to help troubleshoot
+    user_id = get_or_create_user_id()
+    username = st.session_state.get('username', 'demo_user')
+    
+    # Show debug info if enabled OR if there are unexpected picks
+    show_debug = st.session_state.get('debug_mode', False) or len(daily_bets) > 0
+    
+    if show_debug:
+        with st.expander("🔍 Debug Information", expanded=st.session_state.get('debug_mode', False)):
+            st.write(f"**Database Query Details:**")
+            st.write(f"   Username: {username}")
+            st.write(f"   User ID: {user_id}")
+            st.write(f"   Selected Date: {selected_date.isoformat()}")
+            st.write(f"   Found {len(daily_bets)} picks")
+            
+            if daily_bets:
+                st.write("**Pick Details:**")
+                for i, bet in enumerate(daily_bets[:5]):  # Show first 5
+                    created_at = bet.get('created_at', 'Unknown')
+                    game_date = bet.get('game_date', 'Unknown')
+                    bet_user_id = bet.get('user_id', 'Unknown')
+                    st.write(f"   #{i+1}: {bet.get('away_team')} @ {bet.get('home_team')}")
+                    st.write(f"       Created: {created_at}")
+                    st.write(f"       Game Date: {game_date}")
+                    st.write(f"       User ID: {bet_user_id}")
+                    st.write("---")
+            
+            # Show raw database query for troubleshooting
+            if supabase:
+                try:
+                    # Show all predictions for this user (last 10)
+                    all_predictions = supabase.table('predictions')\
+                        .select('id, game_date, home_team, away_team, created_at, user_id, is_daily_bet')\
+                        .eq('user_id', user_id)\
+                        .eq('is_daily_bet', True)\
+                        .order('created_at', desc=True)\
+                        .limit(10)\
+                        .execute()
+                    
+                    st.write(f"**Last 10 Daily Bets for User {user_id}:**")
+                    if all_predictions.data:
+                        for pred in all_predictions.data:
+                            st.write(f"   ID:{pred['id']} | {pred['game_date']} | {pred['away_team']} @ {pred['home_team']} | Created: {pred['created_at'][:10]}")
+                    else:
+                        st.write("   No daily bets found in database")
+                except Exception as e:
+                    st.write(f"   Database query error: {e}")
+    
+    # Add button to clear old test data
+    if daily_bets and st.button("🗑️ Clear Old Test Data", help="Remove old test picks from database"):
+        supabase = init_supabase()
+        if supabase:
+            try:
+                # Delete old test data for this user and date
+                result = supabase.table('predictions')\
+                    .delete()\
+                    .eq('user_id', user_id)\
+                    .eq('game_date', selected_date.isoformat())\
+                    .eq('is_daily_bet', True)\
+                    .execute()
+                st.success("✅ Cleared old test data! Refresh to see updated results.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to clear data: {e}")
     
     if not daily_bets:
         st.warning(f"📅 **No picks found for {selected_date.strftime('%B %d, %Y')}**")
