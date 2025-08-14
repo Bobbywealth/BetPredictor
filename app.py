@@ -1776,7 +1776,7 @@ def use_cached_predictions_if_available(pick_date, sports):
         if show_notifications and 'prediction_cache_shown' not in st.session_state:
             col1, col2 = st.columns([4, 1])
             with col1:
-            st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
+                st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
             with col2:
                 if st.button("🔄 Fresh Analysis", help="Generate new predictions with quantitative models", key="refresh_cache_top"):
                     st.cache_data.clear()
