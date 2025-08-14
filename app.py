@@ -1776,7 +1776,7 @@ def use_cached_predictions_if_available(pick_date, sports):
         if show_notifications and 'prediction_cache_shown' not in st.session_state:
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
+            st.success(f"⚡ Using cached predictions from today ({len(cached_predictions)} games) - Faster loading!")
             with col2:
                 if st.button("🔄 Fresh Analysis", help="Generate new predictions with quantitative models", key="refresh_cache_top"):
                     st.cache_data.clear()
@@ -2344,7 +2344,7 @@ def show_theme_toggle():
             st.rerun()
 
 def show_mobile_sidebar_hamburger():
-    """Render a floating hamburger button on mobile to toggle the sidebar."""
+    """Enhanced mobile hamburger menu with animations and better UX."""
     st.markdown(
         """
         <style>
@@ -2354,45 +2354,152 @@ def show_mobile_sidebar_hamburger():
             left: 14px;
             z-index: 10000;
             display: none; /* shown only on mobile */
-            width: 42px;
-            height: 42px;
-            border-radius: 10px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            box-shadow: 0 6px 18px var(--shadow-light);
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
         }
+        
+        .spizo-hamburger:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+        
+        .spizo-hamburger:active {
+            transform: scale(0.95);
+        }
+        
         .spizo-hamburger span {
             display: block;
-            width: 20px;
+            width: 22px;
             height: 2px;
-            background: var(--text-primary);
-            margin: 3px 0;
+            background: #ffffff;
+            margin: 4px 0;
             border-radius: 2px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
         }
+        
+        .spizo-hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(6px, 6px);
+        }
+        
+        .spizo-hamburger.active span:nth-child(2) {
+            opacity: 0;
+            transform: scale(0);
+        }
+        
+        .spizo-hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(6px, -6px);
+        }
+        
+        /* Hide sidebar on mobile by default */
         @media (max-width: 900px) {
             .spizo-hamburger { display: flex; }
+            [data-testid="stSidebar"] {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            [data-testid="stSidebar"].mobile-visible {
+                transform: translateX(0);
+            }
+        }
+        
+        /* Mobile overlay when sidebar is open */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            display: none;
+            backdrop-filter: blur(4px);
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
         }
         </style>
+        
         <div class="spizo-hamburger" id="spizo-hamburger">
-            <span></span><span></span><span></span>
+            <span></span>
+            <span></span>
+            <span></span>
         </div>
-                <script>
+        
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+        
+        <script>
         (function(){
           const btn = document.getElementById('spizo-hamburger');
+          const overlay = document.getElementById('sidebar-overlay');
+          let isOpen = false;
+          
           if (!btn) return;
-          btn.addEventListener('click', function(){
+          
+          function toggleSidebar() {
             try {
               const sb = parent.document.querySelector('[data-testid="stSidebar"]');
               if (!sb) return;
-              const current = sb.style.display || getComputedStyle(sb).display;
-              sb.style.display = (current === 'none') ? 'block' : 'none';
-            } catch(e) {}
+              
+              isOpen = !isOpen;
+              
+              // Toggle hamburger animation
+              btn.classList.toggle('active', isOpen);
+              
+              // Toggle sidebar visibility
+              sb.classList.toggle('mobile-visible', isOpen);
+              
+              // Toggle overlay
+              if (overlay) {
+                overlay.classList.toggle('active', isOpen);
+              }
+              
+              // Prevent body scroll when sidebar is open
+              document.body.style.overflow = isOpen ? 'hidden' : '';
+              
+            } catch(e) {
+              console.log('Sidebar toggle error:', e);
+            }
+          }
+          
+          // Hamburger click
+          btn.addEventListener('click', toggleSidebar);
+          
+          // Overlay click to close
+          if (overlay) {
+            overlay.addEventListener('click', function() {
+              if (isOpen) toggleSidebar();
+            });
+          }
+          
+          // Close on escape key
+          document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isOpen) {
+              toggleSidebar();
+            }
           });
+          
+          // Auto-close on window resize to desktop
+          window.addEventListener('resize', function() {
+            if (window.innerWidth > 900 && isOpen) {
+              toggleSidebar();
+            }
+          });
+          
         })();
-                </script>
+        </script>
         """,
         unsafe_allow_html=True,
     )
@@ -3362,8 +3469,8 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                         # Force continue with the sample games
                         # The analysis will proceed below
                     else:
-                        show_upcoming_dates()
-                        return
+                show_upcoming_dates()
+                return
         
             # Enhanced AI analysis with better loading experience
             analyzed_games = []
@@ -3544,7 +3651,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                 for future in concurrent.futures.as_completed(future_to_game, timeout=60):
                     completed += 1
                     progress = completed / min(len(games), max_picks)
-                    progress_bar.progress(progress)
+                progress_bar.progress(progress)
                     try:
                         game, consensus = future.result()
                         # Process results
@@ -3588,7 +3695,7 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 consensus_ok = True
 
                             if normalized['confidence'] >= required and normalized['pick'] != 'NO_PICK' and consensus_ok:
-                                analyzed_games.append(game)
+                    analyzed_games.append(game)
                         else:
                             # DEBUG: Show failed analysis
                             if st.session_state.get('debug_mode', False):
@@ -4205,6 +4312,90 @@ def show_enhanced_pick_card_v2(game, rank):
             avoid_display = avoid_bets
         st.metric("Avoid", avoid_display)
     
+    # Tri-AI Analysis Breakdown (NEW FEATURE) - Show individual AI opinions
+    show_ai_breakdown = st.session_state.get('show_ai_breakdown', True)  # Default enabled
+    if show_ai_breakdown:
+        with st.expander("🤖 **Tri-AI Analysis Breakdown** (OpenAI + Gemini + Claude)", expanded=False):
+            st.markdown("**See what each AI model said about this game:**")
+            
+            # Get the full consensus data which contains individual AI analyses
+            full_consensus = game.get('full_consensus', {})
+            ai_analyses = full_consensus.get('ai_analyses', {})
+            
+            if ai_analyses:
+                ai_col1, ai_col2, ai_col3 = st.columns(3)
+                
+                # OpenAI Analysis
+                with ai_col1:
+                    st.markdown("### 🧠 **OpenAI GPT-4o**")
+                    openai_data = ai_analyses.get('openai', {})
+                    if 'error' not in openai_data:
+                        st.write(f"**Pick:** {openai_data.get('predicted_winner', 'N/A')}")
+                        st.write(f"**Confidence:** {openai_data.get('confidence', 0):.1%}")
+                        st.write(f"**Risk Level:** {openai_data.get('risk_level', 'N/A')}")
+                        
+                        key_factors = openai_data.get('key_factors', [])
+                        if key_factors:
+                            st.write("**Key Factors:**")
+                            for factor in key_factors[:3]:  # Show top 3
+                                st.write(f"• {factor}")
+                    else:
+                        st.error("❌ Analysis failed")
+                
+                # Gemini Analysis  
+                with ai_col2:
+                    st.markdown("### 🔮 **Google Gemini**")
+                    gemini_data = ai_analyses.get('gemini', {})
+                    if 'error' not in gemini_data:
+                        st.write(f"**Pick:** {gemini_data.get('prediction', 'N/A')}")
+                        st.write(f"**Confidence:** {gemini_data.get('confidence_score', 0):.1%}")
+                        st.write(f"**Recommendation:** {gemini_data.get('recommendation', 'N/A')}")
+                        
+                        critical_factors = gemini_data.get('critical_factors', [])
+                        if critical_factors:
+                            st.write("**Critical Factors:**")
+                            for factor in critical_factors[:3]:  # Show top 3
+                                st.write(f"• {factor}")
+                    else:
+                        st.error("❌ Analysis failed")
+                
+                # Claude Analysis
+                with ai_col3:
+                    st.markdown("### ⚡ **Claude 3.5 Sonnet**")
+                    claude_data = ai_analyses.get('claude', {})
+                    if 'error' not in claude_data:
+                        st.write(f"**Pick:** {claude_data.get('predicted_winner', 'N/A')}")
+                        st.write(f"**Confidence:** {claude_data.get('confidence', 0):.1%}")
+                        st.write(f"**Risk Level:** {claude_data.get('risk_level', 'N/A')}")
+                        st.write(f"**Edge Score:** {claude_data.get('edge_score', 0):.2f}")
+                        
+                        key_factors = claude_data.get('key_factors', [])
+                        if key_factors:
+                            st.write("**Key Factors:**")
+                            for factor in key_factors[:3]:  # Show top 3
+                                st.write(f"• {factor}")
+                    else:
+                        st.error("❌ Analysis failed")
+            
+            else:
+                st.info("🔄 AI analysis data not available for this pick")
+            
+            # Consensus Summary
+            st.markdown("---")
+            st.markdown("### 🎯 **Consensus Summary**")
+            
+            agreement_status = full_consensus.get('agreement_status', 'Unknown')
+            consensus_confidence = full_consensus.get('consensus_confidence', 0)
+            
+            if agreement_status == 'STRONG_CONSENSUS':
+                st.success(f"✅ **Strong Agreement** - All models align with {consensus_confidence:.1%} confidence")
+            elif 'DISAGREEMENT' in agreement_status:
+                st.warning(f"⚠️ **Models Disagree** - Using primary model with {consensus_confidence:.1%} confidence")
+            elif 'SINGLE_AI' in agreement_status:
+                st.info(f"📊 **Single Model** - Based on one AI with {consensus_confidence:.1%} confidence")
+            else:
+                st.write(f"📈 **Consensus Confidence:** {consensus_confidence:.1%}")
+
     # Advanced Details (Collapsed by default)
     with st.expander("🔬 **Advanced Statistical Analysis**", expanded=False):
         
@@ -4349,7 +4540,7 @@ def show_dedicated_parlay_section(final_games):
                                 st.success("✅ Good Value")
                             elif combined_conf >= 0.50:
                                 st.warning("⚠️ Moderate Risk")
-                            else:
+                else:
                                 st.error("🔴 High Risk")
                             
                             # Parlay strategy
@@ -4357,7 +4548,7 @@ def show_dedicated_parlay_section(final_games):
                             if combined_conf >= 0.60:
                                 st.markdown("• Consider 0.5-1 unit stake")
                                 st.markdown("• Both picks have strong individual merit")
-                            else:
+            else:
                                 st.markdown("• Use minimal stake (0.25-0.5 units)")
                                 st.markdown("• Entertainment value rather than investment")
                             st.markdown("• **Remember:** Each leg must win for parlay to pay")
@@ -4403,7 +4594,7 @@ def show_dedicated_parlay_section(final_games):
                     with col2:
                         payout_3game = (1/combined_3game) * 0.80  # Even more conservative
                         st.metric("Est. Payout", f"{payout_3game:.1f}x")
-                    with col3:
+        with col3:
                         st.metric("Risk Level", "🔴 Very High")
                     
                     st.error("🚨 **High Risk Strategy:** Use maximum 0.25 units. This is entertainment betting only.")
@@ -4724,7 +4915,7 @@ def show_sport_scores(sport: str, games: List[Dict]):
         st.markdown("### 🔴 Live Games")
         for game in live_games:
             show_live_score_card(game, highlight_live=True)
-        st.markdown("---")
+                st.markdown("---")
                 
     # Show final games
     if final_games:
@@ -4760,7 +4951,7 @@ def show_live_score_card(game: Dict, highlight_live: bool = False):
         card_style = "background: linear-gradient(90deg, #28a745aa, transparent); border-left: 4px solid #28a745;"
         status_color = "#28a745"
         status_icon = "✅"
-    else:
+            else:
         card_style = "background: linear-gradient(90deg, #17a2b8aa, transparent); border-left: 4px solid #17a2b8;"
         status_color = "#17a2b8"
         status_icon = "⏰"
@@ -5207,6 +5398,27 @@ def show_settings():
     
     st.markdown("---")
     
+    # AI Analysis Display Settings
+    st.markdown("## 🤖 AI Analysis Display")
+    
+    current_ai_breakdown = st.session_state.get('show_ai_breakdown', True)
+    show_ai_breakdown = st.checkbox(
+        "🔍 Show Tri-AI Analysis Breakdown",
+        value=current_ai_breakdown,
+        help="Display individual OpenAI, Gemini, and Claude analyses for each pick"
+    )
+    
+    if show_ai_breakdown != current_ai_breakdown:
+        st.session_state.show_ai_breakdown = show_ai_breakdown
+        st.success("✅ AI analysis display updated!")
+    
+    if show_ai_breakdown:
+        st.info("✨ **Enabled:** Each pick will show what all 3 AI models (OpenAI, Gemini, Claude) individually predicted")
+    else:
+        st.info("📊 **Disabled:** Only final consensus results will be shown")
+    
+    st.markdown("---")
+    
     # API Configuration Section
     st.markdown("## 🔗 API Configuration")
     st.info("💡 Configure your API keys to enable real-time data and live odds!")
@@ -5368,54 +5580,54 @@ def get_espn_games_for_date(target_date, sports):
                     continue
                 data = response.json()
                 if 'events' in data and data['events']:
-                    for event in data['events']:
-                        try:
-                            competitions = event.get('competitions', [])
+                        for event in data['events']:
+                            try:
+                                competitions = event.get('competitions', [])
                             if not competitions:
                                 continue
 
-                            competition = competitions[0]
-                            competitors = competition.get('competitors', [])
-                            
+                                    competition = competitions[0]
+                                    competitors = competition.get('competitors', [])
+                                    
                             if len(competitors) < 2:
                                 continue
 
-                            home_team = None
-                            away_team = None
-                            
-                            for competitor in competitors:
-                                if competitor.get('homeAway') == 'home':
-                                    home_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                                elif competitor.get('homeAway') == 'away':
-                                    away_team = competitor.get('team', {}).get('displayName', 'Unknown')
-                            
+                                        home_team = None
+                                        away_team = None
+                                        
+                                        for competitor in competitors:
+                                            if competitor.get('homeAway') == 'home':
+                                                home_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                            elif competitor.get('homeAway') == 'away':
+                                                away_team = competitor.get('team', {}).get('displayName', 'Unknown')
+                                        
                             if not (home_team and away_team):
                                 continue
 
-                            game_time = event.get('date', '')
-                            est_time = 'TBD'
-                            if game_time:
-                                try:
-                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
-                                    import pytz
-                                    est = pytz.timezone('US/Eastern')
-                                    dt_est = dt.astimezone(est)
-                                    est_time = dt_est.strftime('%I:%M %p EST')
+                                            game_time = event.get('date', '')
+                                            est_time = 'TBD'
+                                            if game_time:
+                                                try:
+                                                    dt = datetime.fromisoformat(game_time.replace('Z', '+00:00'))
+                                                    import pytz
+                                                    est = pytz.timezone('US/Eastern')
+                                                    dt_est = dt.astimezone(est)
+                                                    est_time = dt_est.strftime('%I:%M %p EST')
                                 except Exception:
-                                    pass
+                                                    pass
                                             
-                            game = {
+                                            game = {
                                 'game_id': event.get('id', ''),
-                                'sport': sport,
+                                                'sport': sport,
                                 'league': sport,
                                 'home_team': {'name': home_team},
                                 'away_team': {'name': away_team},
-                                'commence_time': game_time,
-                                'est_time': est_time,
+                                                'commence_time': game_time,
+                                                'est_time': est_time,
                                 'date': target_date.strftime('%Y-%m-%d'),
                                 'time': est_time,
-                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
-                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
+                                                'status': event.get('status', {}).get('type', {}).get('description', 'Scheduled'),
+                                                'venue': competition.get('venue', {}).get('fullName', 'TBD'),
                                 'bookmakers': []
                             }
                             sport_games.append(game)
@@ -5424,8 +5636,8 @@ def get_espn_games_for_date(target_date, sports):
                     if sport_games:
                         break
             except Exception:
-                continue
-                
+                                continue
+                                
         return sport_games
     
     # PARALLEL EXECUTION - Fetch all sports simultaneously
@@ -7405,7 +7617,7 @@ def get_gemini_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-        return {
+            return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.72)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'Gemini fast analysis')],
@@ -7441,7 +7653,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
 
         content = response.choices[0].message.content if response.choices else None
         if not content:
-            return None
+        return None
 
         content = content.strip()
         if content.startswith('```'):
@@ -7450,7 +7662,7 @@ def get_openai_analysis_fast(home_team, away_team, sport):
             content = "\n".join(lines)
 
         data = json.loads(content)
-        return {
+            return {
             'predicted_winner': data.get('predicted_winner') or home_team,
             'confidence': float(data.get('confidence', 0.7)),
             'key_factors': data.get('key_factors') or [data.get('reasoning', 'OpenAI fast analysis')],
@@ -7471,8 +7683,8 @@ def main():
         # Test connection first
         supabase_test = init_supabase()
         if supabase_test:
-            st.session_state.db_initialized = create_database_tables()
-            if st.session_state.db_initialized:
+        st.session_state.db_initialized = create_database_tables()
+        if st.session_state.db_initialized:
                 st.success("🗄️ PostgreSQL Database connected successfully! All predictions will be saved.")
                 # Test user creation
                 user_id = get_or_create_user_id()
@@ -8338,7 +8550,7 @@ def show_daily_betting_tracker():
         supabase = init_supabase()
         if supabase:
             st.success("✅ Database Connected")
-        else:
+                    else:
             st.error("❌ Database Not Connected")
         
         # Show instructions
@@ -8390,7 +8602,7 @@ def show_daily_betting_tracker():
                     if all_predictions.data:
                         for pred in all_predictions.data:
                             st.write(f"   ID:{pred['id']} | {pred['game_date']} | {pred['away_team']} @ {pred['home_team']} | Created: {pred['created_at'][:10]}")
-                    else:
+                else:
                         st.write("   No daily bets found in database")
                 except Exception as e:
                     st.write(f"   Database query error: {e}")
@@ -8408,7 +8620,7 @@ def show_daily_betting_tracker():
                     .eq('is_daily_bet', True)\
                     .execute()
                 st.success("✅ Cleared old test data! Refresh to see updated results.")
-                st.rerun()
+                    st.rerun()
             except Exception as e:
                 st.error(f"Failed to clear data: {e}")
     
@@ -9206,7 +9418,7 @@ def add_ai_lab_navigation():
     
     if st.sidebar.button("📊 **Back to Main App**", use_container_width=True, help="Return to main prediction interface"):
         st.session_state.show_ai_lab = False
-        st.rerun()
+                            st.rerun()
 
 if __name__ == "__main__":
     # Initialize automated picks scheduler
@@ -9226,4 +9438,4 @@ if __name__ == "__main__":
     if st.session_state.show_ai_lab:
         show_ai_lab_page()
     else:
-        main()
+    main()
