@@ -9,6 +9,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import logging
+import re
 
 class RealTimeDataEngine:
     """Fetch real-time sports data to enhance prediction accuracy"""
@@ -168,10 +169,138 @@ class RealTimeDataEngine:
         return injury_data
     
     def _fetch_espn_injuries(self, team: str, sport: str) -> List[Dict]:
-        """Fetch injury data from ESPN"""
-        # This would require mapping team names to ESPN team IDs
-        # For now, return structured placeholder
-        return []
+        """Fetch injury data from ESPN public endpoints (NFL).
+        Returns a list of standardized injury dicts.
+        """
+        try:
+            if sport != 'NFL':
+                return []
+            team_id = self._get_espn_nfl_team_id(team)
+            if not team_id:
+                return []
+            cache_key = f"espn_injuries_{team_id}_{datetime.now().strftime('%Y%m%d%H')}"
+            if cache_key in self.cache:
+                return self.cache[cache_key]
+
+            # ESPN injuries endpoint
+            url = f"https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/teams/{team_id}/injuries"
+            resp = requests.get(url, timeout=8)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+
+            raw_items = self._extract_espn_injury_items(data)
+            standardized: List[Dict] = []
+            for item in raw_items:
+                athlete = item.get('athlete') or item.get('player') or {}
+                player_name = athlete.get('displayName') or athlete.get('fullName') or athlete.get('name') or ''
+                position = (
+                    (athlete.get('position') or {}).get('abbreviation')
+                    if isinstance(athlete.get('position'), dict) else athlete.get('position')
+                ) or item.get('position') or ''
+                status = (
+                    (item.get('status') or {}).get('type', {}).get('description')
+                    if isinstance(item.get('status'), dict) else item.get('status')
+                ) or item.get('type') or item.get('shortStatus') or item.get('designation') or 'Unknown'
+                note = item.get('details') or item.get('comment') or item.get('shortComment') or ''
+
+                impact = self._classify_injury_impact(status, note)
+
+                standardized.append({
+                    'team': team,
+                    'player': player_name,
+                    'position': position,
+                    'status': status,
+                    'impact': impact,
+                    'note': note
+                })
+
+            # cache for the hour
+            self.cache[cache_key] = standardized
+            return standardized
+        except Exception as e:
+            logging.error(f"ESPN injuries fetch error for {team}: {e}")
+            return []
+
+    def _classify_injury_impact(self, status: str, note: str) -> str:
+        """Rough impact classification from status/note."""
+        text = f"{status} {note}".lower()
+        if any(k in text for k in ['out', 'inactive', 'placed on ir', 'acl', 'achilles', 'season-ending', 'doubtful']):
+            return 'high'
+        if any(k in text for k in ['questionable', 'limited', 'probable', 'day-to-day']):
+            return 'medium'
+        return 'minimal'
+
+    def _extract_espn_injury_items(self, data: Dict) -> List[Dict]:
+        """Extract injury entries from varied ESPN structures by scanning for athlete entries."""
+        results: List[Dict] = []
+
+        def walk(obj):
+            if isinstance(obj, dict):
+                # heuristic: injury-like dicts frequently contain an 'athlete' field
+                if 'athlete' in obj or 'player' in obj:
+                    results.append(obj)
+                for v in obj.values():
+                    walk(v)
+            elif isinstance(obj, list):
+                for v in obj:
+                    walk(v)
+
+        walk(data)
+        return results
+
+    def _get_espn_nfl_team_id(self, team_name: str) -> Optional[str]:
+        """Resolve NFL team name to ESPN team ID by querying ESPN teams list and caching the mapping."""
+        try:
+            cache_key = 'espn_nfl_teams_map'
+            teams_map = self.cache.get(cache_key)
+            if not teams_map:
+                url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams'
+                resp = requests.get(url, timeout=8)
+                if resp.status_code != 200:
+                    return None
+                payload = resp.json()
+                teams = (((payload.get('sports') or [{}])[0]).get('leagues') or [{}])[0].get('teams', [])
+                teams_map = {}
+                for t in teams:
+                    team = t.get('team', {})
+                    tid = str(team.get('id')) if team.get('id') is not None else None
+                    if not tid:
+                        continue
+                    names = set()
+                    for key in ['displayName', 'shortDisplayName', 'name', 'nickname']:
+                        if team.get(key):
+                            names.add(team[key])
+                    loc = team.get('location')
+                    nick = team.get('name')
+                    if loc and nick:
+                        names.add(f"{loc} {nick}")
+                    abbr = team.get('abbreviation')
+                    if abbr:
+                        names.add(abbr)
+                    for n in names:
+                        teams_map[self._norm(n)] = tid
+                self.cache[cache_key] = teams_map
+
+            # Try direct name, then split and try last word (nickname)
+            candidates = [team_name, team_name.replace('FC', '').replace('AFC', '').strip()]
+            for c in candidates:
+                tid = teams_map.get(self._norm(c))
+                if tid:
+                    return tid
+            # Try to match by nickname only (last word)
+            parts = re.split(r"\s+", team_name.strip())
+            if parts:
+                nick = parts[-1]
+                for k, v in teams_map.items():
+                    if k.endswith(self._norm(nick)):
+                        return v
+        except Exception:
+            return None
+        return None
+
+    def _norm(self, s: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", s.lower()) if isinstance(s, str) else ""
     
     def _get_real_team_stats(self, home_team: str, away_team: str, sport: str) -> Dict:
         """Get real team statistics"""
