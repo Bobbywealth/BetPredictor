@@ -234,16 +234,37 @@ def show_clean_pick_card(game, rank):
 
         # Explicit weather line if available anywhere
         weather = analysis.get('weather_data') or consensus.get('weather_data')
-        if not weather:
-            # Try summary fields
-            rt_summary = analysis.get('real_time_summary') or consensus.get('real_time_summary')
-            if rt_summary and 'Weather:' in rt_summary:
-                st.markdown(f"🌤️ {rt_summary}")
-        else:
+        rt_summary = analysis.get('real_time_summary') or consensus.get('real_time_summary')
+        
+        # Fallback fetch if nothing present
+        try:
+            needs_weather = not weather or not weather.get('temperature')
+            needs_quality = not data_quality_score or data_quality_score == 0
+            if needs_weather or needs_quality:
+                from utils.real_time_data_engine import RealTimeDataEngine
+                _engine = RealTimeDataEngine()
+                _rt = _engine.get_comprehensive_game_data(game)
+                if needs_weather:
+                    weather = _rt.get('weather', weather)
+                if needs_quality:
+                    dq = _rt.get('data_quality_score')
+                    if dq:
+                        st.markdown(f"**Quality:** {dq:.0%} coverage")
+                if not rt_summary:
+                    try:
+                        rt_summary = _engine.get_data_quality_summary(_rt)
+                    except Exception:
+                        pass
+                if st.session_state.get('debug_mode', False):
+                    st.info("🛠️ Fallback real-time data fetched for display")
+        except Exception:
+            pass
+        
+        if weather:
             temp = weather.get('temperature')
             cond = weather.get('conditions')
             wind = weather.get('wind_speed')
-            if temp or cond or wind:
+            if temp is not None or cond or wind:
                 parts = []
                 if temp is not None:
                     parts.append(f"{temp}°F")
@@ -252,6 +273,8 @@ def show_clean_pick_card(game, rank):
                 if wind:
                     parts.append(f"{wind} mph wind")
                 st.markdown(f"🌤️ **Weather:** {' , '.join(parts)}")
+        elif rt_summary and 'Weather:' in rt_summary:
+            st.markdown(f"🌤️ {rt_summary}")
     
     with sidebar_col:
         # Betting strategy card - all info consolidated
