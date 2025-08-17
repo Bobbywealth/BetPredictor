@@ -4037,12 +4037,25 @@ def get_bet_type_recommendation(analysis, game):
 def show_enhanced_data_summary(analysis, consensus, game):
     """Display enhanced real-time data in prediction cards"""
     
+    # TEMP DEBUG: Show what data we're receiving
+    if st.session_state.get('debug_mode', False):
+        st.write("🔍 **Enhanced Data Debug:**")
+        st.write(f"Analysis keys: {list(analysis.keys()) if analysis else 'None'}")
+        st.write(f"Consensus keys: {list(consensus.keys()) if consensus else 'None'}")
+    
     # Check for enhanced analysis data
     real_time_summary = analysis.get('real_time_summary') or consensus.get('real_time_summary')
     data_quality_score = analysis.get('data_quality_score') or consensus.get('data_quality_score', 0.0)
     quantitative_baseline = analysis.get('quantitative_baseline') or consensus.get('quantitative_baseline', {})
     weather_data = analysis.get('weather_data') or consensus.get('weather_data', {})
     injury_data = analysis.get('injury_data') or consensus.get('injury_data', {})
+    
+    # TEMP DEBUG: Show specific values
+    if st.session_state.get('debug_mode', False):
+        st.write(f"Data quality score: {data_quality_score}")
+        st.write(f"Weather data: {weather_data}")
+        st.write(f"Real-time summary: {real_time_summary}")
+        st.write(f"Analysis type: {analysis.get('analysis_type', 'Not found')} / {consensus.get('analysis_type', 'Not found')}")
     
     # Display data quality
     if data_quality_score > 0:
