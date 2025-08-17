@@ -201,12 +201,15 @@ def show_clean_pick_card(game, rank):
         with foundation_col1:
             # Data quality score
             data_quality = analysis.get('data_quality_display') or consensus.get('data_quality_display')
-            data_quality_score = analysis.get('data_quality_score', 0.85)
+            data_quality_score = analysis.get('data_quality_score') or consensus.get('data_quality_score', 0.0)
             
             if data_quality:
                 st.markdown(f"**Quality:** {data_quality}")
             else:
-                st.markdown(f"**Quality:** {data_quality_score:.0%} coverage")
+                if data_quality_score and data_quality_score > 0:
+                    st.markdown(f"**Quality:** {data_quality_score:.0%} coverage")
+                else:
+                    st.markdown("**Quality:** Limited real-time data")
             
             # Real-time sources
             rt_sources = analysis.get('real_time_sources') or consensus.get('real_time_sources')
@@ -228,6 +231,27 @@ def show_clean_pick_card(game, rank):
                 st.markdown(f"**Market:** {line_movement}")
             else:
                 st.markdown("**Market:** Current odds analyzed")
+
+        # Explicit weather line if available anywhere
+        weather = analysis.get('weather_data') or consensus.get('weather_data')
+        if not weather:
+            # Try summary fields
+            rt_summary = analysis.get('real_time_summary') or consensus.get('real_time_summary')
+            if rt_summary and 'Weather:' in rt_summary:
+                st.markdown(f"🌤️ {rt_summary}")
+        else:
+            temp = weather.get('temperature')
+            cond = weather.get('conditions')
+            wind = weather.get('wind_speed')
+            if temp or cond or wind:
+                parts = []
+                if temp is not None:
+                    parts.append(f"{temp}°F")
+                if cond:
+                    parts.append(cond)
+                if wind:
+                    parts.append(f"{wind} mph wind")
+                st.markdown(f"🌤️ **Weather:** {' , '.join(parts)}")
     
     with sidebar_col:
         # Betting strategy card - all info consolidated

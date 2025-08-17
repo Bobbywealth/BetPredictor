@@ -573,13 +573,20 @@ You are an elite sports analyst with access to comprehensive real-time data. Ana
             return "- Error retrieving news data"
 
     def _summarize_real_time_data(self, real_time_data: Dict) -> Dict:
-        """Create summary of real-time data for analysis tracking"""
+        """Create summary of real-time data for analysis tracking.
+        Aligns with utils.real_time_data_engine structure.
+        """
+        weather = real_time_data.get('weather', {}) or {}
+        injuries = real_time_data.get('injuries', {}) or {}
+        lineups = real_time_data.get('lineups', {}) or {}
+        news = real_time_data.get('news', {}) or {}
+
         return {
-            'injuries_available': bool(real_time_data.get('injuries', {}).get('injuries')),
-            'weather_available': bool(real_time_data.get('weather', {}).get('weather')),
-            'lineups_available': bool(real_time_data.get('lineups', {}).get('lineup')),
-            'news_available': bool(real_time_data.get('news', {}).get('news')),
-            'data_quality': real_time_data.get('data_quality_score', 0.5),
+            'injuries_available': bool(injuries.get('reports') or injuries.get('home_team') or injuries.get('away_team')),
+            'weather_available': bool(weather.get('temperature') or weather.get('conditions')),
+            'lineups_available': bool(lineups.get('lineup') or lineups.get('home') or lineups.get('away')),
+            'news_available': bool(news.get('news') or news.get('items')),
+            'data_quality': float(max(0.0, min(1.0, real_time_data.get('data_quality_score', 0.5)))) ,
             'last_updated': real_time_data.get('last_updated', datetime.now().isoformat())
         }
     
