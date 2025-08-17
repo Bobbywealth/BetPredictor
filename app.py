@@ -7537,7 +7537,7 @@ except:
     pass
 
 def get_ai_analysis(game):
-    """Get AI analysis ONLY from real OpenAI and Gemini APIs - no fallbacks"""
+    """Get enhanced AI analysis with real-time data and quantitative baselines"""
     import concurrent.futures
     import time
     
@@ -7547,17 +7547,54 @@ def get_ai_analysis(game):
     
     # Check for API keys - REQUIRED for analysis
     openai_key = get_secret_or_env("OPENAI_API_KEY")
-    # Support both legacy GOOGLE_API_KEY and GEMINI_API_KEY secret/env names
     google_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
     
     if not openai_key and not google_key:
-        # No API keys available - return None instead of fallback
         return None
     
-    # SPEED OPTIMIZATION: Use fastest AI first (Gemini), fallback to OpenAI
     start_time = time.time()
     
-    # Try Gemini first (faster)
+    # Try enhanced analysis first (better accuracy)
+    try:
+        from utils.real_time_data_engine import RealTimeDataEngine
+        from utils.enhanced_quantitative_models import EnhancedQuantitativeEngine
+        from utils.enhanced_ai_prompts import EnhancedAIPromptEngine
+        
+        # Step 1: Get real-time data
+        data_engine = RealTimeDataEngine()
+        real_time_data = data_engine.get_comprehensive_game_data(game)
+        
+        # Step 2: Calculate quantitative baseline
+        quant_engine = EnhancedQuantitativeEngine()
+        quantitative_baseline = quant_engine.calculate_enhanced_baseline(game, real_time_data)
+        
+        # Step 3: Use enhanced AI analysis if data quality is good
+        data_quality = real_time_data.get('data_quality_score', 0.0)
+        
+        if data_quality >= 0.3:  # Use enhanced analysis for decent data
+            prompt_engine = EnhancedAIPromptEngine()
+            enhanced_prompt = prompt_engine.generate_enhanced_prompt(game, real_time_data, quantitative_baseline)
+            
+            # Try enhanced analysis with best available AI
+            if openai_key:
+                result = get_enhanced_openai_analysis(enhanced_prompt, game, quantitative_baseline, real_time_data)
+                if result:
+                    analysis_time = time.time() - start_time
+                    track_api_usage("OpenAI-Enhanced", 200, analysis_time * 0.003)
+                    return result
+            
+            if google_key:
+                result = get_enhanced_gemini_analysis(enhanced_prompt, game, quantitative_baseline, real_time_data)
+                if result:
+                    analysis_time = time.time() - start_time
+                    track_api_usage("Gemini-Enhanced", 150, analysis_time * 0.002)
+                    return result
+        
+    except Exception as e:
+        if st.session_state.get('debug_mode', False):
+            st.write(f"⚠️ Enhanced analysis error: {e}")
+    
+    # Fallback to fast analysis
     if google_key:
         try:
             result = get_gemini_analysis_fast(home_team, away_team, sport)
@@ -7568,7 +7605,6 @@ def get_ai_analysis(game):
         except Exception as e:
             print(f"Gemini fast analysis failed: {e}")
     
-    # Fallback to OpenAI if Gemini fails or unavailable
     if openai_key:
         try:
             result = get_openai_analysis_fast(home_team, away_team, sport)
@@ -7579,8 +7615,97 @@ def get_ai_analysis(game):
         except Exception as e:
             print(f"OpenAI fast analysis failed: {e}")
     
-    # If we get here, both AIs failed
     return None
+
+def get_enhanced_openai_analysis(enhanced_prompt: str, game: dict, quantitative_baseline: dict, real_time_data: dict):
+    """Get enhanced OpenAI analysis with comprehensive prompt"""
+    try:
+        from openai import OpenAI
+        openai_key = get_secret_or_env("OPENAI_API_KEY")
+        if not openai_key:
+            return None
+        
+        client = OpenAI(api_key=openai_key)
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "user", "content": enhanced_prompt}
+            ],
+            max_tokens=800,
+            temperature=0.1,
+        )
+        
+        content = response.choices[0].message.content if response.choices else None
+        if not content:
+            return None
+        
+        # Parse JSON response
+        import json
+        content = content.strip()
+        if content.startswith('```json'):
+            content = content.replace('```json', '').replace('```', '').strip()
+        elif content.startswith('```'):
+            content = content.replace('```', '').strip()
+        
+        data = json.loads(content)
+        
+        # Add enhanced metadata
+        data['analysis_type'] = 'Enhanced OpenAI'
+        data['data_quality_score'] = real_time_data.get('data_quality_score', 0.0)
+        data['quantitative_baseline'] = quantitative_baseline
+        data['real_time_summary'] = real_time_data.get('data_quality_summary', 'Limited data available')
+        
+        return data
+        
+    except Exception as e:
+        print(f"Enhanced OpenAI analysis failed: {e}")
+        return None
+
+def get_enhanced_gemini_analysis(enhanced_prompt: str, game: dict, quantitative_baseline: dict, real_time_data: dict):
+    """Get enhanced Gemini analysis with comprehensive prompt"""
+    try:
+        import google.generativeai as genai
+        google_key = get_secret_or_env("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        if not google_key:
+            return None
+        
+        genai.configure(api_key=google_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        response = model.generate_content(
+            enhanced_prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=800,
+                temperature=0.1,
+            )
+        )
+        
+        if not response or not response.text:
+            return None
+        
+        # Parse JSON response
+        import json
+        content = response.text.strip()
+        if content.startswith('```json'):
+            content = content.replace('```json', '').replace('```', '').strip()
+        elif content.startswith('```'):
+            content = content.replace('```', '').strip()
+        
+        data = json.loads(content)
+        
+        # Add enhanced metadata
+        data['analysis_type'] = 'Enhanced Gemini'
+        data['data_quality_score'] = real_time_data.get('data_quality_score', 0.0)
+        data['quantitative_baseline'] = quantitative_baseline
+        data['real_time_summary'] = real_time_data.get('data_quality_summary', 'Limited data available')
+        
+        return data
+        
+    except Exception as e:
+        print(f"Enhanced Gemini analysis failed: {e}")
+        return None
+
 def get_gemini_analysis_fast(home_team, away_team, sport):
     """Ultra-fast Gemini analysis optimized for speed.
     Returns dict with predicted_winner, confidence, key_factors, reasoning, edge_score.

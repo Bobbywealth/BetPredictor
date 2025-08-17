@@ -257,3 +257,4 @@ def show_monitoring_status():
             st.metric("Completed", status['completed'])
     else:
         st.info("No games currently being monitored")
+
