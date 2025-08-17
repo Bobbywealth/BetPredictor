@@ -279,6 +279,17 @@ def show_clean_pick_card(game, rank):
         # Injuries section (explicit)
         injuries = analysis.get('injury_data') or consensus.get('injury_data') or {}
         reports = injuries.get('reports') or []
+
+        # Fallback fetch for injuries when missing
+        if (not isinstance(reports, list) or len(reports) == 0):
+            try:
+                from utils.real_time_data_engine import RealTimeDataEngine
+                _engine = RealTimeDataEngine()
+                _rt2 = _engine.get_comprehensive_game_data(game)
+                injuries = _rt2.get('injuries', injuries)
+                reports = injuries.get('reports', [])
+            except Exception:
+                pass
         if isinstance(reports, list) and reports:
             st.markdown("**🏥 Injuries:**")
             # Group by team (home/away names known above)
