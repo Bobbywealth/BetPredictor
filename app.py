@@ -3613,6 +3613,13 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                             'data_quality_display': enhanced_analysis.get('data_quality_display'),
                             'quantitative_baseline': enhanced_analysis.get('quantitative_baseline'),
                             'confidence_calibration': enhanced_analysis.get('confidence_calibration'),
+                            # Add enhanced data fields
+                            'analysis_type': 'Enhanced AI Strategy',
+                            'data_quality_score': enhanced_analysis.get('data_quality_score', 0.0),
+                            'real_time_summary': enhanced_analysis.get('real_time_summary', ''),
+                            'weather_data': enhanced_analysis.get('weather_data', {}),
+                            'injury_data': enhanced_analysis.get('injury_data', {}),
+                            'team_stats': enhanced_analysis.get('team_stats', {}),
                             'success_metrics': {
                                 'edge_score': enhanced_analysis.get('expected_value', 0.0),
                                 'risk_score': enhanced_analysis.get('risk_score', 0.5),

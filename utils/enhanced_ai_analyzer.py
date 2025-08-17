@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from openai import OpenAI
 from utils.advanced_ai_strategy import AdvancedAIStrategy
-from utils.real_time_data import RealTimeDataEngine
+from utils.real_time_data_engine import RealTimeDataEngine
 from utils.quantitative_models import QuantitativeModelEngine
 from utils.confidence_calibration import ConfidenceCalibrator
 
@@ -95,6 +95,12 @@ class EnhancedAIAnalyzer:
             enhanced_analysis['quantitative_baseline'] = quantitative_baseline
             enhanced_analysis['data_quality_score'] = real_time_data.get('data_quality_score', 0.5)
             enhanced_analysis['real_time_data_summary'] = self._summarize_real_time_data(real_time_data)
+            
+            # Add raw real-time data for UI display
+            enhanced_analysis['weather_data'] = real_time_data.get('weather', {})
+            enhanced_analysis['injury_data'] = real_time_data.get('injuries', {})
+            enhanced_analysis['team_stats'] = real_time_data.get('team_stats', {})
+            enhanced_analysis['real_time_summary'] = self._generate_real_time_summary(real_time_data)
             
             # Add specific real-time insights to key factors
             rt_insights = self._extract_real_time_insights(real_time_data)
@@ -576,6 +582,29 @@ You are an elite sports analyst with access to comprehensive real-time data. Ana
             'data_quality': real_time_data.get('data_quality_score', 0.5),
             'last_updated': real_time_data.get('last_updated', datetime.now().isoformat())
         }
+    
+    def _generate_real_time_summary(self, real_time_data: Dict) -> str:
+        """Generate a readable summary of real-time data for UI display"""
+        summary_parts = []
+        
+        # Weather summary
+        weather = real_time_data.get('weather', {})
+        if weather and weather.get('temperature'):
+            temp = weather.get('temperature', 'N/A')
+            conditions = weather.get('conditions', 'Clear')
+            wind = weather.get('wind_speed', 0)
+            
+            weather_text = f"{temp}°F, {conditions}"
+            if wind and wind > 5:
+                weather_text += f", {wind}mph wind"
+            summary_parts.append(f"Weather: {weather_text}")
+        
+        # Data quality
+        quality_score = real_time_data.get('data_quality_score', 0.0)
+        if quality_score > 0:
+            summary_parts.append(f"Data Quality: {quality_score:.1f}/1.0")
+        
+        return "; ".join(summary_parts) if summary_parts else "Limited data available"
 
     def _extract_real_time_insights(self, real_time_data: Dict) -> List[str]:
         """Extract key insights from real-time data for display"""
