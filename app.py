@@ -4050,6 +4050,29 @@ def show_enhanced_data_summary(analysis, consensus, game):
     weather_data = analysis.get('weather_data') or consensus.get('weather_data', {})
     injury_data = analysis.get('injury_data') or consensus.get('injury_data', {})
     
+    # Fallback: if enhanced data missing, fetch directly (ensures UI shows weather/data quality)
+    try:
+        needs_fallback = (not weather_data or not weather_data.get('temperature')) or (not data_quality_score or data_quality_score == 0)
+        if needs_fallback:
+            from utils.real_time_data_engine import RealTimeDataEngine
+            data_engine = RealTimeDataEngine()
+            rt = data_engine.get_comprehensive_game_data(game)
+            # Merge in any missing fields for display
+            if not weather_data or not weather_data.get('temperature'):
+                weather_data = rt.get('weather', weather_data)
+            if not data_quality_score or data_quality_score == 0:
+                data_quality_score = rt.get('data_quality_score', data_quality_score)
+            if not real_time_summary:
+                try:
+                    real_time_summary = data_engine.get_data_quality_summary(rt)
+                except Exception:
+                    real_time_summary = real_time_summary
+            if st.session_state.get('debug_mode', False):
+                st.info("🛠️ Fallback real-time data fetched for display")
+    except Exception as _e:
+        if st.session_state.get('debug_mode', False):
+            st.write(f"Fallback fetch error: {_e}")
+
     # TEMP DEBUG: Show specific values
     if st.session_state.get('debug_mode', False):
         st.write(f"Data quality score: {data_quality_score}")
