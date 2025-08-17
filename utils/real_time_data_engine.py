@@ -177,13 +177,23 @@ class RealTimeDataEngine:
         return injury_data
     
     def _fetch_espn_injuries(self, team: str, sport: str) -> List[Dict]:
-        """Fetch injury data from ESPN public endpoints (NFL).
-        Returns a list of standardized injury dicts.
+        """Fetch injury data from ESPN public endpoints.
+        Supports NFL, NBA, WNBA (others can be added similarly).
+        Returns standardized injury dicts.
         """
         try:
-            if sport != 'NFL':
+            sport_upper = (sport or '').upper()
+            if sport_upper == 'NFL':
+                team_id = self._get_espn_nfl_team_id(team)
+                sport_key, league_key = 'football', 'nfl'
+            elif sport_upper == 'NBA':
+                team_id = self._get_espn_team_id_generic('basketball', 'nba', team)
+                sport_key, league_key = 'basketball', 'nba'
+            elif sport_upper == 'WNBA':
+                team_id = self._get_espn_team_id_generic('basketball', 'wnba', team)
+                sport_key, league_key = 'basketball', 'wnba'
+            else:
                 return []
-            team_id = self._get_espn_nfl_team_id(team)
             if not team_id:
                 return []
             cache_key = f"espn_injuries_{team_id}_{datetime.now().strftime('%Y%m%d%H')}"
@@ -191,7 +201,7 @@ class RealTimeDataEngine:
                 return self.cache[cache_key]
 
             # ESPN injuries endpoint
-            url = f"https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/teams/{team_id}/injuries"
+            url = f"https://site.web.api.espn.com/apis/common/v3/sports/{sport_key}/{league_key}/teams/{team_id}/injuries"
             resp = requests.get(url, timeout=8)
             if resp.status_code != 200:
                 return []
@@ -258,20 +268,29 @@ class RealTimeDataEngine:
         return results
 
     def _get_espn_nfl_team_id(self, team_name: str) -> Optional[str]:
-        """Resolve NFL team name to ESPN team ID by querying ESPN teams list and caching the mapping."""
+        """Resolve NFL team name to ESPN team ID."""
+        return self._get_espn_team_id_generic('football', 'nfl', team_name)
+
+    def _get_espn_team_id_generic(self, sport_key: str, league_key: str, team_name: str) -> Optional[str]:
+        """Resolve team name to ESPN team ID by querying ESPN teams list and caching the mapping."""
         try:
-            cache_key = 'espn_nfl_teams_map'
+            cache_key = f'espn_{sport_key}_{league_key}_teams_map'
             teams_map = self.cache.get(cache_key)
             if not teams_map:
-                url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams'
+                url = f'https://site.api.espn.com/apis/site/v2/sports/{sport_key}/{league_key}/teams'
                 resp = requests.get(url, timeout=8)
                 if resp.status_code != 200:
                     return None
                 payload = resp.json()
-                teams = (((payload.get('sports') or [{}])[0]).get('leagues') or [{}])[0].get('teams', [])
+                # ESPN responses vary slightly by sport; support both structures
+                sports_arr = payload.get('sports')
+                if isinstance(sports_arr, list) and sports_arr:
+                    teams = (((sports_arr or [{}])[0]).get('leagues') or [{}])[0].get('teams', [])
+                else:
+                    teams = payload.get('teams', [])
                 teams_map = {}
                 for t in teams:
-                    team = t.get('team', {})
+                    team = t.get('team', t)
                     tid = str(team.get('id')) if team.get('id') is not None else None
                     if not tid:
                         continue
