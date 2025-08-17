@@ -158,11 +158,11 @@ class RealTimeDataEngine:
         except Exception as e:
             logging.error(f"Injury data error: {e}")
         
-        # If no real data, provide structured placeholder
+        # If no real data, provide structured placeholder with team names
         if not injury_data['reports']:
             injury_data['reports'] = [
-                {'team': home_team, 'status': 'No major injuries reported', 'impact': 'minimal'},
-                {'team': away_team, 'status': 'No major injuries reported', 'impact': 'minimal'}
+                {'team': home_team, 'player': '', 'status': 'No major injuries reported', 'impact': 'minimal'},
+                {'team': away_team, 'player': '', 'status': 'No major injuries reported', 'impact': 'minimal'}
             ]
         
         return injury_data

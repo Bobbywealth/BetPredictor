@@ -275,6 +275,42 @@ def show_clean_pick_card(game, rank):
                 st.markdown(f"🌤️ **Weather:** {' , '.join(parts)}")
         elif rt_summary and 'Weather:' in rt_summary:
             st.markdown(f"🌤️ {rt_summary}")
+
+        # Injuries section (explicit)
+        injuries = analysis.get('injury_data') or consensus.get('injury_data') or {}
+        reports = injuries.get('reports') or []
+        if isinstance(reports, list) and reports:
+            st.markdown("**🏥 Injuries:**")
+            # Group by team (home/away names known above)
+            home_reports = [r for r in reports if str(r.get('team', '')).lower() in str(home_team).lower()]
+            away_reports = [r for r in reports if str(r.get('team', '')).lower() in str(away_team).lower()]
+            col_home, col_away = st.columns(2)
+            with col_home:
+                st.markdown(f"**{home_team}**")
+                if home_reports:
+                    for r in home_reports[:3]:
+                        player = r.get('player') or ''
+                        status = r.get('status', 'Status N/A')
+                        impact = r.get('impact', '')
+                        note = f" – {impact}" if impact else ''
+                        name = f"{player}: " if player else ''
+                        st.markdown(f"- {name}{status}{note}")
+                else:
+                    st.markdown("- No major injuries reported")
+            with col_away:
+                st.markdown(f"**{away_team}**")
+                if away_reports:
+                    for r in away_reports[:3]:
+                        player = r.get('player') or ''
+                        status = r.get('status', 'Status N/A')
+                        impact = r.get('impact', '')
+                        note = f" – {impact}" if impact else ''
+                        name = f"{player}: " if player else ''
+                        st.markdown(f"- {name}{status}{note}")
+                else:
+                    st.markdown("- No major injuries reported")
+        elif st.session_state.get('debug_mode', False):
+            st.markdown("🏥 Injuries: Limited data")
     
     with sidebar_col:
         # Betting strategy card - all info consolidated
