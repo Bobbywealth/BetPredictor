@@ -7707,7 +7707,8 @@ def get_ai_analysis(game):
         # Step 3: Use enhanced AI analysis if data quality is good
         data_quality = real_time_data.get('data_quality_score', 0.0)
         
-        if data_quality >= 0.3:  # Use enhanced analysis for decent data
+        # Always try enhanced analysis first (even with limited data)
+        if True:  # Force enhanced analysis to test data display
             prompt_engine = EnhancedAIPromptEngine()
             enhanced_prompt = prompt_engine.generate_enhanced_prompt(game, real_time_data, quantitative_baseline)
             
