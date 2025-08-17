@@ -2831,6 +2831,20 @@ def show_professional_sidebar():
             st.markdown("**👤 Session:**")
             st.info(f"User: {st.session_state.username}")
             
+            # Debug mode toggle
+            st.markdown("---")
+            st.markdown("### 🔧 Debug Options")
+            
+            debug_mode = st.checkbox(
+                "Show Enhanced Data Debug", 
+                value=st.session_state.get('debug_mode', False),
+                help="Show detailed information about real-time data and analysis"
+            )
+            st.session_state.debug_mode = debug_mode
+            
+            if debug_mode:
+                st.info("🔍 Debug mode active - enhanced data details will be shown")
+            
             # Free odds toggle
             st.markdown("---")
             st.markdown("### 🆓 Odds Sources")
@@ -3661,7 +3675,15 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 'confidence': consensus.get('consensus_confidence', 0.0),
                                 'edge': consensus.get('success_metrics', {}).get('edge_score', 0.0),
                                 'reasoning': consensus.get('pick_reasoning', []),
-                                'provider': 'DualAIConsensus'
+                                'provider': 'DualAIConsensus',
+                                # Pass through enhanced data
+                                'analysis_type': consensus.get('analysis_type', 'Standard AI'),
+                                'data_quality_score': consensus.get('data_quality_score', 0.0),
+                                'quantitative_baseline': consensus.get('quantitative_baseline', {}),
+                                'real_time_summary': consensus.get('real_time_summary', ''),
+                                'weather_data': consensus.get('weather_data', {}),
+                                'injury_data': consensus.get('injury_data', {}),
+                                'team_stats': consensus.get('team_stats', {})
                             }
                             game['ai_analysis'] = normalized
                             game['full_consensus'] = consensus
@@ -3673,6 +3695,30 @@ def show_unified_picks_and_odds(pick_date, sports, max_picks, min_confidence, so
                                 st.write(f"   Confidence: {normalized['confidence']:.1%}")
                                 st.write(f"   Min Required: {min_confidence:.1%}")
                                 st.write(f"   Meets Threshold: {normalized['confidence'] >= min_confidence and normalized['pick'] != 'NO_PICK'}")
+                                
+                                # Show enhanced data debug info
+                                st.write("   **Enhanced Data Debug:**")
+                                st.write(f"     Analysis Type: {normalized.get('analysis_type', 'N/A')}")
+                                st.write(f"     Data Quality: {normalized.get('data_quality_score', 0.0):.2f}/1.0")
+                                
+                                weather_data = normalized.get('weather_data', {})
+                                if weather_data:
+                                    st.write(f"     Weather: {weather_data.get('temperature', 'N/A')}°F, {weather_data.get('conditions', 'N/A')}")
+                                    st.write(f"     Wind: {weather_data.get('wind_speed', 'N/A')} mph")
+                                
+                                quant_baseline = normalized.get('quantitative_baseline', {})
+                                if quant_baseline:
+                                    st.write(f"     Home Win Prob: {quant_baseline.get('home_win_probability', 0.5):.1%}")
+                                    st.write(f"     Weather Factor: {quant_baseline.get('weather_factor', 0.0):+.3f}")
+                                    st.write(f"     Injury Factor: {quant_baseline.get('injury_factor', 0.0):+.3f}")
+                                
+                                injury_data = normalized.get('injury_data', {})
+                                if injury_data and injury_data.get('reports'):
+                                    st.write(f"     Injuries: {len(injury_data['reports'])} reports")
+                                    for report in injury_data['reports'][:2]:  # Show first 2
+                                        st.write(f"       - {report.get('team', 'Unknown')}: {report.get('status', 'Unknown')}")
+                                
+                                st.write("   ---")
                             
                             # Apply sport-specific floors and basic consensus gate
                             sport = (game.get('sport') or '').upper()
@@ -3980,6 +4026,93 @@ def get_bet_type_recommendation(analysis, game):
         'secondary': bet_types[1] if len(bet_types) > 1 else None,
         'confidence_level': 'HIGH' if confidence >= 0.8 else 'MEDIUM' if confidence >= 0.65 else 'LOW'
     }
+
+def show_enhanced_data_summary(analysis, consensus, game):
+    """Display enhanced real-time data in prediction cards"""
+    
+    # Check for enhanced analysis data
+    real_time_summary = analysis.get('real_time_summary') or consensus.get('real_time_summary')
+    data_quality_score = analysis.get('data_quality_score') or consensus.get('data_quality_score', 0.0)
+    quantitative_baseline = analysis.get('quantitative_baseline') or consensus.get('quantitative_baseline', {})
+    weather_data = analysis.get('weather_data') or consensus.get('weather_data', {})
+    injury_data = analysis.get('injury_data') or consensus.get('injury_data', {})
+    
+    # Display data quality
+    if data_quality_score > 0:
+        quality_color = "🟢" if data_quality_score >= 0.7 else "🟡" if data_quality_score >= 0.4 else "🔴"
+        st.metric("Data Quality", f"{quality_color} {data_quality_score:.1f}/1.0")
+    else:
+        # Show that enhanced system is active even with limited data
+        analysis_type = analysis.get('analysis_type') or consensus.get('ai_source', '')
+        if 'Enhanced' in analysis_type:
+            st.metric("Analysis", "🔬 Enhanced")
+    
+    # Display specific weather data
+    if weather_data and weather_data.get('temperature'):
+        temp = weather_data.get('temperature', 'N/A')
+        conditions = weather_data.get('conditions', 'Clear')
+        wind = weather_data.get('wind_speed', 0)
+        
+        # Format weather display
+        if isinstance(temp, (int, float)):
+            weather_text = f"{temp:.0f}°F"
+            if wind and isinstance(wind, (int, float)) and wind > 5:
+                weather_text += f", {wind:.0f}mph wind"
+            if conditions and conditions != 'Clear':
+                weather_text += f", {conditions.title()}"
+        else:
+            weather_text = f"{temp}, {conditions}"
+        
+        st.markdown(f"🌤️ **{weather_text}**")
+        
+        # Show weather impact if significant
+        weather_factor = quantitative_baseline.get('weather_factor', 0.0)
+        if abs(weather_factor) > 0.01:
+            direction = "Favors Home" if weather_factor > 0 else "Favors Away"
+            st.markdown(f"*{direction} ({weather_factor:+.1%})*")
+    
+    elif real_time_summary and 'Weather:' in real_time_summary:
+        # Fallback to summary text
+        weather_part = real_time_summary.split('Weather:')[1].split(';')[0].strip()
+        st.markdown(f"🌤️ **{weather_part}**")
+    
+    # Display injury information
+    if injury_data and injury_data.get('reports'):
+        reports = injury_data['reports']
+        injury_count = len([r for r in reports if r.get('impact', 'minimal') != 'minimal'])
+        
+        if injury_count > 0:
+            st.markdown(f"🏥 **{injury_count} Key Injuries**")
+            
+            # Show injury impact
+            injury_factor = quantitative_baseline.get('injury_factor', 0.0)
+            if abs(injury_factor) > 0.01:
+                direction = "↑" if injury_factor > 0 else "↓"
+                st.markdown(f"*Impact: {direction}{abs(injury_factor):.1%}*")
+        else:
+            st.markdown("✅ **No Major Injuries**")
+    
+    # Display quantitative baseline info
+    if quantitative_baseline:
+        home_prob = quantitative_baseline.get('home_win_probability', 0.5)
+        if home_prob != 0.5:  # Only show if different from 50/50
+            st.metric("Statistical Edge", f"{home_prob:.1%}")
+        
+        # Show model confidence
+        model_confidence = quantitative_baseline.get('confidence_score', 0.0)
+        if model_confidence > 0:
+            st.markdown(f"📊 **Model: {model_confidence:.1f}/1.0**")
+    
+    # Show enhanced system status
+    analysis_type = analysis.get('analysis_type') or consensus.get('ai_source', 'Standard AI')
+    if 'Enhanced OpenAI' in analysis_type:
+        st.markdown("🤖 **GPT-4 + Data**")
+    elif 'Enhanced Gemini' in analysis_type:
+        st.markdown("🤖 **Gemini + Data**")
+    elif 'Enhanced' in analysis_type:
+        st.markdown("🔬 **Enhanced AI**")
+    elif 'Real-Time' in analysis_type:
+        st.markdown("📡 **Real-Time Data**")
 
 def show_enhanced_pick_card_v2(game, rank):
     """Clean, professional pick card with data-driven analysis and clear betting strategy"""
@@ -4295,6 +4428,9 @@ def show_enhanced_pick_card_v2(game, rank):
     
     with strategy_col3:
         st.markdown("#### ⚡ **Key Info**")
+        
+        # Show enhanced data if available
+        show_enhanced_data_summary(analysis, consensus, game)
         
         # Confidence breakdown if available
         conf_breakdown = analysis.get('confidence_breakdown', {})
@@ -7654,7 +7790,18 @@ def get_enhanced_openai_analysis(enhanced_prompt: str, game: dict, quantitative_
         data['analysis_type'] = 'Enhanced OpenAI'
         data['data_quality_score'] = real_time_data.get('data_quality_score', 0.0)
         data['quantitative_baseline'] = quantitative_baseline
-        data['real_time_summary'] = real_time_data.get('data_quality_summary', 'Limited data available')
+        # Generate data quality summary
+        try:
+            from utils.real_time_data_engine import RealTimeDataEngine
+            data_engine = RealTimeDataEngine()
+            data['real_time_summary'] = data_engine.get_data_quality_summary(real_time_data)
+        except:
+            data['real_time_summary'] = 'Limited data available'
+        
+        # Add specific real-time data for display
+        data['weather_data'] = real_time_data.get('weather', {})
+        data['injury_data'] = real_time_data.get('injuries', {})
+        data['team_stats'] = real_time_data.get('team_stats', {})
         
         return data
         
@@ -7698,7 +7845,18 @@ def get_enhanced_gemini_analysis(enhanced_prompt: str, game: dict, quantitative_
         data['analysis_type'] = 'Enhanced Gemini'
         data['data_quality_score'] = real_time_data.get('data_quality_score', 0.0)
         data['quantitative_baseline'] = quantitative_baseline
-        data['real_time_summary'] = real_time_data.get('data_quality_summary', 'Limited data available')
+        # Generate data quality summary
+        try:
+            from utils.real_time_data_engine import RealTimeDataEngine
+            data_engine = RealTimeDataEngine()
+            data['real_time_summary'] = data_engine.get_data_quality_summary(real_time_data)
+        except:
+            data['real_time_summary'] = 'Limited data available'
+        
+        # Add specific real-time data for display
+        data['weather_data'] = real_time_data.get('weather', {})
+        data['injury_data'] = real_time_data.get('injuries', {})
+        data['team_stats'] = real_time_data.get('team_stats', {})
         
         return data
         
