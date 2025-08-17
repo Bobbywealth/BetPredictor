@@ -31,6 +31,7 @@ class RealTimeDataEngine:
         home_team = self._extract_team_name(game_data.get('home_team', {}))
         away_team = self._extract_team_name(game_data.get('away_team', {}))
         sport = game_data.get('sport', 'NFL')
+        event_id = str(game_data.get('game_id', ''))
         
         comprehensive_data = {
             'teams': {'home': home_team, 'away': away_team},
@@ -68,11 +69,18 @@ class RealTimeDataEngine:
             if team_stats.get('home_stats') and team_stats.get('away_stats'):
                 comprehensive_data['data_quality_score'] += 0.3
                 
-            # 4. Get recent form and head-to-head
+            # 4. Get recent form
             recent_form = self._get_recent_form(home_team, away_team, sport)
             comprehensive_data['recent_form'] = recent_form
             if recent_form.get('home_form') and recent_form.get('away_form'):
-                comprehensive_data['data_quality_score'] += 0.2
+                comprehensive_data['data_quality_score'] += 0.1
+
+            # 5. Get ESPN odds/market for event
+            if sport == 'NFL' and event_id:
+                odds = self._fetch_espn_odds(event_id)
+                if odds:
+                    comprehensive_data['market_odds'] = odds
+                    comprehensive_data['data_quality_score'] += 0.1
             
         except Exception as e:
             logging.error(f"Error fetching comprehensive data: {e}")
@@ -376,15 +384,79 @@ class RealTimeDataEngine:
         form_data = {
             'home_form': {'last_5': '', 'trend': 'neutral'},
             'away_form': {'last_5': '', 'trend': 'neutral'},
-            'head_to_head': {'total_games': 0, 'home_wins': 0, 'away_wins': 0},
             'source': 'ESPN/Historical',
             'last_updated': datetime.now().isoformat()
         }
-        
-        # This would require historical game data
-        # For now, provide structured format for future implementation
-        
+
+        try:
+            if sport != 'NFL':
+                return form_data
+            home_id = self._get_espn_nfl_team_id(home_team)
+            away_id = self._get_espn_nfl_team_id(away_team)
+            if home_id:
+                form_data['home_form'] = self._fetch_espn_recent_form(home_id)
+            if away_id:
+                form_data['away_form'] = self._fetch_espn_recent_form(away_id)
+        except Exception as e:
+            logging.error(f"Recent form error: {e}")
         return form_data
+
+    def _fetch_espn_recent_form(self, team_id: str, limit: int = 5) -> Dict:
+        try:
+            url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/schedule?limit={limit}"
+            r = requests.get(url, timeout=8)
+            if r.status_code != 200:
+                return {'last_5': '', 'trend': 'neutral'}
+            data = r.json()
+            events = data.get('events', [])[-limit:]
+            last = []
+            wins = 0
+            for ev in events:
+                competitions = ev.get('competitions', [])
+                if not competitions:
+                    continue
+                comp = competitions[0]
+                competitors = comp.get('competitors', [])
+                # determine if this team was winner
+                outcome = 'L'
+                for c in competitors:
+                    team = c.get('team', {})
+                    if str(team.get('id')) == str(team_id):
+                        if c.get('winner') is True:
+                            outcome = 'W'
+                            wins += 1
+                        break
+                last.append(outcome)
+            last_5 = ''.join(last[-limit:])
+            trend = 'up' if wins >= (limit // 2 + 1) else 'down' if wins <= (limit // 2 - 1) else 'neutral'
+            return {'last_5': last_5, 'trend': trend}
+        except Exception:
+            return {'last_5': '', 'trend': 'neutral'}
+
+    def _fetch_espn_odds(self, event_id: str) -> Dict:
+        """Fetch odds from ESPN event endpoint (pickcenter)."""
+        try:
+            url = f"https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/events/{event_id}?region=us&lang=en&contentorigin=espn"
+            r = requests.get(url, timeout=8)
+            if r.status_code != 200:
+                return {}
+            data = r.json()
+            pick = (data.get('pickcenter') or [])
+            if not pick:
+                return {}
+            # Take first book entry
+            book = pick[0]
+            odds = {
+                'provider': (book.get('provider', {}) or {}).get('name', ''),
+                'spread_home': book.get('homeTeamOdds', {}).get('spread'),
+                'spread_away': book.get('awayTeamOdds', {}).get('spread'),
+                'moneyline_home': book.get('homeTeamOdds', {}).get('moneyLine'),
+                'moneyline_away': book.get('awayTeamOdds', {}).get('moneyLine'),
+                'total': book.get('overUnder')
+            }
+            return odds
+        except Exception:
+            return {}
     
     def get_data_quality_summary(self, comprehensive_data: Dict) -> str:
         """Generate a summary of data quality for AI prompt"""
